@@ -30,7 +30,7 @@ jobs:
         run: dotnet build backend/Taskify.sln --configuration Release --no-restore
 
       - name: Run tests
-        run: dotnet test backend/Taskify.sln --no-build --verbosity normal
+        run: dotnet test backend/tests/Taskify.Tests/Taskify.Tests.csproj --no-build --verbosity normal
 
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@v2
