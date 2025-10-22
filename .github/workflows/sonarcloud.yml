@@ -1,0 +1,44 @@
+name: Build and analyze (Backend)
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: Build and analyze
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Required for SonarCloud to fetch full git history
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore dependencies
+        run: dotnet restore backend/Taskify.sln
+
+      - name: Build
+        run: dotnet build backend/Taskify.sln --configuration Release --no-restore
+
+      - name: Run tests
+        run: dotnet test backend/tests/Taskify.Tests/Taskify.Tests.csproj --no-build --verbosity normal
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@v2
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          args: >
+            -Dsonar.projectKey=YourOrg_Taskify
+            -Dsonar.organization=YourOrg
+            -Dsonar.projectBaseDir=backend
