@@ -1,17 +1,17 @@
-name: SonarCloud
+name: Build and analyze (Backend)
 
 on:
   push:
     branches:
       - main
   pull_request:
-    types: [opened, synchronize, reopened]
-  workflow_dispatch:
+    branches:
+      - main
 
 jobs:
   build:
     name: Build and Analyze
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
