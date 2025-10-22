@@ -31,7 +31,7 @@ jobs:
         run: dotnet build backend/Taskify.sln --configuration Release --no-restore
 
       - name: Run tests and collect coverage
-        run: dotnet test backend/Taskify.Tests/Taskify.Tests.csproj --configuration Release --no-build --collect:"XPlat Code Coverage"
+        run: dotnet test backend/tests/Taskify.Tests/Taskify.Tests.csproj --configuration Release --no-build --collect:"XPlat Code Coverage"
 
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@v2
