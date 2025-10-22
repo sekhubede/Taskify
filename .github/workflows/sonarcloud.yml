@@ -10,14 +10,13 @@ on:
 
 jobs:
   build:
-    name: Build and Analyze
+    name: Build and analyze
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # full history for better analysis
+          fetch-depth: 0  # Required for SonarCloud to fetch full git history
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -30,17 +29,16 @@ jobs:
       - name: Build
         run: dotnet build backend/Taskify.sln --configuration Release --no-restore
 
-      - name: Run tests and collect coverage
-        run: dotnet test backend/tests/Taskify.Tests/Taskify.Tests.csproj --configuration Release --no-build --collect:"XPlat Code Coverage"
+      - name: Run tests
+        run: dotnet test backend/Taskify.sln --no-build --verbosity normal
 
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@v2
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           args: >
-            -Dsonar.projectKey=sekhubede_Taskify
-            -Dsonar.organization=sekhubede
-            -Dsonar.host.url=https://sonarcloud.io
-            -Dsonar.language=cs
-            -Dsonar.coverageReportPaths=**/coverage.cobertura.xml
+            -Dsonar.projectKey=YourOrg_Taskify
+            -Dsonar.organization=YourOrg
+            -Dsonar.projectBaseDir=backend
