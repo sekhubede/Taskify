@@ -1,4 +1,4 @@
-name: Build and analyze (Backend)
+name: Build and Analyze (Backend)
 
 on:
   push:
@@ -16,29 +16,32 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Required for SonarCloud to fetch full git history
+          fetch-depth: 0
 
-      - name: Setup .NET
+      - name: Setup .NET 8
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
 
+      - name: Install SonarCloud scanner
+        run: dotnet tool install --global dotnet-sonarscanner
+
       - name: Restore dependencies
         run: dotnet restore backend/Taskify.sln
+
+      - name: Begin SonarCloud analysis
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          dotnet sonarscanner begin /k:"sekhubede_Taskify" /o:"sekhubede" /d:sonar.token="${{ secrets.SONAR_TOKEN }}" /d:sonar.host.url="https://sonarcloud.io"
 
       - name: Build
         run: dotnet build backend/Taskify.sln --configuration Release --no-restore
 
-      - name: Run tests
-        run: dotnet test backend/tests/Taskify.Tests/Taskify.Tests.csproj --no-build --verbosity normal
+      - name: Test
+        run: dotnet test backend/Taskify.sln --configuration Release --no-build --verbosity normal --logger "trx;LogFileName=test_results.trx"
 
-      - name: SonarCloud Scan
-        uses: SonarSource/sonarcloud-github-action@v2
+      - name: End SonarCloud analysis
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          args: >
-            -Dsonar.projectKey=YourOrg_Taskify
-            -Dsonar.organization=YourOrg
-            -Dsonar.projectBaseDir=backend
+        run: dotnet sonarscanner end /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
