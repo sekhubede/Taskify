@@ -1,0 +1,46 @@
+name: SonarCloud
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build and Analyze
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history for better analysis
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore dependencies
+        run: dotnet restore backend/Taskify.sln
+
+      - name: Build
+        run: dotnet build backend/Taskify.sln --configuration Release --no-restore
+
+      - name: Run tests and collect coverage
+        run: dotnet test backend/Taskify.Tests/Taskify.Tests.csproj --configuration Release --no-build --collect:"XPlat Code Coverage"
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@v2
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.projectKey=sekhubede_Taskify
+            -Dsonar.organization=sekhubede
+            -Dsonar.host.url=https://sonarcloud.io
+            -Dsonar.language=cs
+            -Dsonar.coverageReportPaths=**/coverage.cobertura.xml
