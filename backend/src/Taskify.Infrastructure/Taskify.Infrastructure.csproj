@@ -4,4 +4,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Interop.MFilesAPI" Version="25.10.12"/>
+  </ItemGroup>
 </Project>
