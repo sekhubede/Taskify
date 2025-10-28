@@ -5,6 +5,11 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Interop.MFilesAPI" Version="25.10.12"/>
+    <PackageReference Include="Autofac" Version="8.4.0" />
+    <PackageReference Include="Interop.MFilesAPI" Version="25.10.12" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Taskify.Application\Taskify.Application.csproj" />
+    <ProjectReference Include="..\Taskify.Domain\Taskify.Domain.csproj" />
   </ItemGroup>
 </Project>
