@@ -2,27 +2,21 @@ namespace Taskify.Domain.Entities;
 
 public class Vault
 {
-    public string Id { get; set; }
     public string Name { get; set; }
 
     public string Guid { get; set; }
+    public bool IsAuthenticated { get; private set; }
 
-    public string ServerName { get; set; }
-
-    public bool IsAuthenticated { get; set; }
-
-    public Vault(string id, string name, string guid, string serverName)
+    public Vault(string name, string guid)
     {
-        if (string.IsNullOrWhiteSpace(id))
-            throw new ArgumentNullException("Vault ID cannot be empty", nameof(id));
-
         if (string.IsNullOrWhiteSpace(name))
-            throw new ArgumentNullException("Vault name cannot be empty", nameof(name));
+            throw new ArgumentException("Vault name cannot be empty", nameof(name));
 
-        Id = id;
+        if (string.IsNullOrWhiteSpace(guid))
+            throw new ArgumentNullException("Vault GUID cannot be empty", nameof(guid));
+
         Name = name;
         Guid = guid;
-        ServerName = serverName;
         IsAuthenticated = false;
     }
 
