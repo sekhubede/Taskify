@@ -4,4 +4,18 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Interop.MFilesAPI">
+      <HintPath>lib\Interop.MFilesAPI.dll</HintPath>
+      <EmbedInteropTypes>false</EmbedInteropTypes>
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Taskify.Application\Taskify.Application.csproj" />
+    <ProjectReference Include="..\Taskify.Domain\Taskify.Domain.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Autofac" Version="8.4.0" />
+  </ItemGroup>
 </Project>
