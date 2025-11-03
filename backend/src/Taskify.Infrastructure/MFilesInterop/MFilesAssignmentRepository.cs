@@ -113,29 +113,21 @@ public class MFilesAssignmentRepository : IAssignmentRepository
     {
         var vault = GetVault();
 
-        var objID = new ObjID();
-        objID.SetIDs(
+        var objVer = new ObjVer();
+        objVer.SetIDs(
             ObjType: (int)MFBuiltInObjectType.MFBuiltInObjectTypeAssignment,
-            ID: assignmentId);
-
-        // Check out the object
-        var objVersion = vault.ObjectOperations.CheckOut(objID);
-
-        // Update the assignment status property
-        vault.ObjectPropertyOperations.MarkAssignmentComplete(objVersion.ObjVer);
+            ID: assignmentId,
+            Version: -1
+        );
 
         try
         {
-            // Check in the object
-            vault.ObjectOperations.CheckIn(objVersion.ObjVer);
+            vault.ObjectPropertyOperations.MarkAssignmentComplete(objVer);
 
             return true;
         }
         catch (Exception ex)
         {
-            if (null != objVersion)
-                vault.ObjectOperations.UndoCheckout(objVersion.ObjVer);
-
             throw new ApplicationException("Failed to mark assignment as complete in M-Files", ex);
         }
     }
