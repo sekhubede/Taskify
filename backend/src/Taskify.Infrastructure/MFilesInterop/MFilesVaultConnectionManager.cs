@@ -25,6 +25,8 @@ public class MFilesVaultConnectionManager : IVaultConnectionManager, IDisposable
         {
             if (_isConnected) return;
 
+            ObjectDisposedException.ThrowIf(_disposed, this);
+
             try
             {
                 _liveVault = _mfilesClientApp?.GetVaultConnectionsWithGUID(vaultGuid)
@@ -33,9 +35,7 @@ public class MFilesVaultConnectionManager : IVaultConnectionManager, IDisposable
                     .BindToVault(IntPtr.Zero, CanLogIn: true, ReturnNULLIfCancelledByUser: true);
 
                 if (_liveVault == null)
-                {
                     throw new InvalidOperationException($"Failed to bind to vault {vaultGuid}. Vault may not exist or login was cancelled by user.");
-                }
 
                 _isConnected = true;
             }
@@ -49,20 +49,31 @@ public class MFilesVaultConnectionManager : IVaultConnectionManager, IDisposable
         }
     }
 
-    public Domain.Entities.Vault GetVault()
+    public Domain.Entities.Vault GetVaultInfo()
     {
         lock (_connectionLock)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
 
             if (!_isConnected || _liveVault == null)
-            {
                 throw new InvalidOperationException("M-Files vault is not connected. Vall Connect() first.");
-            }
 
             var vault = MFilesDataMapper.MapToDomainVault(_liveVault);
             vault.MarkAsAuthenticated();
             return vault;
+        }
+    }
+
+    public object GetVaultConnection()
+    {
+        lock (_connectionLock)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+
+            if (!_isConnected || _liveVault == null)
+                throw new InvalidOperationException("M-Files vault is not connected. Connect() first.");
+
+            return _liveVault;
         }
     }
 

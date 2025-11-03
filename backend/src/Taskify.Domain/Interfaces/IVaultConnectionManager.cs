@@ -11,5 +11,12 @@ public interface IVaultConnectionManager
     /// <summary>
     /// Gets the current vault connection details.
     /// </summary>
-    Vault GetVault();
+    Vault GetVaultInfo();
+
+    /// <summary>
+    /// Gets the raw M-Files vault connection for performing operations.
+    /// Returns object type to avoid domain layer dependency on MFilesAPI.
+    /// Cast to MFilesAPI.Vault in infrastructure layer.
+    /// </summary>
+    object GetVaultConnection();
 }
