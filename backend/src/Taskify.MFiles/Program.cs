@@ -10,6 +10,8 @@ using Taskify.Application.Assignments.Services;
 using Taskify.Domain.Entities;
 using Taskify.Infrastructure.Mappers;
 using Taskify.Application.Comments.Services;
+using Taskify.Application.Subtasks.Services;
+using Taskify.Infrastructure.Storage;
 namespace Taskify.MFiles;
 
 public class Program
@@ -55,7 +57,10 @@ public class Program
             // Test 2: Assignment Retrieval
             TestAssignmentRetrieval(scope);
 
-            // Test 3: Comment Operations
+            // Test 3: Sbutask Operations
+            TestSubtaskOperations(scope);
+
+            // Test 4: Comment Operations
             TestCommentOperations(scope);
 
             Console.WriteLine("\n✓ All tests passed!");
@@ -71,6 +76,78 @@ public class Program
 
         Console.WriteLine("\nPress any key to exit...");
         // Console.ReadKey();
+    }
+
+    private static void TestSubtaskOperations(ILifetimeScope scope)
+    {
+        Console.WriteLine("\n[TEST 3] Subtask Operations");
+        Console.WriteLine("────────────────────────────");
+
+        var assignmentService = scope.Resolve<AssignmentService>();
+        var subtaskService = scope.Resolve<SubtaskService>();
+
+        // Get first assignment to test with
+        var assignments = assignmentService.GetUserAssignments();
+
+        if (!assignments.Any())
+        {
+            Console.WriteLine("  No assignments available to test subtasks.");
+            return;
+        }
+
+        var testAssignment = assignments.First();
+        Console.WriteLine($"Testing subtasks on: {testAssignment.Title} (ID: {testAssignment.Id})");
+
+        // Get subtasks
+        Console.Write("\nFetching subtasks... ");
+        var subtasks = subtaskService.GetSubtasksForAssignment(testAssignment.Id);
+        Console.WriteLine($"✓ Found {subtasks.Count}");
+
+        if (!subtasks.Any())
+        {
+            Console.Write("No subtasks found, creating a local subtask... ");
+            var created = subtaskService.AddSubtask(testAssignment.Id, "First local subtask");
+            Console.WriteLine($"✓ Created #{created.Id}");
+            subtasks = subtaskService.GetSubtasksForAssignment(testAssignment.Id);
+        }
+
+        if (subtasks.Any())
+        {
+            Console.WriteLine("\nSubtasks:");
+            foreach (var subtask in subtasks)
+            {
+                var status = subtask.IsCompleted ? "✓" : "☐";
+                var note = subtask.HasPersonalNote() ? "📝" : "";
+
+                Console.WriteLine($"  {status} {subtask.Title} {note}");
+
+                if (subtask.HasPersonalNote())
+                {
+                    Console.WriteLine($"     Note: {subtask.PersonalNote}");
+                }
+            }
+
+            // Test toggling completion
+            var firstSubtask = subtasks.First();
+            Console.Write($"\nToggling completion for: {firstSubtask.Title}... ");
+            var newStatus = !firstSubtask.IsCompleted;
+            var success = subtaskService.ToggleSubtaskCompletion(firstSubtask.Id, newStatus);
+            Console.WriteLine(success ? "✓" : "✗");
+
+            // Test adding personal note
+            Console.Write("Adding personal note... ");
+            subtaskService.AddPersonalNote(firstSubtask.Id, "Test note from console app");
+            Console.WriteLine("✓");
+        }
+
+        // Get summary
+        var summary = subtaskService.GetSubtaskSummary(testAssignment.Id);
+        Console.WriteLine("\nSubtask Summary:");
+        Console.WriteLine($"  Total: {summary.TotalSubtasks}");
+        Console.WriteLine($"  Completed: {summary.CompletedSubtasks}");
+        Console.WriteLine($"  Pending: {summary.PendingSubtasks}");
+        Console.WriteLine($"  Progress: {summary.CompletionPercentage}%");
+        Console.WriteLine($"  With Notes: {summary.SubtasksWithNotes}");
     }
 
     private static void TestCommentOperations(ILifetimeScope scope)
@@ -155,12 +232,15 @@ public class Program
                             assignment.Status.ToString();
 
                 var commentCount = commentService.GetCommentCount(assignment.Id);
+                var subtaskInfo = assignment.HasSubtasks()
+                ? $"{assignment.GetCompletedSubtaskCount()}/{assignment.Subtasks.Count}"
+                : "0";
 
                 Console.WriteLine($"\n  #{assignment.Id} - {assignment.Title}");
                 Console.WriteLine($"    Status: {status}");
                 Console.WriteLine($"    Due: {assignment.DueDate?.ToString("yyyy-MM-dd") ?? "No due date"}");
                 Console.WriteLine($"    Assigned to: {assignment.AssignedTo}");
-                Console.WriteLine($"    Comments: {commentCount} 💬");
+                Console.WriteLine($"    Comments: {commentCount} 💬 | Subtasks: {subtaskInfo} ✓ | Progress: {assignment.GetCompletionPercentage()}%");
 
                 if (assignment.Id == 4)
                     assignmentService.CompleteAssignment(assignment.Id);
@@ -198,10 +278,21 @@ public class Program
             .SingleInstance()
             .OnRelease(instance => instance.Dispose());
 
-        // Infrastructure - Repository implementations
-        builder.RegisterAssemblyTypes(typeof(MFilesVaultConnectionManager).Assembly)
-            .Where(t => t.Name.EndsWith("Repository"))
-            .AsImplementedInterfaces()
+        // Infrastructure - Repository implementations (explicit to avoid M-Files subtasks)
+        builder.RegisterType<MFilesAssignmentRepository>()
+            .As<IAssignmentRepository>()
+            .InstancePerLifetimeScope();
+
+        builder.RegisterType<MFilesCommentRepository>()
+            .As<ICommentRepository>()
+            .InstancePerLifetimeScope();
+
+        // Local-only subtasks
+        builder.RegisterType<SubtaskStore>()
+            .AsSelf()
+            .SingleInstance();
+        builder.RegisterType<LocalSubtaskRepository>()
+            .As<ISubtaskRepository>()
             .InstancePerLifetimeScope();
 
         // Application services
@@ -209,6 +300,11 @@ public class Program
             .Where(t => t.Name.EndsWith("Service"))
             .AsSelf()
             .InstancePerLifetimeScope();
+
+        // Storage for personal notes
+        builder.RegisterType<SubtaskNoteStore>()
+            .AsSelf()
+            .SingleInstance();
 
         // Logging
         builder.Register(ctx =>

@@ -8,10 +8,12 @@ namespace Taskify.Infrastructure.MFilesInterop;
 public class MFilesAssignmentRepository : IAssignmentRepository
 {
     private readonly IVaultConnectionManager _connectionManager;
+    private readonly ISubtaskRepository _subtaskRepository;
 
-    public MFilesAssignmentRepository(IVaultConnectionManager connectionManager)
+    public MFilesAssignmentRepository(IVaultConnectionManager connectionManager, ISubtaskRepository subtaskRepository)
     {
         _connectionManager = connectionManager;
+        _subtaskRepository = subtaskRepository;
     }
 
     public List<Assignment> GetUserAssignments()
@@ -69,7 +71,7 @@ public class MFilesAssignmentRepository : IAssignmentRepository
                 try
                 {
                     var objVersion = searchResults[i];
-                    var assignment = MFilesDataMapper.MapToDomainAssignment(vault, objVersion);
+                    var assignment = MFilesDataMapper.MapToDomainAssignment(vault, objVersion, _subtaskRepository);
                     assignments.Add(assignment);
                 }
                 catch (Exception ex)
@@ -101,7 +103,7 @@ public class MFilesAssignmentRepository : IAssignmentRepository
 
             var objVersion = vault.ObjectOperations.GetLatestObjectVersionAndProperties(objID, AllowCheckedOut: true);
 
-            return MFilesDataMapper.MapToDomainAssignment(vault, objVersion.VersionData);
+            return MFilesDataMapper.MapToDomainAssignment(vault, objVersion.VersionData, _subtaskRepository);
         }
         catch (Exception ex)
         {
@@ -111,17 +113,17 @@ public class MFilesAssignmentRepository : IAssignmentRepository
 
     public bool MarkAssignmentComplete(int assignmentId)
     {
-        var vault = GetVault();
-
-        var objVer = new ObjVer();
-        objVer.SetIDs(
-            ObjType: (int)MFBuiltInObjectType.MFBuiltInObjectTypeAssignment,
-            ID: assignmentId,
-            Version: -1
-        );
-
         try
         {
+            var vault = GetVault();
+
+            var objVer = new ObjVer();
+            objVer.SetIDs(
+                ObjType: (int)MFBuiltInObjectType.MFBuiltInObjectTypeAssignment,
+                ID: assignmentId,
+                Version: -1
+            );
+
             vault.ObjectPropertyOperations.MarkAssignmentComplete(objVer);
 
             return true;
