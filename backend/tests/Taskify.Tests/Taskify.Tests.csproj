@@ -18,5 +18,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Taskify.Application\Taskify.Application.csproj"/>
     <ProjectReference Include="..\..\src\Taskify.Domain\Taskify.Domain.csproj"/>
+    <ProjectReference Include="..\..\src\Taskify.Infrastructure\Taskify.Infrastructure.csproj"/>
   </ItemGroup>
 </Project>

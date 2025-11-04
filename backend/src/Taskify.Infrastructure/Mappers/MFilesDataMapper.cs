@@ -4,6 +4,7 @@ using MFilesAPI;
 using Taskify.Domain.Entities;
 using System.Linq;
 using System.ComponentModel;
+using Taskify.Domain.Interfaces;
 
 public static class MFilesDataMapper
 {
@@ -15,9 +16,23 @@ public static class MFilesDataMapper
         );
     }
 
-    public static Assignment MapToDomainAssignment(MFilesAPI.Vault vault, ObjectVersion objVersion)
+    public static Assignment MapToDomainAssignment(MFilesAPI.Vault vault, ObjectVersion objVersion, ISubtaskRepository? subtaskRepository = null)
     {
         var properties = vault.ObjectPropertyOperations.GetProperties(objVersion.ObjVer);
+
+        // Get subtasks if repository provided
+        List<Subtask>? subtasks = null;
+        if (subtaskRepository != null)
+        {
+            try
+            {
+                subtasks = subtaskRepository.GetSubtasksForAssignment(objVersion.ObjVer.ID);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Warning: Failed to load subtasks for assignment {objVersion.ObjVer.ID}: {ex.Message}");
+            }
+        }
 
         return new Assignment(
             id: objVersion.ObjVer.ID,
@@ -27,7 +42,8 @@ public static class MFilesDataMapper
             status: MapAssignmentStatus(properties),
             assignedTo: GetAssignedToName(vault, properties),
             createdDate: GetPropertyValue<DateTime>(properties, (int)MFBuiltInPropertyDef.MFBuiltInPropertyDefCreated),
-            completedDate: GetPropertyValue<DateTime?>(properties, (int)MFBuiltInPropertyDef.MFBuiltInPropertyDefCreated) // TODO: Write function to get date completed.
+            completedDate: null,
+            subtasks: subtasks
         );
     }
 
@@ -60,7 +76,7 @@ public static class MFilesDataMapper
     private static AssignmentStatus MapAssignmentStatus(PropertyValues properties)
     {
         // Check if assignment is complete
-        var completed = GetPropertyValue<bool>(properties, (int)MFBuiltInPropertyDef.MFBuiltInPropertyDefAssignedTo);
+        var completed = GetPropertyValue<bool>(properties, (int)MFBuiltInPropertyDef.MFBuiltInPropertyDefCompleted);
         if (completed)
             return AssignmentStatus.Completed;
 

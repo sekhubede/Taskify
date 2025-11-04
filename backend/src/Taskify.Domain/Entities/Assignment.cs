@@ -10,8 +10,10 @@ public class Assignment
     public string AssignedTo { get; set; }
     public DateTime? CreatedDate { get; set; }
     public DateTime? CompletedDate { get; set; }
+    private readonly List<Subtask> _subtasks = new();
+    public IReadOnlyList<Subtask> Subtasks => _subtasks.AsReadOnly();
 
-    public Assignment(int id, string title, string description, DateTime? dueDate, AssignmentStatus status, string assignedTo, DateTime? createdDate, DateTime? completedDate)
+    public Assignment(int id, string title, string description, DateTime? dueDate, AssignmentStatus status, string assignedTo, DateTime? createdDate, DateTime? completedDate = null, List<Subtask>? subtasks = null)
     {
         if (id <= 0)
             throw new ArgumentException("Assignment ID must be greater than 0", nameof(id));
@@ -33,6 +35,17 @@ public class Assignment
         AssignedTo = assignedTo;
         CreatedDate = createdDate;
         CompletedDate = completedDate;
+
+        if (subtasks != null)
+            _subtasks.AddRange(subtasks);
+    }
+
+    public void AddSubtask(Subtask subtask)
+    {
+        if (subtask.AssignmentId != Id)
+            throw new ArgumentException("Subtask does not belong to this assignment");
+
+        _subtasks.Add(subtask);
     }
 
     public void MarkAsCompleted()
@@ -62,6 +75,24 @@ public class Assignment
         return daysUntilDue > 0 && daysUntilDue <= daysThreshold;
     }
 
+    public int GetCompletionPercentage()
+    {
+        if (!_subtasks.Any())
+            return Status == AssignmentStatus.Completed ? 100 : 0;
+
+        var completedCount = _subtasks.Count(s => s.IsCompleted);
+        return (int)((double)completedCount / _subtasks.Count * 100);
+    }
+
+    public bool HasSubtasks()
+    {
+        return _subtasks.Any();
+    }
+
+    public int GetCompletedSubtaskCount()
+    {
+        return _subtasks.Count(s => s.IsCompleted);
+    }
 }
 public enum AssignmentStatus
 {

@@ -26,41 +26,75 @@ public class MFilesCommentRepository : ICommentRepository
                 ObjType: (int)MFBuiltInObjectType.MFBuiltInObjectTypeAssignment,
                 ID: assignmentId);
 
-            var objVer = vault.ObjectOperations.GetLatestObjVer(objID, AllowCheckedOut: true);
-            var propertyValues = vault.ObjectPropertyOperations.GetProperties(objVer);
-
-            if (propertyValues.IndexOf((int)MFBuiltInPropertyDef.MFBuiltInPropertyDefComment) == -1)
-                return new List<Comment>();
-
-            var commentProperty = propertyValues.SearchForProperty(
-                (int)MFBuiltInPropertyDef.MFBuiltInPropertyDefComment);
-
-            if (commentProperty != null && !commentProperty.TypedValue.IsNULL())
+            // Prefer version-specific comments by iterating versions from latest to first
+            try
             {
-                var commentText = commentProperty.TypedValue.Value?.ToString() ?? string.Empty;
-
-                if (!string.IsNullOrWhiteSpace(commentText))
+                var latest = vault.ObjectOperations.GetLatestObjVer(objID, AllowCheckedOut: true);
+                for (int v = latest.Version; v >= 1; v--)
                 {
-                    // Parse formatted comments
-                    // Format: [timestamp] Author: content
-                    var commentLines = commentText.Split(
-                        new[] { "\n\n" },
-                        StringSplitOptions.RemoveEmptyEntries);
+                    var objVer = new ObjVer();
+                    objVer.SetIDs((int)MFBuiltInObjectType.MFBuiltInObjectTypeAssignment, assignmentId, v);
 
-                    int commentId = 1;
-                    foreach (var line in commentLines)
+                    string? versionComment = null;
+                    try
                     {
-                        var parsedComment = ParseCommentLine(line, assignmentId, commentId);
-                        if (parsedComment != null)
+                        var vc = vault.ObjectPropertyOperations.GetVersionComment(objVer);
+                        versionComment = vc?.ToString();
+                    }
+                    catch { }
+
+                    if (!string.IsNullOrWhiteSpace(versionComment))
+                    {
+                        comments.Add(new Comment(
+                            id: objVer.Version,
+                            content: versionComment,
+                            authorName: GetCurrentUserName(vault),
+                            createdDate: DateTime.UtcNow,
+                            assignmentId: assignmentId));
+                    }
+                }
+            }
+            catch { }
+
+            // Fallback to multi-line comment property on latest version if no version comments found
+            if (comments.Count == 0)
+            {
+                var latestObjVer = vault.ObjectOperations.GetLatestObjVer(objID, AllowCheckedOut: true);
+                var propertyValues = vault.ObjectPropertyOperations.GetProperties(latestObjVer);
+
+                if (propertyValues.IndexOf((int)MFBuiltInPropertyDef.MFBuiltInPropertyDefComment) != -1)
+                {
+                    var commentProperty = propertyValues.SearchForProperty(
+                        (int)MFBuiltInPropertyDef.MFBuiltInPropertyDefComment);
+
+                    if (commentProperty != null && !commentProperty.TypedValue.IsNULL())
+                    {
+                        var commentText = commentProperty.TypedValue.Value?.ToString() ?? string.Empty;
+
+                        if (!string.IsNullOrWhiteSpace(commentText))
                         {
-                            comments.Add(parsedComment);
-                            commentId++;
+                            var commentLines = System.Text.RegularExpressions.Regex.Split(
+                                commentText,
+                                "(?:\r?\n){2,}",
+                                System.Text.RegularExpressions.RegexOptions.Singleline)
+                                .Where(s => !string.IsNullOrWhiteSpace(s))
+                                .ToArray();
+
+                            int commentId = 1;
+                            foreach (var line in commentLines)
+                            {
+                                var parsedComment = ParseCommentLine(line, assignmentId, commentId);
+                                if (parsedComment != null)
+                                {
+                                    comments.Add(parsedComment);
+                                    commentId++;
+                                }
+                            }
                         }
                     }
                 }
             }
 
-            // Sort by creation date (newest first)
             return comments.OrderByDescending(c => c.CreatedDate).ToList();
         }
         catch (Exception ex)
@@ -194,5 +228,10 @@ public class MFilesCommentRepository : ICommentRepository
             throw new InvalidOperationException("Failed to get M-Files vault connection");
 
         return vault;
+    }
+
+    private static T? SafeGet<T>(Func<T> getter)
+    {
+        try { return getter(); } catch { return default; }
     }
 }
