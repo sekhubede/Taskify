@@ -103,32 +103,22 @@ public class Program
             Console.WriteLine("\nExisting comments:");
             foreach (var comment in existingComments.Take(3))
             {
-                var commentType = comment.IsPersonal ? "[PERSONAL]" : "[VAULT]";
-                Console.WriteLine($"  {commentType} {comment.AuthorName} - {comment.CreatedDate:yyyy-MM-dd HH:mm}");
+                Console.WriteLine($"  {comment.AuthorName} - {comment.CreatedDate:yyyy-MM-dd HH:mm}");
                 Console.WriteLine($"    {comment.GetContentPreview(80)}");
             }
         }
 
-        // Test adding personal comment
-        Console.Write("\nAdding personal comment... ");
-        var personalComment = commentService.AddPersonalComment(
+        // Test adding a comment
+        Console.Write("\nAdding test comment... ");
+        var newComment = commentService.AddComment(
             testAssignment.Id,
-            $"Test personal note - {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
-        Console.WriteLine("✓");
-
-        // Test adding vault comment
-        Console.Write("Adding vault comment... ");
-        var vaultComment = commentService.AddVaultComment(
-            testAssignment.Id,
-            $"Test vault comment - {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+            $"Test comment from Taskify - {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
         Console.WriteLine("✓");
 
         // Get comment summary
         var summary = commentService.GetCommentSummary(testAssignment.Id);
         Console.WriteLine("\nComment Summary:");
         Console.WriteLine($"  Total: {summary.TotalComments}");
-        Console.WriteLine($"  Personal: {summary.PersonalComments}");
-        Console.WriteLine($"  Vault: {summary.VaultComments}");
         Console.WriteLine($"  Recent (24h): {summary.RecentComments}");
 
         if (summary.LatestCommentDate.HasValue)

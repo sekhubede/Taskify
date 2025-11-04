@@ -6,7 +6,6 @@ public class Comment
     public string Content { get; private set; }
     public string AuthorName { get; private set; }
     public DateTime CreatedDate { get; private set; }
-    public bool IsPersonal { get; private set; }
     public int AssignmentId { get; private set; }
 
     private const int MaxContentLength = 5000;
@@ -16,7 +15,6 @@ public class Comment
         string content,
         string authorName,
         DateTime createdDate,
-        bool isPersonal,
         int assignmentId)
     {
         if (id <= 0)
@@ -40,7 +38,6 @@ public class Comment
         Content = content;
         AuthorName = authorName;
         CreatedDate = createdDate;
-        IsPersonal = isPersonal;
         AssignmentId = assignmentId;
     }
 

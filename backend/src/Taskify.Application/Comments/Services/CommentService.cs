@@ -25,36 +25,19 @@ public class CommentService
         }
     }
 
-    public Comment AddPersonalComment(int assignmentId, string content)
+    public Comment AddComment(int assignmentId, string content)
     {
         ValidateCommentContent(content);
 
         try
         {
-            var comment = _commentRepository.AddPersonalComment(assignmentId, content);
-            Console.WriteLine($"Personal comment added to assignment {assignmentId}");
+            var comment = _commentRepository.AddComment(assignmentId, content);
+            Console.WriteLine($"Comment added to assignment {assignmentId}");
             return comment;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error adding personal comment: {ex.Message}");
-            throw;
-        }
-    }
-
-    public Comment AddVaultComment(int assignmentId, string content)
-    {
-        ValidateCommentContent(content);
-
-        try
-        {
-            var comment = _commentRepository.AddVaultComment(assignmentId, content);
-            Console.WriteLine($"Vault comment added to assignment {assignmentId}");
-            return comment;
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error adding vault comment: {ex.Message}");
+            Console.WriteLine($"Error adding comment: {ex.Message}");
             throw;
         }
     }
@@ -71,8 +54,6 @@ public class CommentService
         return new CommentSummary
         {
             TotalComments = comments.Count,
-            PersonalComments = comments.Count(c => c.IsPersonal),
-            VaultComments = comments.Count(c => !c.IsPersonal),
             RecentComments = comments.Count(c => c.IsRecentlyAdded()),
             LatestCommentDate = comments.Any() ? comments.Max(c => c.CreatedDate) : (DateTime?)null
         };
@@ -91,8 +72,6 @@ public class CommentService
 public class CommentSummary
 {
     public int TotalComments { get; set; }
-    public int PersonalComments { get; set; }
-    public int VaultComments { get; set; }
     public int RecentComments { get; set; }
     public DateTime? LatestCommentDate { get; set; }
 }
