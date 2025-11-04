@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging;
 using Taskify.Application.Assignments.Services;
 using Taskify.Domain.Entities;
 using Taskify.Infrastructure.Mappers;
+using Taskify.Application.Comments.Services;
 namespace Taskify.MFiles;
 
 public class Program
@@ -55,6 +56,7 @@ public class Program
             TestAssignmentRetrieval(scope);
 
             // Test 3: Comment Operations
+            TestCommentOperations(scope);
 
             Console.WriteLine("\n✓ All tests passed!");
         }
@@ -71,12 +73,66 @@ public class Program
         // Console.ReadKey();
     }
 
+    private static void TestCommentOperations(ILifetimeScope scope)
+    {
+        Console.WriteLine("\n[TEST 3] Comment Operations");
+        Console.WriteLine("────────────────────────────");
+
+        var assignmentService = scope.Resolve<AssignmentService>();
+        var commentService = scope.Resolve<CommentService>();
+
+        // Get first assignment to test with
+        var assignments = assignmentService.GetUserAssignments();
+
+        if (!assignments.Any())
+        {
+            Console.WriteLine("  No assignments available to test comments.");
+            return;
+        }
+
+        var testAssignment = assignments.First();
+        Console.WriteLine($"Testing comments on: {testAssignment.Title} (ID: {testAssignment.Id})");
+
+        // Get existing comments
+        Console.Write("\nFetching existing comments... ");
+        var existingComments = commentService.GetAssignmentComments(testAssignment.Id);
+        Console.WriteLine($"✓ Found {existingComments.Count}");
+
+        if (existingComments.Any())
+        {
+            Console.WriteLine("\nExisting comments:");
+            foreach (var comment in existingComments.Take(3))
+            {
+                Console.WriteLine($"  {comment.AuthorName} - {comment.CreatedDate:yyyy-MM-dd HH:mm}");
+                Console.WriteLine($"    {comment.GetContentPreview(80)}");
+            }
+        }
+
+        // Test adding a comment
+        Console.Write("\nAdding test comment... ");
+        var newComment = commentService.AddComment(
+            testAssignment.Id,
+            $"Test comment from Taskify - {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+        Console.WriteLine("✓");
+
+        // Get comment summary
+        var summary = commentService.GetCommentSummary(testAssignment.Id);
+        Console.WriteLine("\nComment Summary:");
+        Console.WriteLine($"  Total: {summary.TotalComments}");
+        Console.WriteLine($"  Recent (24h): {summary.RecentComments}");
+
+        if (summary.LatestCommentDate.HasValue)
+        {
+            Console.WriteLine($"  Latest: {summary.LatestCommentDate:yyyy-MM-dd HH:mm}");
+        }
+    }
     private static void TestAssignmentRetrieval(ILifetimeScope scope)
     {
         Console.WriteLine("\n[TEST 2] Assignment Retrieval");
         Console.WriteLine("──────────────────────────────");
 
         var assignmentService = scope.Resolve<AssignmentService>();
+        var commentService = scope.Resolve<CommentService>();
 
         Console.Write("Fetching assignments... ");
         var assignments = assignmentService.GetUserAssignments();
@@ -98,10 +154,13 @@ public class Program
                             assignment.IsDueSoon() ? "⏰ DUE SOON" :
                             assignment.Status.ToString();
 
+                var commentCount = commentService.GetCommentCount(assignment.Id);
+
                 Console.WriteLine($"\n  #{assignment.Id} - {assignment.Title}");
                 Console.WriteLine($"    Status: {status}");
                 Console.WriteLine($"    Due: {assignment.DueDate?.ToString("yyyy-MM-dd") ?? "No due date"}");
                 Console.WriteLine($"    Assigned to: {assignment.AssignedTo}");
+                Console.WriteLine($"    Comments: {commentCount} 💬");
 
                 if (assignment.Id == 4)
                     assignmentService.CompleteAssignment(assignment.Id);
