@@ -9,6 +9,12 @@ public class SubtaskNoteStore
 
     public SubtaskNoteStore(string storageDirectory = "storage")
     {
+        // Normalize to an absolute path relative to the executable base directory for stability
+        if (!Path.IsPathRooted(storageDirectory))
+        {
+            storageDirectory = Path.Combine(AppContext.BaseDirectory, storageDirectory);
+        }
+
         if (!Directory.Exists(storageDirectory))
         {
             Directory.CreateDirectory(storageDirectory);
