@@ -35,21 +35,21 @@ public class MFilesCommentRepository : ICommentRepository
                     var objVer = new ObjVer();
                     objVer.SetIDs((int)MFBuiltInObjectType.MFBuiltInObjectTypeAssignment, assignmentId, v);
 
-                    string? versionComment = null;
+                    VersionComment versionComment = null;
                     try
                     {
                         var vc = vault.ObjectPropertyOperations.GetVersionComment(objVer);
-                        versionComment = vc?.ToString();
+                        versionComment = vc ?? null;
                     }
                     catch { }
 
-                    if (!string.IsNullOrWhiteSpace(versionComment))
+                    if (null != versionComment)
                     {
                         comments.Add(new Comment(
-                            id: objVer.Version,
-                            content: versionComment,
-                            authorName: GetCurrentUserName(vault),
-                            createdDate: DateTime.UtcNow,
+                            id: versionComment.ObjVer.Version,
+                            content: versionComment.VersionComment.Value.DisplayValue,
+                            authorName: versionComment.LastModifiedBy.Value.DisplayValue,
+                            createdDate: (DateTime)versionComment.StatusChanged.Value.GetValueAsTimestamp().UtcToLocalTime().GetValue(),
                             assignmentId: assignmentId));
                     }
                 }

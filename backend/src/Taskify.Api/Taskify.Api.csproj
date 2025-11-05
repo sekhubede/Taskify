@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+    <PropertyGroup>
+        <TargetFramework>net8.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+    </PropertyGroup>
+    <ItemGroup>
+        <PackageReference Include="Autofac" Version="8.4.0"/>
+        <PackageReference Include="Autofac.Extensions.DependencyInjection" Version="10.0.0"/>
+    </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\Taskify.Infrastructure\Taskify.Infrastructure.csproj"/>
+        <ProjectReference Include="..\Taskify.Application\Taskify.Application.csproj"/>
+        <ProjectReference Include="..\Taskify.Domain\Taskify.Domain.csproj"/>
+    </ItemGroup>
+</Project>
