@@ -114,6 +114,28 @@
   color: rgba(255, 255, 255, 0.5);
 }
 
+.complete-button {
+  background: #10b981;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-left: auto;
+}
+
+.complete-button:hover {
+  background: #059669;
+  transform: translateY(-1px);
+}
+
+.complete-button:active {
+  transform: translateY(0);
+}
+
 @media (prefers-color-scheme: light) {
   .app-header h1 {
     color: #1a1a1a;
@@ -153,6 +175,15 @@
 
   .subtask-count {
     color: rgba(0, 0, 0, 0.5);
+  }
+
+  .complete-button {
+    background: #10b981;
+    color: white;
+  }
+
+  .complete-button:hover {
+    background: #059669;
   }
 }
 

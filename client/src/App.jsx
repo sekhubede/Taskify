@@ -65,6 +65,32 @@ function App() {
     return new Date(dueDate) < new Date();
   };
 
+  const handleCompleteAssignment = async (id) => {
+    try {
+      const response = await fetch(`${ASSIGNMENTS_API_URL}/${id}/complete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to mark assignment as complete');
+      }
+
+      // Update the assignment in local state
+      setAssignments(prevAssignments =>
+        prevAssignments.map(assignment =>
+          assignment.id === id
+            ? { ...assignment, status: 2 } // 2 = Completed
+            : assignment
+        )
+      );
+    } catch (err) {
+      setError(err.toString());
+    }
+  };
+
   return (
     <div className="app">
       <header className="app-header">
@@ -119,6 +145,14 @@ function App() {
                       <span className="subtask-count">
                         {assignment.subtasks.filter(s => s.isCompleted).length} / {assignment.subtasks.length} subtasks
                       </span>
+                    )}
+                    {assignment.status !== 2 && (
+                      <button
+                        className="complete-button"
+                        onClick={() => handleCompleteAssignment(assignment.id)}
+                      >
+                        Complete
+                      </button>
                     )}
                   </div>
                 </div>
