@@ -1,4 +1,4 @@
-namespace Taskify.MFiles.Configuration;
+namespace Taskify.Api.Configuration;
 
 public class MFilesSettings
 {

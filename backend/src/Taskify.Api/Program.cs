@@ -10,7 +10,7 @@ using Taskify.Application.Subtasks.Services;
 using Taskify.Domain.Interfaces;
 using Taskify.Infrastructure.MFilesInterop;
 using Taskify.Infrastructure.Storage;
-using Taskify.MFiles.Configuration;
+using Taskify.Api.Configuration;
 using Taskify.Api.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);

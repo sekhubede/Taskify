@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Taskify.Application.VaultConnection.Services;
-using Taskify.MFiles.Configuration;
+using Taskify.Api.Configuration;
 
 namespace Taskify.Api.Infrastructure;
 
