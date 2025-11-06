@@ -95,7 +95,8 @@ public class MFilesCommentRepository : ICommentRepository
                 }
             }
 
-            return comments.OrderByDescending(c => c.CreatedDate).ToList();
+            // Sort by ID ascending (newest comments with higher IDs at bottom)
+            return comments.OrderBy(c => c.Id).ToList();
         }
         catch (Exception ex)
         {
@@ -205,19 +206,63 @@ public class MFilesCommentRepository : ICommentRepository
 
     private string GetCurrentUserName(MFilesAPI.Vault vault)
     {
+        // When adding comments via multi-line property, we need to match the format
+        // used when retrieving comments from version comments (LastModifiedBy.DisplayValue)
+        // The simplest approach is to create a temporary object version comment to get the DisplayValue
+        // But that's complex. Instead, we'll use a lookup value approach.
+
         try
         {
-            // Attempt to get from session info (may not always work with client app)
+            // Create a lookup value for the current user to get DisplayValue
+            // This matches how versionComment.LastModifiedBy.Value.DisplayValue works
+            var userLookupValue = new TypedValue();
+            userLookupValue.SetValue(MFDataType.MFDatatypeLookup, vault.CurrentLoggedInUserID);
+
+            // Get the display value from the lookup
+            var displayValue = userLookupValue.DisplayValue;
+            if (!string.IsNullOrWhiteSpace(displayValue))
+                return displayValue;
+        }
+        catch { }
+
+        // Fallback: try to get from session info
+        try
+        {
             var sessionInfo = vault.SessionInfo;
-            if (sessionInfo != null)
+            if (sessionInfo != null && !string.IsNullOrWhiteSpace(sessionInfo.AccountName))
             {
-                return sessionInfo.AccountName ?? "Current User";
+                return sessionInfo.AccountName;
             }
         }
         catch { }
 
         // Ultimate fallback: just use a generic identifier
         return $"User_{vault.CurrentLoggedInUserID}";
+    }
+
+    private static T? GetPropertyValue<T>(PropertyValues properties, int propertyDef)
+    {
+        try
+        {
+            var propValue = properties.SearchForProperty(propertyDef);
+            if (propValue == null || propValue.TypedValue.IsNULL() || propValue.TypedValue.IsUninitialized())
+                return default;
+
+            var value = propValue.TypedValue.Value;
+
+            if (typeof(T) == typeof(DateTime) || typeof(T) == typeof(DateTime?))
+            {
+                if (value is DateTime dt)
+                    return (T)(object)dt;
+                return default;
+            }
+
+            return (T)value;
+        }
+        catch
+        {
+            return default;
+        }
     }
 
     private MFilesAPI.Vault GetVault()

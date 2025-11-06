@@ -12,6 +12,7 @@ using Taskify.Infrastructure.MFilesInterop;
 using Taskify.Infrastructure.Storage;
 using Taskify.Api.Configuration;
 using Taskify.Api.Infrastructure;
+using MFilesAPI;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -98,6 +99,25 @@ app.UseCors();
 // Simple health
 app.MapGet("api/health", () => Results.Ok(new { status = "ok" }));
 
+// Current user
+app.MapGet("api/user/current", (IVaultConnectionManager connectionManager) =>
+{
+    try
+    {
+        var vaultConnection = connectionManager.GetVaultConnection();
+        if (vaultConnection is MFilesAPI.Vault vault)
+        {
+            var userName = vault.SessionInfo?.AccountName ?? $"User_{vault.CurrentLoggedInUserID}";
+            return Results.Ok(new { userName });
+        }
+        return Results.BadRequest("Vault not connected");
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest($"Error getting current user: {ex.Message}");
+    }
+});
+
 // Assignments
 app.MapGet("api/assignments", (AssignmentService svc) => Results.Ok(svc.GetUserAssignments()));
 app.MapGet("api/assignments/{id:int}", (int id, AssignmentService svc) =>
@@ -114,6 +134,22 @@ app.MapPost("api/assignments/{id:int}/complete", (int id, AssignmentService svc)
 // Comments
 app.MapGet("api/assignments/{id:int}/comments", (int id, CommentService svc) =>
     Results.Ok(svc.GetAssignmentComments(id)));
+app.MapGet("api/assignments/comments/counts", (AssignmentService assignmentSvc, CommentService commentSvc) =>
+{
+    try
+    {
+        var assignments = assignmentSvc.GetUserAssignments();
+        var counts = assignments.ToDictionary(
+            a => a.Id,
+            a => commentSvc.GetCommentCount(a.Id)
+        );
+        return Results.Ok(counts);
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest($"Error getting comment counts: {ex.Message}");
+    }
+});
 app.MapPost("api/assignments/{id:int}/comments", async (int id, CommentService svc, HttpRequest req) =>
 {
     var body = await req.ReadFromJsonAsync<AddCommentRequest>();

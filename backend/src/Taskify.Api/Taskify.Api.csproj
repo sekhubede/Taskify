@@ -13,4 +13,11 @@
         <ProjectReference Include="..\Taskify.Application\Taskify.Application.csproj"/>
         <ProjectReference Include="..\Taskify.Domain\Taskify.Domain.csproj"/>
     </ItemGroup>
+    <ItemGroup>
+        <Reference Include="Interop.MFilesAPI">
+            <HintPath>..\Taskify.Infrastructure\lib\Interop.MFilesAPI.dll</HintPath>
+            <EmbedInteropTypes>false</EmbedInteropTypes>
+            <Private>true</Private>
+        </Reference>
+    </ItemGroup>
 </Project>
