@@ -45,9 +45,14 @@ public class MFilesCommentRepository : ICommentRepository
 
                     if (null != versionComment)
                     {
+                        // Use the raw value to preserve formatting (newlines, etc.)
+                        var commentContent = versionComment.VersionComment.Value?.Value?.ToString() 
+                            ?? versionComment.VersionComment.Value?.DisplayValue 
+                            ?? string.Empty;
+                        
                         comments.Add(new Comment(
                             id: versionComment.ObjVer.Version,
-                            content: versionComment.VersionComment.Value.DisplayValue,
+                            content: commentContent,
                             authorName: versionComment.LastModifiedBy.Value.DisplayValue,
                             createdDate: (DateTime)versionComment.StatusChanged.Value.GetValueAsTimestamp().UtcToLocalTime().GetValue(),
                             assignmentId: assignmentId));
@@ -122,22 +127,18 @@ public class MFilesCommentRepository : ICommentRepository
             // Get current properties
             var propertyValues = vault.ObjectPropertyOperations.GetProperties(checkedOutVersion.ObjVer);
 
-            // Format the new comment
-            var timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm");
-            var author = GetCurrentUserName(vault);
-            var formattedComment = $"[{timestamp}] {author}: {content}";
-
-            // Append to existing comments
+            // Append the comment content directly (without timestamp/author prefix)
             PropertyValueHelper.AppendToMultiLineTextProperty(
                 propertyValues,
                 (int)MFBuiltInPropertyDef.MFBuiltInPropertyDefComment,
-                formattedComment);
+                content);
 
             // Check in with updated properties
             vault.ObjectPropertyOperations.SetAllProperties(checkedOutVersion.ObjVer, AllowModifyingCheckedInObject: true, propertyValues);
             vault.ObjectOperations.CheckIn(checkedOutVersion.ObjVer);
 
             var pseudoId = (int)(DateTime.UtcNow.Ticks % int.MaxValue);
+            var author = GetCurrentUserName(vault);
 
             return new Comment(
                 id: pseudoId,
