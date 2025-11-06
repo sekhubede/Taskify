@@ -106,6 +106,45 @@ public class SubtaskStore
         }
     }
 
+    public bool UpdateOrder(int subtaskId, int newOrder)
+    {
+        lock (_syncRoot)
+        {
+            foreach (var kvp in _model.AssignmentIdToSubtasks)
+            {
+                var item = kvp.Value.FirstOrDefault(i => i.Id == subtaskId);
+                if (item != null)
+                {
+                    item.Order = newOrder;
+                    Persist();
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+
+    public bool ReorderSubtasks(int assignmentId, Dictionary<int, int> subtaskIdToOrder)
+    {
+        lock (_syncRoot)
+        {
+            if (!_model.AssignmentIdToSubtasks.TryGetValue(assignmentId, out var items))
+                return false;
+
+            foreach (var kvp in subtaskIdToOrder)
+            {
+                var item = items.FirstOrDefault(i => i.Id == kvp.Key);
+                if (item != null)
+                {
+                    item.Order = kvp.Value;
+                }
+            }
+
+            Persist();
+            return true;
+        }
+    }
+
     private SubtaskStoreModel Load()
     {
         try

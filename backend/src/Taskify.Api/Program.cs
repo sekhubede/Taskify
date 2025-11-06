@@ -236,6 +236,21 @@ app.MapPut("api/subtasks/{id:int}/note", async (int id, SubtaskService svc, Http
         svc.AddPersonalNote(id, body.Note);
     return Results.Ok();
 });
+app.MapPut("api/assignments/{id:int}/subtasks/reorder", async (int id, SubtaskService svc, HttpRequest req) =>
+{
+    var body = await req.ReadFromJsonAsync<ReorderSubtasksRequest>();
+    if (body == null || body.SubtaskOrders == null || body.SubtaskOrders.Count == 0)
+        return Results.BadRequest("subtaskOrders required");
+    try
+    {
+        svc.ReorderSubtasks(id, body.SubtaskOrders);
+        return Results.Ok();
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(ex.Message);
+    }
+});
 
 app.Run();
 
@@ -245,5 +260,6 @@ public record ToggleSubtaskRequest(bool IsCompleted);
 public record UpdateNoteRequest(string? Note);
 public record UpdateCommentNoteRequest(string? Note);
 public record UpdateCommentFlagRequest(bool IsFlagged);
+public record ReorderSubtasksRequest(Dictionary<int, int> SubtaskOrders);
 
 

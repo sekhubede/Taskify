@@ -23,6 +23,8 @@ function App() {
   const [editingCommentNotes, setEditingCommentNotes] = useState({});
   const [commentNotes, setCommentNotes] = useState({});
   const [commentFlags, setCommentFlags] = useState({});
+  const [draggedSubtaskId, setDraggedSubtaskId] = useState(null);
+  const [dragOverSubtaskId, setDragOverSubtaskId] = useState(null);
 
   useEffect(() => {
     // Fetch current user
@@ -364,6 +366,111 @@ function App() {
     } catch (err) {
       setError(err.toString());
     }
+  };
+
+  const handleReorderSubtasks = async (assignmentId, newOrder) => {
+    try {
+      const response = await fetch(`${ASSIGNMENTS_API_URL}/${assignmentId}/subtasks/reorder`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ subtaskOrders: newOrder }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to reorder subtasks');
+      }
+
+      // Refetch subtasks to get updated order
+      const fetchResponse = await fetch(`${ASSIGNMENTS_API_URL}/${assignmentId}/subtasks`);
+      if (fetchResponse.ok) {
+        const data = await fetchResponse.json();
+        setSubtasks(prev => ({
+          ...prev,
+          [assignmentId]: data
+        }));
+        // Update notes state if needed
+        const notesState = {};
+        data.forEach(subtask => {
+          if (subtask.personalNote) {
+            notesState[subtask.id] = subtask.personalNote;
+          }
+        });
+        setSubtaskNotes(prev => {
+          const updated = { ...prev };
+          Object.keys(notesState).forEach(id => {
+            updated[id] = notesState[id];
+          });
+          return updated;
+        });
+      }
+    } catch (err) {
+      setError(err.toString());
+    }
+  };
+
+  const handleDragStart = (e, subtaskId) => {
+    setDraggedSubtaskId(subtaskId);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', subtaskId);
+  };
+
+  const handleDragOver = (e, subtaskId) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (subtaskId !== draggedSubtaskId) {
+      setDragOverSubtaskId(subtaskId);
+    }
+  };
+
+  const handleDragLeave = () => {
+    setDragOverSubtaskId(null);
+  };
+
+  const handleDrop = (e, targetSubtaskId, assignmentId) => {
+    e.preventDefault();
+    setDragOverSubtaskId(null);
+    
+    if (!draggedSubtaskId || draggedSubtaskId === targetSubtaskId) {
+      setDraggedSubtaskId(null);
+      return;
+    }
+
+    const assignmentSubtasks = subtasks[assignmentId] || [];
+    const draggedIndex = assignmentSubtasks.findIndex(s => s.id === draggedSubtaskId);
+    const targetIndex = assignmentSubtasks.findIndex(s => s.id === targetSubtaskId);
+
+    if (draggedIndex === -1 || targetIndex === -1) {
+      setDraggedSubtaskId(null);
+      return;
+    }
+
+    // Create new order mapping
+    const newOrder = {};
+    const reordered = [...assignmentSubtasks];
+    const [draggedItem] = reordered.splice(draggedIndex, 1);
+    reordered.splice(targetIndex, 0, draggedItem);
+
+    // Assign new order values (0, 1, 2, ...)
+    reordered.forEach((subtask, index) => {
+      newOrder[subtask.id] = index;
+    });
+
+    // Optimistically update UI
+    setSubtasks(prev => ({
+      ...prev,
+      [assignmentId]: reordered
+    }));
+
+    // Update backend
+    handleReorderSubtasks(assignmentId, newOrder);
+    setDraggedSubtaskId(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedSubtaskId(null);
+    setDragOverSubtaskId(null);
   };
 
   const handleUpdateSubtaskNote = async (subtaskId, note) => {
@@ -848,88 +955,102 @@ function App() {
                           
                           return assignmentSubtasks.length > 0 ? (
                             assignmentSubtasks.map((subtask) => (
-                              <div key={subtask.id} className="subtask-item">
-                                <div className="subtask-main">
-                                  <label className="subtask-checkbox-label">
-                                    <input
-                                      type="checkbox"
-                                      className="subtask-checkbox"
-                                      checked={subtask.isCompleted}
-                                      onChange={(e) => handleToggleSubtask(subtask.id, e.target.checked)}
-                                    />
-                                    <span className={`subtask-title ${subtask.isCompleted ? 'completed' : ''}`}>
-                                      {subtask.title}
-                                    </span>
-                                  </label>
-                                  <button
-                                    className="subtask-note-button"
-                                    onClick={() => {
-                                      setEditingNotes(prev => ({
-                                        ...prev,
-                                        [subtask.id]: !prev[subtask.id]
-                                      }));
-                                      // Initialize note in state if not already set
-                                      if (!subtaskNotes[subtask.id] && subtask.personalNote) {
-                                        setSubtaskNotes(prev => ({
+                              <div 
+                                key={subtask.id} 
+                                className={`subtask-item ${draggedSubtaskId === subtask.id ? 'dragging' : ''} ${dragOverSubtaskId === subtask.id ? 'drag-over' : ''}`}
+                                draggable
+                                onDragStart={(e) => handleDragStart(e, subtask.id)}
+                                onDragOver={(e) => handleDragOver(e, subtask.id)}
+                                onDragLeave={handleDragLeave}
+                                onDrop={(e) => handleDrop(e, subtask.id, assignment.id)}
+                                onDragEnd={handleDragEnd}
+                              >
+                                <div className="subtask-drag-handle">⋮⋮</div>
+                                <div className="subtask-content">
+                                  <div className="subtask-main">
+                                    <label className="subtask-checkbox-label">
+                                      <input
+                                        type="checkbox"
+                                        className="subtask-checkbox"
+                                        checked={subtask.isCompleted}
+                                        onChange={(e) => handleToggleSubtask(subtask.id, e.target.checked)}
+                                        onMouseDown={(e) => e.stopPropagation()}
+                                      />
+                                      <span className={`subtask-title ${subtask.isCompleted ? 'completed' : ''}`}>
+                                        {subtask.title}
+                                      </span>
+                                    </label>
+                                    <button
+                                      className="subtask-note-button"
+                                      onMouseDown={(e) => e.stopPropagation()}
+                                      onClick={() => {
+                                        setEditingNotes(prev => ({
                                           ...prev,
-                                          [subtask.id]: subtask.personalNote
+                                          [subtask.id]: !prev[subtask.id]
                                         }));
-                                      }
-                                    }}
-                                    title={(subtaskNotes[subtask.id] || subtask.personalNote) ? 'Edit note' : 'Add note'}
-                                  >
-                                    {(subtaskNotes[subtask.id] || subtask.personalNote) ? '📝' : '📄'}
-                                  </button>
-                                </div>
-                                {editingNotes[subtask.id] && (
-                                  <div className="subtask-note-editor">
-                                    <textarea
-                                      className="subtask-note-input"
-                                      placeholder="Add a personal note..."
-                                      value={subtaskNotes[subtask.id] ?? subtask.personalNote ?? ''}
-                                      onChange={(e) => setSubtaskNotes(prev => ({
-                                        ...prev,
-                                        [subtask.id]: e.target.value
-                                      }))}
-                                      rows={3}
-                                    />
-                                    <div className="subtask-note-actions">
-                                      <button
-                                        className="subtask-note-save"
-                                        onClick={() => handleUpdateSubtaskNote(subtask.id, subtaskNotes[subtask.id])}
-                                      >
-                                        Save
-                                      </button>
-                                      <button
-                                        className="subtask-note-cancel"
-                                        onClick={() => {
-                                          setEditingNotes(prev => ({
+                                        // Initialize note in state if not already set
+                                        if (!subtaskNotes[subtask.id] && subtask.personalNote) {
+                                          setSubtaskNotes(prev => ({
                                             ...prev,
-                                            [subtask.id]: false
+                                            [subtask.id]: subtask.personalNote
                                           }));
-                                          // Restore original note
-                                          setSubtaskNotes(prev => {
-                                            const updated = { ...prev };
-                                            if (subtask.personalNote) {
-                                              updated[subtask.id] = subtask.personalNote;
-                                            } else {
-                                              delete updated[subtask.id];
-                                            }
-                                            return updated;
-                                          });
-                                        }}
-                                      >
-                                        Cancel
-                                      </button>
+                                        }
+                                      }}
+                                      title={(subtaskNotes[subtask.id] || subtask.personalNote) ? 'Edit note' : 'Add note'}
+                                    >
+                                      {(subtaskNotes[subtask.id] || subtask.personalNote) ? '📝' : '📄'}
+                                    </button>
+                                  </div>
+                                  {editingNotes[subtask.id] && (
+                                    <div className="subtask-note-editor">
+                                      <textarea
+                                        className="subtask-note-input"
+                                        placeholder="Add a personal note..."
+                                        value={subtaskNotes[subtask.id] ?? subtask.personalNote ?? ''}
+                                        onChange={(e) => setSubtaskNotes(prev => ({
+                                          ...prev,
+                                          [subtask.id]: e.target.value
+                                        }))}
+                                        rows={3}
+                                      />
+                                      <div className="subtask-note-actions">
+                                        <button
+                                          className="subtask-note-save"
+                                          onClick={() => handleUpdateSubtaskNote(subtask.id, subtaskNotes[subtask.id])}
+                                        >
+                                          Save
+                                        </button>
+                                        <button
+                                          className="subtask-note-cancel"
+                                          onClick={() => {
+                                            setEditingNotes(prev => ({
+                                              ...prev,
+                                              [subtask.id]: false
+                                            }));
+                                            // Restore original note
+                                            setSubtaskNotes(prev => {
+                                              const updated = { ...prev };
+                                              if (subtask.personalNote) {
+                                                updated[subtask.id] = subtask.personalNote;
+                                              } else {
+                                                delete updated[subtask.id];
+                                              }
+                                              return updated;
+                                            });
+                                          }}
+                                        >
+                                          Cancel
+                                        </button>
+                                      </div>
                                     </div>
-                                  </div>
-                                )}
-                                {!editingNotes[subtask.id] && (subtaskNotes[subtask.id] || subtask.personalNote) && (
-                                  <div className="subtask-note-display">
-                                    <span className="subtask-note-label">Note:</span>
-                                    <span className="subtask-note-text">{subtaskNotes[subtask.id] || subtask.personalNote}</span>
-                                  </div>
-                                )}
+                                  )}
+                                  {!editingNotes[subtask.id] && (subtaskNotes[subtask.id] || subtask.personalNote) && (
+                                    <div className="subtask-note-display">
+                                      <span className="subtask-note-label">Note:</span>
+                                      <span className="subtask-note-text">{subtaskNotes[subtask.id] || subtask.personalNote}</span>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             ))
                           ) : (

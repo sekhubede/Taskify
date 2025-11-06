@@ -28,4 +28,9 @@ public interface ISubtaskRepository
     /// Gets the personal note for a subtask (from local storage).
     /// </summary>
     string? GetSubtaskPersonalNote(int subtaskId);
+
+    /// <summary>
+    /// Reorders subtasks by updating their order values.
+    /// </summary>
+    void ReorderSubtasks(int assignmentId, Dictionary<int, int> subtaskIdToOrder);
 }
