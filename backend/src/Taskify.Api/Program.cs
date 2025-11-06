@@ -299,6 +299,18 @@ app.MapPut("api/assignments/{id:int}/subtasks/reorder", async (int id, SubtaskSe
         return Results.BadRequest(ex.Message);
     }
 });
+app.MapDelete("api/subtasks/{id:int}", (int id, SubtaskService svc) =>
+{
+    try
+    {
+        var ok = svc.DeleteSubtask(id);
+        return ok ? Results.Ok() : Results.NotFound();
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(ex.Message);
+    }
+});
 
 app.Run();
 

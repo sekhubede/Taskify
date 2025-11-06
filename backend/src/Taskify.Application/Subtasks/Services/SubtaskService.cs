@@ -78,6 +78,14 @@ public class SubtaskService
         _subtaskRepository.ReorderSubtasks(assignmentId, subtaskIdToOrder);
     }
 
+    public bool DeleteSubtask(int subtaskId)
+    {
+        if (subtaskId <= 0)
+            throw new ArgumentException("Subtask ID must be positive", nameof(subtaskId));
+
+        return _subtaskRepository.DeleteSubtask(subtaskId);
+    }
+
     public SubtaskSummary GetSubtaskSummary(int assignmentId)
     {
         var subtasks = GetSubtasksForAssignment(assignmentId);

@@ -145,6 +145,24 @@ public class SubtaskStore
         }
     }
 
+    public bool DeleteSubtask(int subtaskId)
+    {
+        lock (_syncRoot)
+        {
+            foreach (var kvp in _model.AssignmentIdToSubtasks)
+            {
+                var item = kvp.Value.FirstOrDefault(i => i.Id == subtaskId);
+                if (item != null)
+                {
+                    kvp.Value.Remove(item);
+                    Persist();
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+
     private SubtaskStoreModel Load()
     {
         try

@@ -62,6 +62,20 @@ public class LocalSubtaskRepository : ISubtaskRepository
 
         _store.ReorderSubtasks(assignmentId, subtaskIdToOrder);
     }
+
+    public bool DeleteSubtask(int subtaskId)
+    {
+        if (subtaskId <= 0)
+            throw new ArgumentException("Subtask ID must be positive", nameof(subtaskId));
+
+        var deleted = _store.DeleteSubtask(subtaskId);
+        if (deleted)
+        {
+            // Also delete the associated note if it exists
+            _noteStore.DeleteNote(subtaskId);
+        }
+        return deleted;
+    }
 }
 
 

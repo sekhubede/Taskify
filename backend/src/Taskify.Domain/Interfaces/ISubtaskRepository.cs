@@ -33,4 +33,9 @@ public interface ISubtaskRepository
     /// Reorders subtasks by updating their order values.
     /// </summary>
     void ReorderSubtasks(int assignmentId, Dictionary<int, int> subtaskIdToOrder);
+
+    /// <summary>
+    /// Deletes a subtask by its ID.
+    /// </summary>
+    bool DeleteSubtask(int subtaskId);
 }
