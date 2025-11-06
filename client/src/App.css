@@ -522,11 +522,54 @@
   border-radius: 8px;
   padding: 0.75rem;
   transition: all 0.2s ease;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  cursor: move;
+  position: relative;
 }
 
 .subtask-item:hover {
   background: rgba(255, 255, 255, 0.05);
   border-color: rgba(255, 255, 255, 0.12);
+}
+
+.subtask-item.dragging {
+  opacity: 0.5;
+  cursor: grabbing;
+}
+
+.subtask-item.drag-over {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.1);
+  transform: scale(1.02);
+}
+
+.subtask-drag-handle {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: grab;
+  user-select: none;
+  padding: 0.25rem 0;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.subtask-drag-handle:active {
+  cursor: grabbing;
+}
+
+.subtask-item:hover .subtask-drag-handle {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.subtask-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 0;
 }
 
 .subtask-main {
@@ -806,6 +849,19 @@
   .subtask-item:hover {
     background: rgba(0, 0, 0, 0.04);
     border-color: rgba(0, 0, 0, 0.12);
+  }
+
+  .subtask-item.drag-over {
+    border-color: #3b82f6;
+    background: rgba(59, 130, 246, 0.1);
+  }
+
+  .subtask-drag-handle {
+    color: rgba(0, 0, 0, 0.4);
+  }
+
+  .subtask-item:hover .subtask-drag-handle {
+    color: rgba(0, 0, 0, 0.6);
   }
 
   .subtask-title {

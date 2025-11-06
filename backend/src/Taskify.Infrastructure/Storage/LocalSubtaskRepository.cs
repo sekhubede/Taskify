@@ -51,6 +51,17 @@ public class LocalSubtaskRepository : ISubtaskRepository
     {
         return _noteStore.GetNote(subtaskId);
     }
+
+    public void ReorderSubtasks(int assignmentId, Dictionary<int, int> subtaskIdToOrder)
+    {
+        if (assignmentId <= 0)
+            throw new ArgumentException("Assignment ID must be positive", nameof(assignmentId));
+
+        if (subtaskIdToOrder == null || subtaskIdToOrder.Count == 0)
+            throw new ArgumentException("Subtask order mapping cannot be empty", nameof(subtaskIdToOrder));
+
+        _store.ReorderSubtasks(assignmentId, subtaskIdToOrder);
+    }
 }
 
 

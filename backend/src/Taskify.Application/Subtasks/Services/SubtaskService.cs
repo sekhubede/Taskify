@@ -70,6 +70,13 @@ public class SubtaskService
         return _subtaskRepository.GetSubtaskPersonalNote(subtaskId);
     }
 
+    public void ReorderSubtasks(int assignmentId, Dictionary<int, int> subtaskIdToOrder)
+    {
+        if (subtaskIdToOrder == null || subtaskIdToOrder.Count == 0)
+            throw new ArgumentException("Subtask order mapping cannot be empty", nameof(subtaskIdToOrder));
+
+        _subtaskRepository.ReorderSubtasks(assignmentId, subtaskIdToOrder);
+    }
 
     public SubtaskSummary GetSubtaskSummary(int assignmentId)
     {
