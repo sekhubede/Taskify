@@ -14,6 +14,12 @@ function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [commentCounts, setCommentCounts] = useState({});
   const [commentFilters, setCommentFilters] = useState({});
+  const [openSubtasks, setOpenSubtasks] = useState({});
+  const [subtasks, setSubtasks] = useState({});
+  const [loadingSubtasks, setLoadingSubtasks] = useState({});
+  const [newSubtaskText, setNewSubtaskText] = useState({});
+  const [editingNotes, setEditingNotes] = useState({});
+  const [subtaskNotes, setSubtaskNotes] = useState({});
 
   useEffect(() => {
     // Fetch current user
@@ -186,6 +192,176 @@ function App() {
     }
   };
 
+  const toggleSubtasks = async (assignmentId) => {
+    const isOpen = openSubtasks[assignmentId];
+    setOpenSubtasks(prev => ({
+      ...prev,
+      [assignmentId]: !isOpen
+    }));
+
+    // Fetch subtasks if opening for the first time
+    if (!isOpen && !subtasks[assignmentId]) {
+      setLoadingSubtasks(prev => ({ ...prev, [assignmentId]: true }));
+      try {
+        const response = await fetch(`${ASSIGNMENTS_API_URL}/${assignmentId}/subtasks`);
+        if (!response.ok) throw new Error('Failed to fetch subtasks');
+        const data = await response.json();
+        setSubtasks(prev => ({ ...prev, [assignmentId]: data }));
+        // Initialize notes state from API response
+        const notesState = {};
+        data.forEach(subtask => {
+          if (subtask.personalNote) {
+            notesState[subtask.id] = subtask.personalNote;
+          }
+        });
+        setSubtaskNotes(prev => {
+          const updated = { ...prev };
+          Object.keys(notesState).forEach(id => {
+            updated[id] = notesState[id];
+          });
+          return updated;
+        });
+      } catch (err) {
+        setError(err.toString());
+      } finally {
+        setLoadingSubtasks(prev => ({ ...prev, [assignmentId]: false }));
+      }
+    }
+  };
+
+  const handleToggleSubtask = async (subtaskId, isCompleted) => {
+    // Find which assignment this subtask belongs to
+    const assignmentId = Object.keys(subtasks).find(aId => 
+      subtasks[aId]?.some(s => s.id === subtaskId)
+    ) || null;
+
+    // Optimistic update - update UI immediately
+    setSubtasks(prev => {
+      const updated = {};
+      Object.keys(prev).forEach(aId => {
+        updated[aId] = prev[aId].map(subtask =>
+          subtask.id === subtaskId
+            ? { ...subtask, isCompleted }
+            : subtask
+        );
+      });
+      return updated;
+    });
+
+    try {
+      const response = await fetch(`http://localhost:5000/api/subtasks/${subtaskId}/toggle`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ isCompleted }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to toggle subtask');
+      }
+
+      // Refetch subtasks to ensure we have the latest data from server
+      if (assignmentId) {
+        try {
+          const fetchResponse = await fetch(`${ASSIGNMENTS_API_URL}/${assignmentId}/subtasks`);
+          if (fetchResponse.ok) {
+            const data = await fetchResponse.json();
+            setSubtasks(prev => ({
+              ...prev,
+              [assignmentId]: data
+            }));
+            // Update notes state if needed
+            const notesState = {};
+            data.forEach(subtask => {
+              if (subtask.personalNote) {
+                notesState[subtask.id] = subtask.personalNote;
+              }
+            });
+            setSubtaskNotes(prev => {
+              const updated = { ...prev };
+              Object.keys(notesState).forEach(id => {
+                updated[id] = notesState[id];
+              });
+              return updated;
+            });
+          }
+        } catch (fetchErr) {
+          console.error('Error refetching subtasks:', fetchErr);
+        }
+      }
+    } catch (err) {
+      // Revert optimistic update on error
+      setSubtasks(prev => {
+        const updated = {};
+        Object.keys(prev).forEach(aId => {
+          updated[aId] = prev[aId].map(subtask =>
+            subtask.id === subtaskId
+              ? { ...subtask, isCompleted: !isCompleted }
+              : subtask
+          );
+        });
+        return updated;
+      });
+      setError(err.toString());
+    }
+  };
+
+  const handleAddSubtask = async (assignmentId) => {
+    const text = newSubtaskText[assignmentId]?.trim();
+    if (!text) return;
+
+    try {
+      const response = await fetch(`${ASSIGNMENTS_API_URL}/${assignmentId}/subtasks`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ title: text }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to add subtask');
+      }
+
+      const newSubtask = await response.json();
+      setSubtasks(prev => ({
+        ...prev,
+        [assignmentId]: [...(prev[assignmentId] || []), newSubtask]
+      }));
+      setNewSubtaskText(prev => ({ ...prev, [assignmentId]: '' }));
+    } catch (err) {
+      setError(err.toString());
+    }
+  };
+
+  const handleUpdateSubtaskNote = async (subtaskId, note) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/subtasks/${subtaskId}/note`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ note: note || null }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update note');
+      }
+
+      setSubtaskNotes(prev => ({
+        ...prev,
+        [subtaskId]: note || null
+      }));
+      setEditingNotes(prev => ({
+        ...prev,
+        [subtaskId]: false
+      }));
+    } catch (err) {
+      setError(err.toString());
+    }
+  };
+
   const formatCommentDate = (dateString) => {
     if (!dateString) return '';
     const date = new Date(dateString);
@@ -289,16 +465,29 @@ function App() {
                         Due {formatDate(assignment.dueDate)}
                       </span>
                     )}
-                    {assignment.subtasks && assignment.subtasks.length > 0 && (
-                      <span className="subtask-count">
-                        {assignment.subtasks.filter(s => s.isCompleted).length} / {assignment.subtasks.length} subtasks
-                      </span>
-                    )}
+                    {(() => {
+                      const assignmentSubtasks = subtasks[assignment.id] || assignment.subtasks || [];
+                      if (assignmentSubtasks.length > 0) {
+                        const completedCount = assignmentSubtasks.filter(s => s.isCompleted).length;
+                        return (
+                          <span className="subtask-count">
+                            {completedCount} / {assignmentSubtasks.length} subtasks
+                          </span>
+                        );
+                      }
+                      return null;
+                    })()}
                     <button
                       className="comments-button"
                       onClick={() => toggleComments(assignment.id)}
                     >
                       💬 {commentCounts[assignment.id] || 0} {openComments[assignment.id] ? 'Hide' : 'Comments'}
+                    </button>
+                    <button
+                      className="subtasks-button"
+                      onClick={() => toggleSubtasks(assignment.id)}
+                    >
+                      ✓ {subtasks[assignment.id]?.length ?? assignment.subtasks?.length ?? 0} {openSubtasks[assignment.id] ? 'Hide' : 'Subtasks'}
                     </button>
                     {assignment.status !== 2 && (
                       <button
@@ -449,6 +638,132 @@ function App() {
                           disabled={!newCommentText[assignment.id]?.trim()}
                         >
                           Post
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {openSubtasks[assignment.id] && (
+                    <div className="subtasks-section">
+                      <div className="subtasks-list">
+                        {loadingSubtasks[assignment.id] ? (
+                          <div className="subtasks-loading">Loading subtasks...</div>
+                        ) : (() => {
+                          const assignmentSubtasks = subtasks[assignment.id] || [];
+                          
+                          return assignmentSubtasks.length > 0 ? (
+                            assignmentSubtasks.map((subtask) => (
+                              <div key={subtask.id} className="subtask-item">
+                                <div className="subtask-main">
+                                  <label className="subtask-checkbox-label">
+                                    <input
+                                      type="checkbox"
+                                      className="subtask-checkbox"
+                                      checked={subtask.isCompleted}
+                                      onChange={(e) => handleToggleSubtask(subtask.id, e.target.checked)}
+                                    />
+                                    <span className={`subtask-title ${subtask.isCompleted ? 'completed' : ''}`}>
+                                      {subtask.title}
+                                    </span>
+                                  </label>
+                                  <button
+                                    className="subtask-note-button"
+                                    onClick={() => {
+                                      setEditingNotes(prev => ({
+                                        ...prev,
+                                        [subtask.id]: !prev[subtask.id]
+                                      }));
+                                      // Initialize note in state if not already set
+                                      if (!subtaskNotes[subtask.id] && subtask.personalNote) {
+                                        setSubtaskNotes(prev => ({
+                                          ...prev,
+                                          [subtask.id]: subtask.personalNote
+                                        }));
+                                      }
+                                    }}
+                                    title={(subtaskNotes[subtask.id] || subtask.personalNote) ? 'Edit note' : 'Add note'}
+                                  >
+                                    {(subtaskNotes[subtask.id] || subtask.personalNote) ? '📝' : '📄'}
+                                  </button>
+                                </div>
+                                {editingNotes[subtask.id] && (
+                                  <div className="subtask-note-editor">
+                                    <textarea
+                                      className="subtask-note-input"
+                                      placeholder="Add a personal note..."
+                                      value={subtaskNotes[subtask.id] ?? subtask.personalNote ?? ''}
+                                      onChange={(e) => setSubtaskNotes(prev => ({
+                                        ...prev,
+                                        [subtask.id]: e.target.value
+                                      }))}
+                                      rows={3}
+                                    />
+                                    <div className="subtask-note-actions">
+                                      <button
+                                        className="subtask-note-save"
+                                        onClick={() => handleUpdateSubtaskNote(subtask.id, subtaskNotes[subtask.id])}
+                                      >
+                                        Save
+                                      </button>
+                                      <button
+                                        className="subtask-note-cancel"
+                                        onClick={() => {
+                                          setEditingNotes(prev => ({
+                                            ...prev,
+                                            [subtask.id]: false
+                                          }));
+                                          // Restore original note
+                                          setSubtaskNotes(prev => {
+                                            const updated = { ...prev };
+                                            if (subtask.personalNote) {
+                                              updated[subtask.id] = subtask.personalNote;
+                                            } else {
+                                              delete updated[subtask.id];
+                                            }
+                                            return updated;
+                                          });
+                                        }}
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                                {!editingNotes[subtask.id] && (subtaskNotes[subtask.id] || subtask.personalNote) && (
+                                  <div className="subtask-note-display">
+                                    <span className="subtask-note-label">Note:</span>
+                                    <span className="subtask-note-text">{subtaskNotes[subtask.id] || subtask.personalNote}</span>
+                                  </div>
+                                )}
+                              </div>
+                            ))
+                          ) : (
+                            <div className="subtasks-empty">
+                              No subtasks yet. Add one below!
+                            </div>
+                          );
+                        })()}
+                      </div>
+                      <div className="subtask-input-container">
+                        <input
+                          type="text"
+                          className="subtask-input"
+                          placeholder="Add a subtask..."
+                          value={newSubtaskText[assignment.id] || ''}
+                          onChange={(e) => setNewSubtaskText(prev => ({ ...prev, [assignment.id]: e.target.value }))}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              handleAddSubtask(assignment.id);
+                            }
+                          }}
+                        />
+                        <button
+                          className="subtask-submit-button"
+                          onClick={() => handleAddSubtask(assignment.id)}
+                          disabled={!newSubtaskText[assignment.id]?.trim()}
+                        >
+                          Add
                         </button>
                       </div>
                     </div>

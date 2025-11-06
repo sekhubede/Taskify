@@ -111,6 +111,8 @@
 }
 
 .subtask-count {
+  display: flex;
+  align-items: center;
   color: rgba(255, 255, 255, 0.5);
 }
 
@@ -338,6 +340,250 @@
   cursor: not-allowed;
 }
 
+.subtasks-button {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.subtasks-button:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.subtasks-section {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.subtasks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.subtasks-loading,
+.subtasks-empty {
+  text-align: center;
+  padding: 1.5rem;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.9rem;
+}
+
+.subtask-item {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 0.75rem;
+  transition: all 0.2s ease;
+}
+
+.subtask-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.subtask-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.subtask-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  cursor: pointer;
+  user-select: none;
+}
+
+.subtask-checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #10b981;
+}
+
+.subtask-title {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.9rem;
+  flex: 1;
+}
+
+.subtask-title.completed {
+  text-decoration: line-through;
+  color: rgba(255, 255, 255, 0.5);
+  opacity: 0.7;
+}
+
+.subtask-note-button {
+  background: transparent;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.subtask-note-button:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.subtask-note-editor {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.subtask-note-input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  padding: 0.75rem;
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 0.85rem;
+  font-family: inherit;
+  resize: vertical;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.subtask-note-input:focus {
+  outline: none;
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.subtask-note-input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.subtask-note-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  justify-content: flex-end;
+}
+
+.subtask-note-save,
+.subtask-note-cancel {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+}
+
+.subtask-note-save {
+  background: #10b981;
+  color: white;
+}
+
+.subtask-note-save:hover {
+  background: #059669;
+}
+
+.subtask-note-cancel {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.subtask-note-cancel:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.subtask-note-display {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.subtask-note-label {
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.subtask-note-text {
+  color: rgba(255, 255, 255, 0.8);
+  line-height: 1.5;
+  word-wrap: break-word;
+  flex: 1;
+}
+
+.subtask-input-container {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.subtask-input {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.subtask-input:focus {
+  outline: none;
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.subtask-input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.subtask-submit-button {
+  background: #10b981;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 0.75rem 1.25rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.subtask-submit-button:hover:not(:disabled) {
+  background: #059669;
+  transform: translateY(-1px);
+}
+
+.subtask-submit-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.subtask-submit-button:disabled {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.5);
+  cursor: not-allowed;
+}
+
 @media (prefers-color-scheme: light) {
   .app-header h1 {
     color: #1a1a1a;
@@ -397,6 +643,104 @@
   .comments-button:hover {
     background: rgba(0, 0, 0, 0.08);
     border-color: rgba(0, 0, 0, 0.3);
+  }
+
+  .subtasks-button {
+    background: rgba(0, 0, 0, 0.05);
+    color: rgba(0, 0, 0, 0.9);
+    border-color: rgba(0, 0, 0, 0.2);
+  }
+
+  .subtasks-button:hover {
+    background: rgba(0, 0, 0, 0.08);
+    border-color: rgba(0, 0, 0, 0.3);
+  }
+
+  .subtasks-section {
+    border-top-color: rgba(0, 0, 0, 0.1);
+  }
+
+  .subtask-item {
+    background: rgba(0, 0, 0, 0.02);
+    border-color: rgba(0, 0, 0, 0.08);
+  }
+
+  .subtask-item:hover {
+    background: rgba(0, 0, 0, 0.04);
+    border-color: rgba(0, 0, 0, 0.12);
+  }
+
+  .subtask-title {
+    color: #1a1a1a;
+  }
+
+  .subtask-title.completed {
+    color: rgba(0, 0, 0, 0.5);
+  }
+
+  .subtask-note-button:hover {
+    background: rgba(0, 0, 0, 0.05);
+  }
+
+  .subtask-note-input {
+    background: rgba(0, 0, 0, 0.03);
+    border-color: rgba(0, 0, 0, 0.15);
+    color: #1a1a1a;
+  }
+
+  .subtask-note-input:focus {
+    background: rgba(0, 0, 0, 0.05);
+    border-color: rgba(0, 0, 0, 0.25);
+  }
+
+  .subtask-note-input::placeholder {
+    color: rgba(0, 0, 0, 0.5);
+  }
+
+  .subtask-note-cancel {
+    background: rgba(0, 0, 0, 0.05);
+    color: rgba(0, 0, 0, 0.9);
+  }
+
+  .subtask-note-cancel:hover {
+    background: rgba(0, 0, 0, 0.08);
+  }
+
+  .subtask-note-display {
+    border-top-color: rgba(0, 0, 0, 0.08);
+  }
+
+  .subtask-note-label {
+    color: rgba(0, 0, 0, 0.6);
+  }
+
+  .subtask-note-text {
+    color: rgba(0, 0, 0, 0.8);
+  }
+
+  .subtask-input {
+    background: rgba(0, 0, 0, 0.03);
+    border-color: rgba(0, 0, 0, 0.15);
+    color: #1a1a1a;
+  }
+
+  .subtask-input:focus {
+    background: rgba(0, 0, 0, 0.05);
+    border-color: rgba(0, 0, 0, 0.25);
+  }
+
+  .subtask-input::placeholder {
+    color: rgba(0, 0, 0, 0.5);
+  }
+
+  .subtask-submit-button:disabled {
+    background: rgba(0, 0, 0, 0.05);
+    color: rgba(0, 0, 0, 0.5);
+  }
+
+  .subtasks-loading,
+  .subtasks-empty {
+    color: rgba(0, 0, 0, 0.6);
   }
 
   .comments-section {
