@@ -256,6 +256,7 @@
   align-items: center;
   margin-bottom: 0.5rem;
   gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .comment-author {
@@ -275,6 +276,111 @@
   font-size: 0.9rem;
   line-height: 1.5;
   word-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+.comment-note-button {
+  background: transparent;
+  border: none;
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.comment-note-button:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.comment-note-editor {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.comment-note-input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  padding: 0.75rem;
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 0.85rem;
+  font-family: inherit;
+  resize: vertical;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.comment-note-input:focus {
+  outline: none;
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.comment-note-input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.comment-note-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  justify-content: flex-end;
+}
+
+.comment-note-save,
+.comment-note-cancel {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+}
+
+.comment-note-save {
+  background: #10b981;
+  color: white;
+}
+
+.comment-note-save:hover {
+  background: #059669;
+}
+
+.comment-note-cancel {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.comment-note-cancel:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.comment-note-display {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.comment-note-label {
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.comment-note-text {
+  color: rgba(255, 255, 255, 0.8);
+  line-height: 1.5;
+  word-wrap: break-word;
+  flex: 1;
   white-space: pre-wrap;
 }
 
@@ -796,6 +902,46 @@
   .comment-content {
     color: rgba(0, 0, 0, 0.85);
     white-space: pre-wrap;
+  }
+
+  .comment-note-button:hover {
+    background: rgba(0, 0, 0, 0.05);
+  }
+
+  .comment-note-input {
+    background: rgba(0, 0, 0, 0.03);
+    border-color: rgba(0, 0, 0, 0.15);
+    color: #1a1a1a;
+  }
+
+  .comment-note-input:focus {
+    background: rgba(0, 0, 0, 0.05);
+    border-color: rgba(0, 0, 0, 0.25);
+  }
+
+  .comment-note-input::placeholder {
+    color: rgba(0, 0, 0, 0.5);
+  }
+
+  .comment-note-cancel {
+    background: rgba(0, 0, 0, 0.05);
+    color: rgba(0, 0, 0, 0.9);
+  }
+
+  .comment-note-cancel:hover {
+    background: rgba(0, 0, 0, 0.08);
+  }
+
+  .comment-note-display {
+    border-top-color: rgba(0, 0, 0, 0.08);
+  }
+
+  .comment-note-label {
+    color: rgba(0, 0, 0, 0.6);
+  }
+
+  .comment-note-text {
+    color: rgba(0, 0, 0, 0.8);
   }
 
   .comments-loading,
