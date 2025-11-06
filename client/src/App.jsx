@@ -383,6 +383,33 @@ function App() {
     }
   };
 
+  const handleDeleteSubtask = async (subtaskId, assignmentId) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/subtasks/${subtaskId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete subtask');
+      }
+
+      // Remove subtask from local state
+      setSubtasks(prev => ({
+        ...prev,
+        [assignmentId]: (prev[assignmentId] || []).filter(s => s.id !== subtaskId)
+      }));
+
+      // Also remove note from state if it exists
+      setSubtaskNotes(prev => {
+        const updated = { ...prev };
+        delete updated[subtaskId];
+        return updated;
+      });
+    } catch (err) {
+      setError(err.toString());
+    }
+  };
+
   const handleReorderSubtasks = async (assignmentId, newOrder) => {
     try {
       const response = await fetch(`${ASSIGNMENTS_API_URL}/${assignmentId}/subtasks/reorder`, {
@@ -543,6 +570,12 @@ function App() {
     }
   };
 
+  const handleDeleteSubtaskNote = async (subtaskId) => {
+    if (window.confirm('Are you sure you want to delete this personal note?')) {
+      await handleUpdateSubtaskNote(subtaskId, null);
+    }
+  };
+
   const handleUpdateCommentNote = async (commentId, note) => {
     try {
       const response = await fetch(`http://localhost:5000/api/comments/${commentId}/note`, {
@@ -567,6 +600,12 @@ function App() {
       }));
     } catch (err) {
       setError(err.toString());
+    }
+  };
+
+  const handleDeleteCommentNote = async (commentId) => {
+    if (window.confirm('Are you sure you want to delete this personal note?')) {
+      await handleUpdateCommentNote(commentId, null);
     }
   };
 
@@ -965,7 +1004,16 @@ function App() {
                                             )}
                                             {!editingCommentNotes[comment.id] && commentNotes[comment.id] && (
                                               <div className="comment-note-display">
-                                                <span className="comment-note-label">Personal Note:</span>
+                                                <div className="comment-note-header">
+                                                  <span className="comment-note-label">Personal Note:</span>
+                                                  <button
+                                                    className="comment-note-delete-button"
+                                                    onClick={() => handleDeleteCommentNote(comment.id)}
+                                                    title="Delete personal note"
+                                                  >
+                                                    🗑️
+                                                  </button>
+                                                </div>
                                                 <span className="comment-note-text">{commentNotes[comment.id]}</span>
                                               </div>
                                             )}
@@ -1061,6 +1109,18 @@ function App() {
                                               >
                                                 {(subtaskNotes[subtask.id] || subtask.personalNote) ? '📝' : '📄'}
                                               </button>
+                                              <button
+                                                className="subtask-delete-button"
+                                                onMouseDown={(e) => e.stopPropagation()}
+                                                onClick={() => {
+                                                  if (window.confirm('Are you sure you want to delete this subtask?')) {
+                                                    handleDeleteSubtask(subtask.id, assignment.id);
+                                                  }
+                                                }}
+                                                title="Delete subtask"
+                                              >
+                                                🗑️
+                                              </button>
                                             </div>
                                             {editingNotes[subtask.id] && (
                                               <div className="subtask-note-editor">
@@ -1106,7 +1166,16 @@ function App() {
                                             )}
                                             {!editingNotes[subtask.id] && (subtaskNotes[subtask.id] || subtask.personalNote) && (
                                               <div className="subtask-note-display">
-                                                <span className="subtask-note-label">Note:</span>
+                                                <div className="subtask-note-header">
+                                                  <span className="subtask-note-label">Note:</span>
+                                                  <button
+                                                    className="subtask-note-delete-button"
+                                                    onClick={() => handleDeleteSubtaskNote(subtask.id)}
+                                                    title="Delete personal note"
+                                                  >
+                                                    🗑️
+                                                  </button>
+                                                </div>
                                                 <span className="subtask-note-text">{subtaskNotes[subtask.id] || subtask.personalNote}</span>
                                               </div>
                                             )}
@@ -1445,7 +1514,16 @@ function App() {
                                 )}
                                 {!editingCommentNotes[comment.id] && commentNotes[comment.id] && (
                                   <div className="comment-note-display">
-                                    <span className="comment-note-label">Personal Note:</span>
+                                    <div className="comment-note-header">
+                                      <span className="comment-note-label">Personal Note:</span>
+                                      <button
+                                        className="comment-note-delete-button"
+                                        onClick={() => handleDeleteCommentNote(comment.id)}
+                                        title="Delete personal note"
+                                      >
+                                        🗑️
+                                      </button>
+                                    </div>
                                     <span className="comment-note-text">{commentNotes[comment.id]}</span>
                                   </div>
                                 )}
@@ -1541,6 +1619,18 @@ function App() {
                                     >
                                       {(subtaskNotes[subtask.id] || subtask.personalNote) ? '📝' : '📄'}
                                     </button>
+                                    <button
+                                      className="subtask-delete-button"
+                                      onMouseDown={(e) => e.stopPropagation()}
+                                      onClick={() => {
+                                        if (window.confirm('Are you sure you want to delete this subtask?')) {
+                                          handleDeleteSubtask(subtask.id, assignment.id);
+                                        }
+                                      }}
+                                      title="Delete subtask"
+                                    >
+                                      🗑️
+                                    </button>
                 </div>
                                   {editingNotes[subtask.id] && (
                                     <div className="subtask-note-editor">
@@ -1587,7 +1677,16 @@ function App() {
           )}
                                   {!editingNotes[subtask.id] && (subtaskNotes[subtask.id] || subtask.personalNote) && (
                                     <div className="subtask-note-display">
-                                      <span className="subtask-note-label">Note:</span>
+                                      <div className="subtask-note-header">
+                                        <span className="subtask-note-label">Note:</span>
+                                        <button
+                                          className="subtask-note-delete-button"
+                                          onClick={() => handleDeleteSubtaskNote(subtask.id)}
+                                          title="Delete personal note"
+                                        >
+                                          🗑️
+                                        </button>
+                                      </div>
                                       <span className="subtask-note-text">{subtaskNotes[subtask.id] || subtask.personalNote}</span>
         </div>
       )}
