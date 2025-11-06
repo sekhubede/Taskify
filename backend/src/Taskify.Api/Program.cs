@@ -81,6 +81,9 @@ builder.Host.ConfigureContainer<ContainerBuilder>(containerBuilder =>
     containerBuilder.RegisterType<CommentNoteStore>()
         .AsSelf()
         .SingleInstance();
+    containerBuilder.RegisterType<CommentFlagStore>()
+        .AsSelf()
+        .SingleInstance();
     containerBuilder.RegisterType<LocalSubtaskRepository>()
         .As<ISubtaskRepository>()
         .InstancePerLifetimeScope();
@@ -91,6 +94,9 @@ builder.Host.ConfigureContainer<ContainerBuilder>(containerBuilder =>
         .AsSelf()
         .InstancePerLifetimeScope();
     containerBuilder.RegisterType<CommentNoteService>()
+        .AsSelf()
+        .InstancePerLifetimeScope();
+    containerBuilder.RegisterType<CommentFlagService>()
         .AsSelf()
         .InstancePerLifetimeScope();
 });
@@ -184,6 +190,19 @@ app.MapPut("api/comments/{id:int}/note", async (int id, CommentNoteService svc, 
         return Results.BadRequest(ex.Message);
     }
 });
+app.MapGet("api/comments/{id:int}/flag", (int id, CommentFlagService svc) =>
+{
+    var isFlagged = svc.IsCommentFlagged(id);
+    return Results.Ok(new { isFlagged });
+});
+app.MapPut("api/comments/{id:int}/flag", async (int id, CommentFlagService svc, HttpRequest req) =>
+{
+    var body = await req.ReadFromJsonAsync<UpdateCommentFlagRequest>();
+    if (body == null)
+        return Results.BadRequest("body required");
+    svc.SetCommentFlag(id, body.IsFlagged);
+    return Results.Ok();
+});
 
 // Subtasks
 app.MapGet("api/assignments/{id:int}/subtasks", (int id, SubtaskService svc) =>
@@ -225,5 +244,6 @@ public record AddSubtaskRequest(string Title, int? Order);
 public record ToggleSubtaskRequest(bool IsCompleted);
 public record UpdateNoteRequest(string? Note);
 public record UpdateCommentNoteRequest(string? Note);
+public record UpdateCommentFlagRequest(bool IsFlagged);
 
 
