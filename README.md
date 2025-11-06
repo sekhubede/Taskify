@@ -6,7 +6,7 @@ Taskify is a personal productivity tool designed to extend the functionality of 
 - **Purpose:** Enhance task management in M-Files by integrating the concept of subtasks and comments similar to MS To Do.
 - **Functionality:**
   - Pull assignments and comments from M-Files.
-  - Add and manage subtasks for each assignment.
+  - Add, manage, and delete subtasks for each assignment.
   - Add personal comments and vault comments.
   - Update assignment status in M-Files.
 
@@ -56,7 +56,7 @@ The backend is built using .NET 8 with a clean architecture approach:
 - **Type:** React 19 + Vite
 - **Responsibilities:**
   - Display M-Files assignments from the API
-  - Enable adding and managing subtasks
+  - Enable adding, managing, and deleting subtasks
   - Allow adding personal and vault comments
   - Mark assignments as complete
   - Real-time updates via API calls
@@ -165,7 +165,7 @@ dotnet run
 - ✅ MVP: Pull assignments from M-Files and display in React frontend
 - ✅ RESTful API with ASP.NET Core
 - ✅ React frontend with Vite
-- ✅ Subtask management and personal/vault comments
+- ✅ Subtask management (add, update, delete, reorder) and personal/vault comments
 - ✅ Mark assignments as complete
 - Future: 
   - Enhanced UI/UX improvements
