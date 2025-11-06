@@ -279,6 +279,33 @@
   white-space: pre-wrap;
 }
 
+.comment-flag-button {
+  background: transparent;
+  border: none;
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.comment-flag-button:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.comment-flag-button.flagged {
+  opacity: 1;
+}
+
+.comment-flag-button:not(.flagged) {
+  opacity: 0.5;
+}
+
+.comment-flag-button:not(.flagged):hover {
+  opacity: 0.8;
+}
+
 .comment-note-button {
   background: transparent;
   border: none;
@@ -288,7 +315,6 @@
   border-radius: 4px;
   transition: all 0.2s ease;
   flex-shrink: 0;
-  margin-left: auto;
 }
 
 .comment-note-button:hover {
@@ -902,6 +928,10 @@
   .comment-content {
     color: rgba(0, 0, 0, 0.85);
     white-space: pre-wrap;
+  }
+
+  .comment-flag-button:hover {
+    background: rgba(0, 0, 0, 0.05);
   }
 
   .comment-note-button:hover {

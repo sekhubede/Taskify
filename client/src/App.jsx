@@ -22,6 +22,7 @@ function App() {
   const [subtaskNotes, setSubtaskNotes] = useState({});
   const [editingCommentNotes, setEditingCommentNotes] = useState({});
   const [commentNotes, setCommentNotes] = useState({});
+  const [commentFlags, setCommentFlags] = useState({});
 
   useEffect(() => {
     // Fetch current user
@@ -153,21 +154,33 @@ function App() {
           ...prev,
           [assignmentId]: data.length
         }));
-        // Load comment notes for all comments
+        // Load comment notes and flags for all comments
         const notesPromises = data.map(comment =>
           fetch(`http://localhost:5000/api/comments/${comment.id}/note`)
             .then(res => res.ok ? res.json() : null)
             .then(noteData => noteData?.note ? { id: comment.id, note: noteData.note } : null)
             .catch(() => null)
         );
-        Promise.all(notesPromises).then(results => {
+        const flagsPromises = data.map(comment =>
+          fetch(`http://localhost:5000/api/comments/${comment.id}/flag`)
+            .then(res => res.ok ? res.json() : null)
+            .then(flagData => flagData?.isFlagged ? { id: comment.id, isFlagged: flagData.isFlagged } : null)
+            .catch(() => null)
+        );
+        Promise.all([...notesPromises, ...flagsPromises]).then(results => {
           const notesState = {};
+          const flagsState = {};
           results.forEach(result => {
             if (result) {
-              notesState[result.id] = result.note;
+              if ('note' in result) {
+                notesState[result.id] = result.note;
+              } else if ('isFlagged' in result) {
+                flagsState[result.id] = result.isFlagged;
+              }
             }
           });
           setCommentNotes(prev => ({ ...prev, ...notesState }));
+          setCommentFlags(prev => ({ ...prev, ...flagsState }));
         });
       } catch (err) {
         setError(err.toString());
@@ -407,6 +420,29 @@ function App() {
     }
   };
 
+  const handleToggleCommentFlag = async (commentId, isFlagged) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/comments/${commentId}/flag`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ isFlagged }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to toggle comment flag');
+      }
+
+      setCommentFlags(prev => ({
+        ...prev,
+        [commentId]: isFlagged
+      }));
+    } catch (err) {
+      setError(err.toString());
+    }
+  };
+
   const formatCommentDate = (dateString) => {
     if (!dateString) return '';
     const date = new Date(dateString);
@@ -575,12 +611,36 @@ function App() {
                           <option value="week">This Week</option>
                           <option value="month">This Month</option>
                         </select>
-                        {(commentFilters[assignment.id]?.user || commentFilters[assignment.id]?.date) && (
+                        <select
+                          className="comment-filter-select"
+                          value={commentFilters[assignment.id]?.flag || ''}
+                          onChange={(e) => setCommentFilters(prev => ({
+                            ...prev,
+                            [assignment.id]: { ...prev[assignment.id], flag: e.target.value || null }
+                          }))}
+                        >
+                          <option value="">All Comments</option>
+                          <option value="flagged">Flagged</option>
+                          <option value="not-flagged">Not Flagged</option>
+                        </select>
+                        <select
+                          className="comment-filter-select"
+                          value={commentFilters[assignment.id]?.note || ''}
+                          onChange={(e) => setCommentFilters(prev => ({
+                            ...prev,
+                            [assignment.id]: { ...prev[assignment.id], note: e.target.value || null }
+                          }))}
+                        >
+                          <option value="">All Comments</option>
+                          <option value="has-note">Has Personal Note</option>
+                          <option value="no-note">No Personal Note</option>
+                        </select>
+                        {(commentFilters[assignment.id]?.user || commentFilters[assignment.id]?.date || commentFilters[assignment.id]?.flag || commentFilters[assignment.id]?.note) && (
                           <button
                             className="comment-filter-clear"
                             onClick={() => setCommentFilters(prev => ({
                               ...prev,
-                              [assignment.id]: { user: null, date: null }
+                              [assignment.id]: { user: null, date: null, flag: null, note: null }
                             }))}
                           >
                             Clear Filters
@@ -630,6 +690,24 @@ function App() {
                             });
                           }
                           
+                          // Filter by flag
+                          if (filter.flag) {
+                            if (filter.flag === 'flagged') {
+                              filteredComments = filteredComments.filter(c => commentFlags[c.id] === true);
+                            } else if (filter.flag === 'not-flagged') {
+                              filteredComments = filteredComments.filter(c => !commentFlags[c.id]);
+                            }
+                          }
+                          
+                          // Filter by note
+                          if (filter.note) {
+                            if (filter.note === 'has-note') {
+                              filteredComments = filteredComments.filter(c => commentNotes[c.id]);
+                            } else if (filter.note === 'no-note') {
+                              filteredComments = filteredComments.filter(c => !commentNotes[c.id]);
+                            }
+                          }
+                          
                           return filteredComments.length > 0 ? (
                             filteredComments.map((comment) => {
                             const isCurrentUser = currentUser && comment.authorName === currentUser;
@@ -649,6 +727,13 @@ function App() {
                                     {comment.authorName}
                                   </span>
                                   <span className="comment-date">{formatCommentDate(comment.createdDate)}</span>
+                                  <button
+                                    className={`comment-flag-button ${commentFlags[comment.id] ? 'flagged' : ''}`}
+                                    onClick={() => handleToggleCommentFlag(comment.id, !commentFlags[comment.id])}
+                                    title={commentFlags[comment.id] ? 'Unflag comment' : 'Flag comment'}
+                                  >
+                                    {commentFlags[comment.id] ? '🚩' : '🏳️'}
+                                  </button>
                                   <button
                                     className="comment-note-button"
                                     onClick={() => {
