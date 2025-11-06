@@ -78,6 +78,9 @@ builder.Host.ConfigureContainer<ContainerBuilder>(containerBuilder =>
     containerBuilder.RegisterType<SubtaskNoteStore>()
         .AsSelf()
         .SingleInstance();
+    containerBuilder.RegisterType<CommentNoteStore>()
+        .AsSelf()
+        .SingleInstance();
     containerBuilder.RegisterType<LocalSubtaskRepository>()
         .As<ISubtaskRepository>()
         .InstancePerLifetimeScope();
@@ -85,6 +88,9 @@ builder.Host.ConfigureContainer<ContainerBuilder>(containerBuilder =>
     // Services
     containerBuilder.RegisterAssemblyTypes(typeof(AssignmentService).Assembly)
         .Where(t => t.Name.EndsWith("Service"))
+        .AsSelf()
+        .InstancePerLifetimeScope();
+    containerBuilder.RegisterType<CommentNoteService>()
         .AsSelf()
         .InstancePerLifetimeScope();
 });
@@ -158,6 +164,26 @@ app.MapPost("api/assignments/{id:int}/comments", async (int id, CommentService s
     var c = svc.AddComment(id, body.Content.Trim());
     return Results.Ok(c);
 });
+app.MapGet("api/comments/{id:int}/note", (int id, CommentNoteService svc) =>
+{
+    var note = svc.GetCommentNote(id);
+    return Results.Ok(new { note });
+});
+app.MapPut("api/comments/{id:int}/note", async (int id, CommentNoteService svc, HttpRequest req) =>
+{
+    var body = await req.ReadFromJsonAsync<UpdateCommentNoteRequest>();
+    if (body == null)
+        return Results.BadRequest("body required");
+    try
+    {
+        svc.UpdateCommentNote(id, body.Note);
+        return Results.Ok();
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(ex.Message);
+    }
+});
 
 // Subtasks
 app.MapGet("api/assignments/{id:int}/subtasks", (int id, SubtaskService svc) =>
@@ -198,5 +224,6 @@ public record AddCommentRequest(string Content);
 public record AddSubtaskRequest(string Title, int? Order);
 public record ToggleSubtaskRequest(bool IsCompleted);
 public record UpdateNoteRequest(string? Note);
+public record UpdateCommentNoteRequest(string? Note);
 
 

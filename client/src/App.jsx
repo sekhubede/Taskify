@@ -20,6 +20,8 @@ function App() {
   const [newSubtaskText, setNewSubtaskText] = useState({});
   const [editingNotes, setEditingNotes] = useState({});
   const [subtaskNotes, setSubtaskNotes] = useState({});
+  const [editingCommentNotes, setEditingCommentNotes] = useState({});
+  const [commentNotes, setCommentNotes] = useState({});
 
   useEffect(() => {
     // Fetch current user
@@ -151,6 +153,22 @@ function App() {
           ...prev,
           [assignmentId]: data.length
         }));
+        // Load comment notes for all comments
+        const notesPromises = data.map(comment =>
+          fetch(`http://localhost:5000/api/comments/${comment.id}/note`)
+            .then(res => res.ok ? res.json() : null)
+            .then(noteData => noteData?.note ? { id: comment.id, note: noteData.note } : null)
+            .catch(() => null)
+        );
+        Promise.all(notesPromises).then(results => {
+          const notesState = {};
+          results.forEach(result => {
+            if (result) {
+              notesState[result.id] = result.note;
+            }
+          });
+          setCommentNotes(prev => ({ ...prev, ...notesState }));
+        });
       } catch (err) {
         setError(err.toString());
       } finally {
@@ -356,6 +374,33 @@ function App() {
       setEditingNotes(prev => ({
         ...prev,
         [subtaskId]: false
+      }));
+    } catch (err) {
+      setError(err.toString());
+    }
+  };
+
+  const handleUpdateCommentNote = async (commentId, note) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/comments/${commentId}/note`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ note: note || null }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update comment note');
+      }
+
+      setCommentNotes(prev => ({
+        ...prev,
+        [commentId]: note || null
+      }));
+      setEditingCommentNotes(prev => ({
+        ...prev,
+        [commentId]: false
       }));
     } catch (err) {
       setError(err.toString());
@@ -604,8 +649,73 @@ function App() {
                                     {comment.authorName}
                                   </span>
                                   <span className="comment-date">{formatCommentDate(comment.createdDate)}</span>
+                                  <button
+                                    className="comment-note-button"
+                                    onClick={() => {
+                                      setEditingCommentNotes(prev => ({
+                                        ...prev,
+                                        [comment.id]: !prev[comment.id]
+                                      }));
+                                      // Load note if not already loaded
+                                      if (!commentNotes[comment.id]) {
+                                        fetch(`http://localhost:5000/api/comments/${comment.id}/note`)
+                                          .then(res => res.ok ? res.json() : null)
+                                          .then(data => {
+                                            if (data?.note) {
+                                              setCommentNotes(prev => ({
+                                                ...prev,
+                                                [comment.id]: data.note
+                                              }));
+                                            }
+                                          })
+                                          .catch(err => console.error('Error loading comment note:', err));
+                                      }
+                                    }}
+                                    title={commentNotes[comment.id] ? 'Edit personal note' : 'Add personal note'}
+                                  >
+                                    {commentNotes[comment.id] ? '📝' : '📄'}
+                                  </button>
                                 </div>
                                 <div className="comment-content">{comment.content}</div>
+                                {editingCommentNotes[comment.id] && (
+                                  <div className="comment-note-editor">
+                                    <textarea
+                                      className="comment-note-input"
+                                      placeholder="Add a personal note about this comment..."
+                                      value={commentNotes[comment.id] || ''}
+                                      onChange={(e) => setCommentNotes(prev => ({
+                                        ...prev,
+                                        [comment.id]: e.target.value
+                                      }))}
+                                      rows={3}
+                                    />
+                                    <div className="comment-note-actions">
+                                      <button
+                                        className="comment-note-save"
+                                        onClick={() => handleUpdateCommentNote(comment.id, commentNotes[comment.id])}
+                                      >
+                                        Save
+                                      </button>
+                                      <button
+                                        className="comment-note-cancel"
+                                        onClick={() => {
+                                          setEditingCommentNotes(prev => ({
+                                            ...prev,
+                                            [comment.id]: false
+                                          }));
+                                        }}
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                                {!editingCommentNotes[comment.id] && commentNotes[comment.id] && (
+                                  <div className="comment-note-display">
+                                    <span className="comment-note-label">Personal Note:</span>
+                                    <span className="comment-note-text">{commentNotes[comment.id]}</span>
+                                  </div>
+                                )}
                               </div>
                             );
                           })
