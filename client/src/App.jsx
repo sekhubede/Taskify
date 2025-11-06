@@ -619,18 +619,18 @@ function App() {
                         })()}
                       </div>
                       <div className="comment-input-container">
-                        <input
-                          type="text"
+                        <textarea
                           className="comment-input"
                           placeholder="Add a comment..."
                           value={newCommentText[assignment.id] || ''}
                           onChange={(e) => setNewCommentText(prev => ({ ...prev, [assignment.id]: e.target.value }))}
-                          onKeyPress={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
                               e.preventDefault();
                               handleAddComment(assignment.id);
                             }
                           }}
+                          rows={3}
                         />
                         <button
                           className="comment-submit-button"
