@@ -84,6 +84,12 @@ builder.Host.ConfigureContainer<ContainerBuilder>(containerBuilder =>
     containerBuilder.RegisterType<CommentFlagStore>()
         .AsSelf()
         .SingleInstance();
+    containerBuilder.RegisterType<AssignmentBoardStore>()
+        .AsSelf()
+        .SingleInstance();
+    containerBuilder.RegisterType<WorkingOnStore>()
+        .AsSelf()
+        .SingleInstance();
     containerBuilder.RegisterType<LocalSubtaskRepository>()
         .As<ISubtaskRepository>()
         .InstancePerLifetimeScope();
@@ -97,6 +103,12 @@ builder.Host.ConfigureContainer<ContainerBuilder>(containerBuilder =>
         .AsSelf()
         .InstancePerLifetimeScope();
     containerBuilder.RegisterType<CommentFlagService>()
+        .AsSelf()
+        .InstancePerLifetimeScope();
+    containerBuilder.RegisterType<AssignmentBoardService>()
+        .AsSelf()
+        .InstancePerLifetimeScope();
+    containerBuilder.RegisterType<WorkingOnService>()
         .AsSelf()
         .InstancePerLifetimeScope();
 });
@@ -141,6 +153,42 @@ app.MapPost("api/assignments/{id:int}/complete", (int id, AssignmentService svc)
 {
     var ok = svc.CompleteAssignment(id);
     return ok ? Results.Ok() : Results.BadRequest();
+});
+app.MapGet("api/assignments/{id:int}/board-column", (int id, AssignmentBoardService svc) =>
+{
+    var column = svc.GetAssignmentColumn(id);
+    return Results.Ok(new { column });
+});
+app.MapPut("api/assignments/{id:int}/board-column", async (int id, AssignmentBoardService svc, HttpRequest req) =>
+{
+    var body = await req.ReadFromJsonAsync<UpdateBoardColumnRequest>();
+    if (body == null)
+        return Results.BadRequest("body required");
+    svc.SetAssignmentColumn(id, body.Column);
+    return Results.Ok();
+});
+app.MapGet("api/assignments/board-positions", (AssignmentBoardService svc) =>
+{
+    var positions = svc.GetAllPositions();
+    return Results.Ok(positions);
+});
+app.MapGet("api/assignments/{id:int}/working-on", (int id, WorkingOnService svc) =>
+{
+    var isWorkingOn = svc.IsWorkingOn(id);
+    return Results.Ok(new { isWorkingOn });
+});
+app.MapPut("api/assignments/{id:int}/working-on", async (int id, WorkingOnService svc, HttpRequest req) =>
+{
+    var body = await req.ReadFromJsonAsync<UpdateWorkingOnRequest>();
+    if (body == null)
+        return Results.BadRequest("body required");
+    svc.SetWorkingOn(id, body.IsWorkingOn);
+    return Results.Ok();
+});
+app.MapGet("api/assignments/working-on", (WorkingOnService svc) =>
+{
+    var workingOnIds = svc.GetAllWorkingOn();
+    return Results.Ok(workingOnIds.ToList());
 });
 
 // Comments
@@ -261,5 +309,7 @@ public record UpdateNoteRequest(string? Note);
 public record UpdateCommentNoteRequest(string? Note);
 public record UpdateCommentFlagRequest(bool IsFlagged);
 public record ReorderSubtasksRequest(Dictionary<int, int> SubtaskOrders);
+public record UpdateBoardColumnRequest(string? Column);
+public record UpdateWorkingOnRequest(bool IsWorkingOn);
 
 
