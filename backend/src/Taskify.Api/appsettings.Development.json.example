@@ -1,0 +1,6 @@
+{
+  "MFiles": {
+    "VaultGuid": "{YOUR-DEV-VAULT-GUID-HERE}"
+  },
+  "Urls": "http://localhost:5000"
+}

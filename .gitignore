@@ -420,3 +420,7 @@ FodyWeavers.xsd
 # Vite / React
 dist/
 .vite/
+
+# Environment-specific appsettings (use .example files as templates)
+appsettings.Development.json
+appsettings.Production.json

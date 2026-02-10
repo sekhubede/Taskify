@@ -1,0 +1,11 @@
+{
+  "MFiles": {
+    "VaultGuid": "{YOUR-PROD-VAULT-GUID-HERE}"
+  },
+  "Urls": "http://localhost:5000",
+  "Logging": {
+    "LogLevel": {
+      "Default": "Warning"
+    }
+  }
+}
