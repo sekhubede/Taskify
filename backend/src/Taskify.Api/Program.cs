@@ -1,7 +1,6 @@
 using Autofac;
 using Autofac.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Taskify.Application.Assignments.Services;
@@ -17,14 +16,6 @@ using MFilesAPI;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Host.UseServiceProviderFactory(new AutofacServiceProviderFactory());
-
-builder.Configuration
-    .SetBasePath(Directory.GetCurrentDirectory())
-    .AddJsonFile("appsettings.json", optional: true)
-    .AddEnvironmentVariables();
-
-// Note: To bind to internal network, set "Urls": "http://0.0.0.0:5000" in appsettings.json
-// or set environment variable ASPNETCORE_URLS=http://0.0.0.0:5000
 
 // Logging: console/debug in dev; Event Log when running as a Windows service
 builder.Services.AddLogging(logging =>
