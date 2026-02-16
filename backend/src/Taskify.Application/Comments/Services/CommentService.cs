@@ -25,13 +25,13 @@ public class CommentService
         }
     }
 
-    public Comment AddComment(int assignmentId, string content)
+    public Comment AddComment(int assignmentId, string content, string authorName)
     {
         ValidateCommentContent(content);
 
         try
         {
-            var comment = _commentRepository.AddComment(assignmentId, content);
+            var comment = _commentRepository.AddComment(assignmentId, content, authorName);
             Console.WriteLine($"Comment added to assignment {assignmentId}");
             return comment;
         }

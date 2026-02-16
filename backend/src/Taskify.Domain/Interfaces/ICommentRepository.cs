@@ -5,15 +5,14 @@ namespace Taskify.Domain.Interfaces;
 public interface ICommentRepository
 {
     /// <summary>
-    /// Retrieves all vault comments for a specific assignment.
+    /// Retrieves all comments for a specific assignment.
     /// </summary>
     List<Comment> GetCommentsForAssignment(int assignmentId);
 
     /// <summary>
-    /// Adds a vault comment to an assignment.
-    /// Vault comments are visible to all users with access to the assignment.
+    /// Adds a comment to an assignment.
     /// </summary>
-    Comment AddComment(int assignmentId, string content);
+    Comment AddComment(int assignmentId, string content, string authorName);
 
     /// <summary>
     /// Gets the count of comments for an assignment.

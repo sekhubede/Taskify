@@ -67,8 +67,8 @@ public class CommentServiceTests
         var svc = new CommentService(repo.Object);
 
         // Act + Assert
-        Assert.Throws<ArgumentException>(() => svc.AddComment(1, " "));
-        Assert.Throws<ArgumentException>(() => svc.AddComment(1, ""));
+        Assert.Throws<ArgumentException>(() => svc.AddComment(1, " ", "Author"));
+        Assert.Throws<ArgumentException>(() => svc.AddComment(1, "", "Author"));
     }
 
     [Fact]
@@ -81,7 +81,7 @@ public class CommentServiceTests
         var tooLong = new string('x', 5001);
 
         // Act + Assert
-        Assert.Throws<ArgumentException>(() => svc.AddComment(1, tooLong));
+        Assert.Throws<ArgumentException>(() => svc.AddComment(1, tooLong, "Author"));
     }
 
     [Fact]
@@ -90,16 +90,16 @@ public class CommentServiceTests
         // Arrange
         var expected = MakeComment(10, 5, "hello", "Bob");
         var repo = new Mock<ICommentRepository>();
-        repo.Setup(r => r.AddComment(5, "hello")).Returns(expected);
+        repo.Setup(r => r.AddComment(5, "hello", "Bob")).Returns(expected);
 
         var svc = new CommentService(repo.Object);
 
         // Act
-        var result = svc.AddComment(5, "hello");
+        var result = svc.AddComment(5, "hello", "Bob");
 
         // Assert
         Assert.Same(expected, result);
-        repo.Verify(r => r.AddComment(5, "hello"), Times.Once);
+        repo.Verify(r => r.AddComment(5, "hello", "Bob"), Times.Once);
     }
 
     [Fact]
@@ -125,9 +125,9 @@ public class CommentServiceTests
         var now = DateTime.UtcNow;
         var comments = new List<Comment>
         {
-            MakeComment(1, 9, "old", created: now.AddHours(-30)),   // not recent
-            MakeComment(2, 9, "recent", created: now.AddHours(-2)), // recent
-            MakeComment(3, 9, "recent2", created: now.AddHours(-10))// recent
+            MakeComment(1, 9, "old", created: now.AddHours(-30)),
+            MakeComment(2, 9, "recent", created: now.AddHours(-2)),
+            MakeComment(3, 9, "recent2", created: now.AddHours(-10))
         };
 
         var repo = new Mock<ICommentRepository>();
@@ -144,5 +144,3 @@ public class CommentServiceTests
         Assert.Equal(comments.Max(c => c.CreatedDate), summary.LatestCommentDate);
     }
 }
-
-

@@ -5,19 +5,9 @@
         <ImplicitUsings>enable</ImplicitUsings>
     </PropertyGroup>
     <ItemGroup>
-        <PackageReference Include="Autofac" Version="8.4.0"/>
-        <PackageReference Include="Autofac.Extensions.DependencyInjection" Version="10.0.0"/>
-    </ItemGroup>
-    <ItemGroup>
+        <ProjectReference Include="..\Taskify.Connectors\Taskify.Connectors.csproj"/>
         <ProjectReference Include="..\Taskify.Infrastructure\Taskify.Infrastructure.csproj"/>
         <ProjectReference Include="..\Taskify.Application\Taskify.Application.csproj"/>
         <ProjectReference Include="..\Taskify.Domain\Taskify.Domain.csproj"/>
-    </ItemGroup>
-    <ItemGroup>
-        <Reference Include="Interop.MFilesAPI">
-            <HintPath>..\Taskify.Infrastructure\lib\Interop.MFilesAPI.dll</HintPath>
-            <EmbedInteropTypes>false</EmbedInteropTypes>
-            <Private>true</Private>
-        </Reference>
     </ItemGroup>
 </Project>

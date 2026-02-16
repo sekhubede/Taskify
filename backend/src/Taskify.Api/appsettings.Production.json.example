@@ -1,4 +1,7 @@
 {
+  "Taskify": {
+    "DataSource": "MFiles"
+  },
   "MFiles": {
     "VaultGuid": "{YOUR-PROD-VAULT-GUID-HERE}"
   },
