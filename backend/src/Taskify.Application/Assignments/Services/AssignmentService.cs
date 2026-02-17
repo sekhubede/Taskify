@@ -1,30 +1,31 @@
+using Taskify.Connectors;
 using Taskify.Domain.Entities;
-using Taskify.Domain.Interfaces;
 
 namespace Taskify.Application.Assignments.Services;
 
 public class AssignmentService
 {
-    private readonly IAssignmentRepository _assignmentRepository;
+    private readonly ITaskDataSource _dataSource;
+    private readonly ISubtaskLoader _subtaskLoader;
 
-    public AssignmentService(IAssignmentRepository assignmentRepository)
+    public AssignmentService(ITaskDataSource dataSource, ISubtaskLoader subtaskLoader)
     {
-        _assignmentRepository = assignmentRepository;
+        _dataSource = dataSource;
+        _subtaskLoader = subtaskLoader;
     }
 
     public List<Assignment> GetUserAssignments()
     {
         try
         {
-            var assignments = _assignmentRepository.GetUserAssignments();
+            var tasks = _dataSource.GetAllTasksAsync().GetAwaiter().GetResult();
+            var assignments = tasks.Select(t => MapToAssignment(t)).ToList();
 
-            // Sort by overdue first; within overdue, nearest due (most recent past) first.
-            // Then non-overdue by nearest future due date; null due dates last.
             return assignments
                 .OrderByDescending(a => a.IsOverdue())
                 .ThenBy(a => a.IsOverdue()
-                    ? -(a.DueDate?.Ticks ?? long.MinValue) // overdue: more recent past first
-                    : (a.DueDate?.Ticks ?? long.MaxValue)) // non-overdue: earlier future first; nulls last
+                    ? -(a.DueDate?.Ticks ?? long.MinValue)
+                    : (a.DueDate?.Ticks ?? long.MaxValue))
                 .ToList();
         }
         catch (Exception ex)
@@ -36,14 +37,24 @@ public class AssignmentService
 
     public Assignment? GetAssignment(int assignmentId)
     {
-        return _assignmentRepository.GetAssignmentById(assignmentId);
+        try
+        {
+            var task = _dataSource.GetTaskByIdAsync(assignmentId.ToString()).GetAwaiter().GetResult();
+            return task != null ? MapToAssignment(task) : null;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error retrieving assignment {assignmentId}: {ex.Message}");
+            return null;
+        }
     }
 
     public bool CompleteAssignment(int assignmentId)
     {
         try
         {
-            return _assignmentRepository.MarkAssignmentComplete(assignmentId);
+            return _dataSource.UpdateTaskStatusAsync(assignmentId.ToString(), TaskItemStatus.Completed)
+                .GetAwaiter().GetResult();
         }
         catch (Exception ex)
         {
@@ -64,6 +75,47 @@ public class AssignmentService
             DueSoonAssignments = assignments.Count(a => a.IsDueSoon())
         };
     }
+
+    private Assignment MapToAssignment(TaskDTO task)
+    {
+        var id = int.TryParse(task.Id, out var parsedId) ? parsedId : task.Id.GetHashCode();
+
+        var subtasks = _subtaskLoader.LoadSubtasks(id);
+
+        return new Assignment(
+            id: id,
+            title: task.Title,
+            description: task.Description,
+            dueDate: task.DueDate,
+            status: MapStatus(task.Status),
+            assignedTo: task.AssigneeName,
+            createdDate: task.CreatedAt,
+            completedDate: task.CompletedAt,
+            subtasks: subtasks
+        );
+    }
+
+    private static AssignmentStatus MapStatus(TaskItemStatus status)
+    {
+        return status switch
+        {
+            TaskItemStatus.Open => AssignmentStatus.NotStarted,
+            TaskItemStatus.InProgress => AssignmentStatus.InProgress,
+            TaskItemStatus.Blocked => AssignmentStatus.OnHold,
+            TaskItemStatus.Completed => AssignmentStatus.Completed,
+            TaskItemStatus.Overdue => AssignmentStatus.InProgress,
+            _ => AssignmentStatus.NotStarted
+        };
+    }
+}
+
+/// <summary>
+/// Abstraction to load subtasks without creating a circular dependency
+/// between Application and Infrastructure layers.
+/// </summary>
+public interface ISubtaskLoader
+{
+    List<Subtask> LoadSubtasks(int assignmentId);
 }
 
 public class AssignmentSummary

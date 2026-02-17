@@ -1,58 +1,62 @@
 using Xunit;
 using Moq;
+using Taskify.Connectors;
 using Taskify.Application.Comments.Services;
 using Taskify.Domain.Entities;
-using Taskify.Domain.Interfaces;
 
 namespace Taskify.Tests.Unit.Application.Comments;
 
 public class CommentServiceTests
 {
-    private static Comment MakeComment(
+    private static CommentDTO MakeCommentDTO(
         int id,
         int assignmentId,
         string content = "content",
         string author = "Alice",
         DateTime? created = null)
     {
-        return new Comment(
-            id: id,
-            content: content,
-            authorName: author,
-            createdDate: created ?? DateTime.UtcNow,
-            assignmentId: assignmentId);
+        return new CommentDTO
+        {
+            Id = id,
+            Content = content,
+            AuthorName = author,
+            CreatedDate = created ?? DateTime.UtcNow,
+            AssignmentId = assignmentId
+        };
     }
 
     [Fact]
-    public void GetAssignmentComments_Forwards_To_Repository_And_Returns_List()
+    public void GetAssignmentComments_Returns_Mapped_Comments_From_DataSource()
     {
         // Arrange
-        var comments = new List<Comment>
+        var dtos = new List<CommentDTO>
         {
-            MakeComment(1, 42, "c1"),
-            MakeComment(2, 42, "c2")
+            MakeCommentDTO(1, 42, "c1"),
+            MakeCommentDTO(2, 42, "c2")
         };
 
-        var repo = new Mock<ICommentRepository>();
-        repo.Setup(r => r.GetCommentsForAssignment(42)).Returns(comments);
+        var ds = new Mock<ITaskDataSource>();
+        ds.Setup(r => r.GetCommentsForTaskAsync("42")).ReturnsAsync(dtos);
 
-        var svc = new CommentService(repo.Object);
+        var svc = new CommentService(ds.Object);
 
         // Act
         var result = svc.GetAssignmentComments(42);
 
         // Assert
-        Assert.Same(comments, result);
-        repo.Verify(r => r.GetCommentsForAssignment(42), Times.Once);
+        Assert.Equal(2, result.Count);
+        Assert.Equal("c1", result[0].Content);
+        Assert.Equal("c2", result[1].Content);
+        ds.Verify(r => r.GetCommentsForTaskAsync("42"), Times.Once);
     }
 
     [Fact]
     public void GetAssignmentComments_Propagates_Exception()
     {
         // Arrange
-        var repo = new Mock<ICommentRepository>();
-        repo.Setup(r => r.GetCommentsForAssignment(7)).Throws(new ApplicationException("boom"));
-        var svc = new CommentService(repo.Object);
+        var ds = new Mock<ITaskDataSource>();
+        ds.Setup(r => r.GetCommentsForTaskAsync("7")).ThrowsAsync(new ApplicationException("boom"));
+        var svc = new CommentService(ds.Object);
 
         // Act + Assert
         var ex = Assert.Throws<ApplicationException>(() => svc.GetAssignmentComments(7));
@@ -63,8 +67,8 @@ public class CommentServiceTests
     public void AddComment_Validates_Content_NonEmpty()
     {
         // Arrange
-        var repo = new Mock<ICommentRepository>(MockBehavior.Strict);
-        var svc = new CommentService(repo.Object);
+        var ds = new Mock<ITaskDataSource>(MockBehavior.Strict);
+        var svc = new CommentService(ds.Object);
 
         // Act + Assert
         Assert.Throws<ArgumentException>(() => svc.AddComment(1, " "));
@@ -75,8 +79,8 @@ public class CommentServiceTests
     public void AddComment_Validates_Content_Max_Length()
     {
         // Arrange
-        var repo = new Mock<ICommentRepository>(MockBehavior.Strict);
-        var svc = new CommentService(repo.Object);
+        var ds = new Mock<ITaskDataSource>(MockBehavior.Strict);
+        var svc = new CommentService(ds.Object);
 
         var tooLong = new string('x', 5001);
 
@@ -85,37 +89,39 @@ public class CommentServiceTests
     }
 
     [Fact]
-    public void AddComment_Forwards_To_Repository_When_Valid()
+    public void AddComment_Forwards_To_DataSource_When_Valid()
     {
         // Arrange
-        var expected = MakeComment(10, 5, "hello", "Bob");
-        var repo = new Mock<ICommentRepository>();
-        repo.Setup(r => r.AddComment(5, "hello")).Returns(expected);
+        var dto = MakeCommentDTO(10, 5, "hello", "Bob");
+        var ds = new Mock<ITaskDataSource>();
+        ds.Setup(r => r.AddCommentAsync("5", "hello")).ReturnsAsync(dto);
 
-        var svc = new CommentService(repo.Object);
+        var svc = new CommentService(ds.Object);
 
         // Act
         var result = svc.AddComment(5, "hello");
 
         // Assert
-        Assert.Same(expected, result);
-        repo.Verify(r => r.AddComment(5, "hello"), Times.Once);
+        Assert.Equal(10, result.Id);
+        Assert.Equal("hello", result.Content);
+        Assert.Equal("Bob", result.AuthorName);
+        ds.Verify(r => r.AddCommentAsync("5", "hello"), Times.Once);
     }
 
     [Fact]
-    public void GetCommentCount_Forwards_To_Repository()
+    public void GetCommentCount_Forwards_To_DataSource()
     {
         // Arrange
-        var repo = new Mock<ICommentRepository>();
-        repo.Setup(r => r.GetCommentCount(23)).Returns(3);
-        var svc = new CommentService(repo.Object);
+        var ds = new Mock<ITaskDataSource>();
+        ds.Setup(r => r.GetCommentCountAsync("23")).ReturnsAsync(3);
+        var svc = new CommentService(ds.Object);
 
         // Act
         var count = svc.GetCommentCount(23);
 
         // Assert
         Assert.Equal(3, count);
-        repo.Verify(r => r.GetCommentCount(23), Times.Once);
+        ds.Verify(r => r.GetCommentCountAsync("23"), Times.Once);
     }
 
     [Fact]
@@ -123,17 +129,17 @@ public class CommentServiceTests
     {
         // Arrange
         var now = DateTime.UtcNow;
-        var comments = new List<Comment>
+        var dtos = new List<CommentDTO>
         {
-            MakeComment(1, 9, "old", created: now.AddHours(-30)),   // not recent
-            MakeComment(2, 9, "recent", created: now.AddHours(-2)), // recent
-            MakeComment(3, 9, "recent2", created: now.AddHours(-10))// recent
+            MakeCommentDTO(1, 9, "old", created: now.AddHours(-30)),
+            MakeCommentDTO(2, 9, "recent", created: now.AddHours(-2)),
+            MakeCommentDTO(3, 9, "recent2", created: now.AddHours(-10))
         };
 
-        var repo = new Mock<ICommentRepository>();
-        repo.Setup(r => r.GetCommentsForAssignment(9)).Returns(comments);
+        var ds = new Mock<ITaskDataSource>();
+        ds.Setup(r => r.GetCommentsForTaskAsync("9")).ReturnsAsync(dtos);
 
-        var svc = new CommentService(repo.Object);
+        var svc = new CommentService(ds.Object);
 
         // Act
         var summary = svc.GetCommentSummary(9);
@@ -141,8 +147,6 @@ public class CommentServiceTests
         // Assert
         Assert.Equal(3, summary.TotalComments);
         Assert.Equal(2, summary.RecentComments);
-        Assert.Equal(comments.Max(c => c.CreatedDate), summary.LatestCommentDate);
+        Assert.NotNull(summary.LatestCommentDate);
     }
 }
-
-

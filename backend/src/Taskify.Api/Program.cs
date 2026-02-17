@@ -1,32 +1,15 @@
-using Autofac;
-using Autofac.Extensions.DependencyInjection;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
+using Taskify.Connectors;
 using Taskify.Application.Assignments.Services;
 using Taskify.Application.Comments.Services;
 using Taskify.Application.Subtasks.Services;
 using Taskify.Domain.Interfaces;
-using Taskify.Infrastructure.MFilesInterop;
 using Taskify.Infrastructure.Storage;
-using Taskify.Api.Configuration;
 using Taskify.Api.Infrastructure;
-using MFilesAPI;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Host.UseServiceProviderFactory(new AutofacServiceProviderFactory());
-
-builder.Configuration
-    .SetBasePath(Directory.GetCurrentDirectory())
-    .AddJsonFile("appsettings.json", optional: true)
-    .AddEnvironmentVariables();
-
-// Note: To bind to internal network, set "Urls": "http://0.0.0.0:5000" in appsettings.json
-// or set environment variable ASPNETCORE_URLS=http://0.0.0.0:5000
-
-// Logging: console/debug in dev; Event Log when running as a Windows service
+// Logging
 builder.Services.AddLogging(logging =>
 {
     logging.ClearProviders();
@@ -49,92 +32,56 @@ builder.Services.AddCors(options =>
         policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod());
 });
 
-// Autofac DI
-builder.Host.ConfigureContainer<ContainerBuilder>(containerBuilder =>
+// ── Data Source Connector (pluggable via config) ──
+builder.Services.AddSingleton<ConnectorFactory>();
+builder.Services.AddSingleton<ITaskDataSource>(sp =>
 {
-    var configuration = builder.Configuration;
-    var mfilesSettings = configuration.GetSection("MFiles").Get<MFilesSettings>()
-        ?? throw new InvalidOperationException("MFiles configuration missing");
-    containerBuilder.RegisterInstance(mfilesSettings).AsSelf().SingleInstance();
-    containerBuilder.RegisterInstance(configuration).As<IConfiguration>();
-
-    // Vault connection manager
-    containerBuilder.RegisterType<MFilesVaultConnectionManager>()
-        .As<IVaultConnectionManager>()
-        .AsSelf()
-        .SingleInstance()
-        .OnRelease(instance => instance.Dispose());
-
-    // Repositories
-    containerBuilder.RegisterType<MFilesAssignmentRepository>()
-        .As<IAssignmentRepository>()
-        .InstancePerLifetimeScope();
-    containerBuilder.RegisterType<MFilesCommentRepository>()
-        .As<ICommentRepository>()
-        .InstancePerLifetimeScope();
-    containerBuilder.RegisterType<SubtaskStore>()
-        .AsSelf()
-        .SingleInstance();
-    containerBuilder.RegisterType<SubtaskNoteStore>()
-        .AsSelf()
-        .SingleInstance();
-    containerBuilder.RegisterType<CommentNoteStore>()
-        .AsSelf()
-        .SingleInstance();
-    containerBuilder.RegisterType<CommentFlagStore>()
-        .AsSelf()
-        .SingleInstance();
-    containerBuilder.RegisterType<AssignmentBoardStore>()
-        .AsSelf()
-        .SingleInstance();
-    containerBuilder.RegisterType<WorkingOnStore>()
-        .AsSelf()
-        .SingleInstance();
-    containerBuilder.RegisterType<LocalSubtaskRepository>()
-        .As<ISubtaskRepository>()
-        .InstancePerLifetimeScope();
-
-    // Services
-    containerBuilder.RegisterAssemblyTypes(typeof(AssignmentService).Assembly)
-        .Where(t => t.Name.EndsWith("Service"))
-        .AsSelf()
-        .InstancePerLifetimeScope();
-    containerBuilder.RegisterType<CommentNoteService>()
-        .AsSelf()
-        .InstancePerLifetimeScope();
-    containerBuilder.RegisterType<CommentFlagService>()
-        .AsSelf()
-        .InstancePerLifetimeScope();
-    containerBuilder.RegisterType<AssignmentBoardService>()
-        .AsSelf()
-        .InstancePerLifetimeScope();
-    containerBuilder.RegisterType<WorkingOnService>()
-        .AsSelf()
-        .InstancePerLifetimeScope();
+    var factory = sp.GetRequiredService<ConnectorFactory>();
+    return factory.Create();
 });
 
-// Initialize M-Files connection at startup
-builder.Services.AddHostedService<MFilesConnectionHostedService>();
+// ── Local Storage (Taskify-owned data: subtasks, notes, flags, board) ──
+builder.Services.AddSingleton<SubtaskStore>();
+builder.Services.AddSingleton<SubtaskNoteStore>();
+builder.Services.AddSingleton<CommentNoteStore>();
+builder.Services.AddSingleton<CommentFlagStore>();
+builder.Services.AddSingleton<AssignmentBoardStore>();
+builder.Services.AddSingleton<WorkingOnStore>();
+
+// ── Repositories ──
+builder.Services.AddScoped<ISubtaskRepository, LocalSubtaskRepository>();
+builder.Services.AddScoped<ISubtaskLoader, SubtaskLoader>();
+
+// ── Application Services ──
+builder.Services.AddScoped<AssignmentService>();
+builder.Services.AddScoped<CommentService>();
+builder.Services.AddScoped<SubtaskService>();
+builder.Services.AddScoped<CommentNoteService>();
+builder.Services.AddScoped<CommentFlagService>();
+builder.Services.AddScoped<AssignmentBoardService>();
+builder.Services.AddScoped<WorkingOnService>();
+
+// Verify connector on startup
+builder.Services.AddHostedService<ConnectorHostedService>();
 
 var app = builder.Build();
 
 app.UseCors();
 
-// Simple health
-app.MapGet("api/health", () => Results.Ok(new { status = "ok" }));
+// ─── Health ───
+app.MapGet("api/health", async (ITaskDataSource ds) =>
+{
+    var available = await ds.IsAvailableAsync();
+    return Results.Ok(new { status = available ? "ok" : "degraded" });
+});
 
-// Current user
-app.MapGet("api/user/current", (IVaultConnectionManager connectionManager) =>
+// ─── Current User ───
+app.MapGet("api/user/current", async (ITaskDataSource ds) =>
 {
     try
     {
-        var vaultConnection = connectionManager.GetVaultConnection();
-        if (vaultConnection is MFilesAPI.Vault vault)
-        {
-            var userName = vault.SessionInfo?.AccountName ?? $"User_{vault.CurrentLoggedInUserID}";
-            return Results.Ok(new { userName });
-        }
-        return Results.BadRequest("Vault not connected");
+        var userName = await ds.GetCurrentUserNameAsync();
+        return Results.Ok(new { userName });
     }
     catch (Exception ex)
     {
@@ -142,7 +89,7 @@ app.MapGet("api/user/current", (IVaultConnectionManager connectionManager) =>
     }
 });
 
-// Assignments
+// ─── Assignments ───
 app.MapGet("api/assignments", (AssignmentService svc) => Results.Ok(svc.GetUserAssignments()));
 app.MapGet("api/assignments/{id:int}", (int id, AssignmentService svc) =>
 {
@@ -191,7 +138,7 @@ app.MapGet("api/assignments/working-on", (WorkingOnService svc) =>
     return Results.Ok(workingOnIds.ToList());
 });
 
-// Comments
+// ─── Comments ───
 app.MapGet("api/assignments/{id:int}/comments", (int id, CommentService svc) =>
     Results.Ok(svc.GetAssignmentComments(id)));
 app.MapGet("api/assignments/comments/counts", (AssignmentService assignmentSvc, CommentService commentSvc) =>
@@ -215,6 +162,7 @@ app.MapPost("api/assignments/{id:int}/comments", async (int id, CommentService s
     var body = await req.ReadFromJsonAsync<AddCommentRequest>();
     if (body == null || string.IsNullOrWhiteSpace(body.Content))
         return Results.BadRequest("content is required");
+
     var c = svc.AddComment(id, body.Content.Trim());
     return Results.Ok(c);
 });
@@ -252,7 +200,7 @@ app.MapPut("api/comments/{id:int}/flag", async (int id, CommentFlagService svc, 
     return Results.Ok();
 });
 
-// Subtasks
+// ─── Subtasks ───
 app.MapGet("api/assignments/{id:int}/subtasks", (int id, SubtaskService svc) =>
     Results.Ok(svc.GetSubtasksForAssignment(id)));
 app.MapPost("api/assignments/{id:int}/subtasks", async (int id, SubtaskService svc, HttpRequest req) =>
@@ -263,7 +211,6 @@ app.MapPost("api/assignments/{id:int}/subtasks", async (int id, SubtaskService s
     var s = svc.AddSubtask(id, body.Title.Trim(), body.Order);
     return Results.Ok(s);
 });
-
 app.MapPost("api/subtasks/{id:int}/toggle", async (int id, SubtaskService svc, HttpRequest req) =>
 {
     var body = await req.ReadFromJsonAsync<ToggleSubtaskRequest>();
@@ -272,7 +219,6 @@ app.MapPost("api/subtasks/{id:int}/toggle", async (int id, SubtaskService svc, H
     var ok = svc.ToggleSubtaskCompletion(id, body.IsCompleted);
     return ok ? Results.Ok() : Results.BadRequest();
 });
-
 app.MapPut("api/subtasks/{id:int}/note", async (int id, SubtaskService svc, HttpRequest req) =>
 {
     var body = await req.ReadFromJsonAsync<UpdateNoteRequest>();
@@ -323,5 +269,3 @@ public record UpdateCommentFlagRequest(bool IsFlagged);
 public record ReorderSubtasksRequest(Dictionary<int, int> SubtaskOrders);
 public record UpdateBoardColumnRequest(string? Column);
 public record UpdateWorkingOnRequest(bool IsWorkingOn);
-
-

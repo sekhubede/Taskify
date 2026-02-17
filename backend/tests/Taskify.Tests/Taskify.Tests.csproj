@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -16,6 +16,7 @@
     <Using Include="Xunit"/>
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\src\Taskify.Connectors\Taskify.Connectors.csproj"/>
     <ProjectReference Include="..\..\src\Taskify.Application\Taskify.Application.csproj"/>
     <ProjectReference Include="..\..\src\Taskify.Domain\Taskify.Domain.csproj"/>
     <ProjectReference Include="..\..\src\Taskify.Infrastructure\Taskify.Infrastructure.csproj"/>
