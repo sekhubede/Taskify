@@ -1,22 +1,31 @@
+using Taskify.Connectors;
 using Taskify.Domain.Entities;
-using Taskify.Domain.Interfaces;
 
 namespace Taskify.Application.Comments.Services;
 
 public class CommentService
 {
-    private readonly ICommentRepository _commentRepository;
+    private readonly ITaskDataSource _dataSource;
 
-    public CommentService(ICommentRepository commentRepository)
+    public CommentService(ITaskDataSource dataSource)
     {
-        _commentRepository = commentRepository;
+        _dataSource = dataSource;
     }
 
     public List<Comment> GetAssignmentComments(int assignmentId)
     {
         try
         {
-            return _commentRepository.GetCommentsForAssignment(assignmentId);
+            var dtos = _dataSource.GetCommentsForTaskAsync(assignmentId.ToString())
+                .GetAwaiter().GetResult();
+
+            return dtos.Select(dto => new Comment(
+                id: dto.Id,
+                content: dto.Content,
+                authorName: dto.AuthorName,
+                createdDate: dto.CreatedDate,
+                assignmentId: assignmentId
+            )).ToList();
         }
         catch (Exception ex)
         {
@@ -25,15 +34,24 @@ public class CommentService
         }
     }
 
-    public Comment AddComment(int assignmentId, string content, string authorName)
+    public Comment AddComment(int assignmentId, string content)
     {
         ValidateCommentContent(content);
 
         try
         {
-            var comment = _commentRepository.AddComment(assignmentId, content, authorName);
+            var dto = _dataSource.AddCommentAsync(assignmentId.ToString(), content)
+                .GetAwaiter().GetResult();
+
             Console.WriteLine($"Comment added to assignment {assignmentId}");
-            return comment;
+
+            return new Comment(
+                id: dto.Id,
+                content: dto.Content,
+                authorName: dto.AuthorName,
+                createdDate: dto.CreatedDate,
+                assignmentId: assignmentId
+            );
         }
         catch (Exception ex)
         {
@@ -44,7 +62,8 @@ public class CommentService
 
     public int GetCommentCount(int assignmentId)
     {
-        return _commentRepository.GetCommentCount(assignmentId);
+        return _dataSource.GetCommentCountAsync(assignmentId.ToString())
+            .GetAwaiter().GetResult();
     }
 
     public CommentSummary GetCommentSummary(int assignmentId)

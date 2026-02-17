@@ -40,4 +40,21 @@ public interface ITaskDataSource
     /// Returns the source system's concept of "current user".
     /// </summary>
     Task<string> GetCurrentUserNameAsync();
+
+    // ── Comments ──
+
+    /// <summary>
+    /// Retrieves all comments for a specific task/assignment from the source system.
+    /// </summary>
+    Task<IReadOnlyList<CommentDTO>> GetCommentsForTaskAsync(string taskId);
+
+    /// <summary>
+    /// Adds a comment to a task/assignment in the source system.
+    /// </summary>
+    Task<CommentDTO> AddCommentAsync(string taskId, string content);
+
+    /// <summary>
+    /// Gets the count of comments for a task/assignment.
+    /// </summary>
+    Task<int> GetCommentCountAsync(string taskId);
 }

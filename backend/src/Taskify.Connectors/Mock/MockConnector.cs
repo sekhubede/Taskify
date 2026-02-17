@@ -8,10 +8,13 @@ namespace Taskify.Connectors.Mock;
 public class MockConnector : ITaskDataSource
 {
     private readonly List<TaskDTO> _tasks;
+    private readonly Dictionary<string, List<CommentDTO>> _comments;
+    private int _nextCommentId = 100;
 
     public MockConnector()
     {
         _tasks = GenerateMockTasks();
+        _comments = GenerateMockComments();
     }
 
     public async Task<IReadOnlyList<TaskDTO>> GetAllTasksAsync()
@@ -54,6 +57,42 @@ public class MockConnector : ITaskDataSource
     public Task<string> GetCurrentUserNameAsync()
     {
         return Task.FromResult("Mock User");
+    }
+
+    public async Task<IReadOnlyList<CommentDTO>> GetCommentsForTaskAsync(string taskId)
+    {
+        await Task.Delay(100);
+        if (!_comments.TryGetValue(taskId, out var comments))
+            return new List<CommentDTO>().AsReadOnly();
+
+        return comments.OrderBy(c => c.Id).ToList().AsReadOnly();
+    }
+
+    public Task<CommentDTO> AddCommentAsync(string taskId, string content)
+    {
+        var assignmentId = int.TryParse(taskId, out var id) ? id : taskId.GetHashCode();
+
+        var comment = new CommentDTO
+        {
+            Id = _nextCommentId++,
+            Content = content,
+            AuthorName = "Mock User",
+            CreatedDate = DateTime.UtcNow,
+            AssignmentId = assignmentId
+        };
+
+        if (!_comments.ContainsKey(taskId))
+            _comments[taskId] = new List<CommentDTO>();
+
+        _comments[taskId].Add(comment);
+
+        return Task.FromResult(comment);
+    }
+
+    public async Task<int> GetCommentCountAsync(string taskId)
+    {
+        await Task.Delay(50);
+        return _comments.TryGetValue(taskId, out var comments) ? comments.Count : 0;
     }
 
     /// <summary>
@@ -201,6 +240,35 @@ public class MockConnector : ITaskDataSource
                 LastUpdatedAt = now.AddDays(-10),
                 SourceSystem = "Mock",
                 SourceId = "1009"
+            }
+        };
+    }
+
+    private static Dictionary<string, List<CommentDTO>> GenerateMockComments()
+    {
+        var now = DateTime.UtcNow;
+
+        return new Dictionary<string, List<CommentDTO>>
+        {
+            ["1001"] = new List<CommentDTO>
+            {
+                new CommentDTO { Id = 1, Content = "Started working on the login flow. OAuth2 integration is trickier than expected.", AuthorName = "Sarah", CreatedDate = now.AddDays(-3), AssignmentId = 1001 },
+                new CommentDTO { Id = 2, Content = "Token refresh logic is done. Moving to registration next.", AuthorName = "Sarah", CreatedDate = now.AddDays(-1), AssignmentId = 1001 },
+                new CommentDTO { Id = 3, Content = "Looking good. Make sure to add rate limiting on the login endpoint.", AuthorName = "James", CreatedDate = now.AddHours(-6), AssignmentId = 1001 }
+            },
+            ["1003"] = new List<CommentDTO>
+            {
+                new CommentDTO { Id = 4, Content = "FedEx API credentials still pending from ops team.", AuthorName = "James", CreatedDate = now.AddDays(-4), AssignmentId = 1003 },
+                new CommentDTO { Id = 5, Content = "Blocked - waiting on API key approval. Escalated to management.", AuthorName = "James", CreatedDate = now.AddDays(-2), AssignmentId = 1003 }
+            },
+            ["1005"] = new List<CommentDTO>
+            {
+                new CommentDTO { Id = 6, Content = "Reproduced the issue. Special characters like commas and quotes break CSV parsing.", AuthorName = "Thabo", CreatedDate = now.AddDays(-5), AssignmentId = 1005 }
+            },
+            ["1007"] = new List<CommentDTO>
+            {
+                new CommentDTO { Id = 7, Content = "Pipeline is live on staging. All tests green.", AuthorName = "Lebo", CreatedDate = now.AddHours(-2), AssignmentId = 1007 },
+                new CommentDTO { Id = 8, Content = "Great work! Verified deployment works end to end.", AuthorName = "Sarah", CreatedDate = now.AddHours(-1), AssignmentId = 1007 }
             }
         };
     }

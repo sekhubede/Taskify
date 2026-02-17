@@ -4,7 +4,6 @@ using Taskify.Connectors;
 using Taskify.Application.Assignments.Services;
 using Taskify.Application.Comments.Services;
 using Taskify.Application.Subtasks.Services;
-using Taskify.Domain.Interfaces;
 using Taskify.Infrastructure.Storage;
 
 namespace Taskify.MFiles;
@@ -31,13 +30,11 @@ public class Program
 
         var subtaskStore = new SubtaskStore();
         var subtaskNoteStore = new SubtaskNoteStore();
-        var localCommentStore = new LocalCommentStore();
         var subtaskRepo = new LocalSubtaskRepository(subtaskStore, subtaskNoteStore);
-        var commentRepo = new LocalCommentRepository(localCommentStore);
         var subtaskLoader = new SubtaskLoader(subtaskRepo);
 
         var assignmentService = new AssignmentService(dataSource, subtaskLoader);
-        var commentService = new CommentService(commentRepo);
+        var commentService = new CommentService(dataSource);
         var subtaskService = new SubtaskService(subtaskRepo);
 
         await RunConsoleTests(dataSource, assignmentService, commentService, subtaskService);
@@ -215,11 +212,9 @@ public class Program
         }
 
         Console.Write("\nAdding test comment... ");
-        var authorName = await dataSource.GetCurrentUserNameAsync();
         var newComment = commentService.AddComment(
             testAssignment.Id,
-            $"Test comment from Taskify - {DateTime.Now:yyyy-MM-dd HH:mm:ss}",
-            authorName);
+            $"Test comment from Taskify - {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
         Console.WriteLine("✓");
 
         var summary = commentService.GetCommentSummary(testAssignment.Id);

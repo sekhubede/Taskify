@@ -6,6 +6,7 @@ using Taskify.Domain.Interfaces;
 using Taskify.Infrastructure.Storage;
 using Taskify.Api.Infrastructure;
 
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Logging
@@ -39,10 +40,9 @@ builder.Services.AddSingleton<ITaskDataSource>(sp =>
     return factory.Create();
 });
 
-// ── Local Storage (Taskify-owned data) ──
+// ── Local Storage (Taskify-owned data: subtasks, notes, flags, board) ──
 builder.Services.AddSingleton<SubtaskStore>();
 builder.Services.AddSingleton<SubtaskNoteStore>();
-builder.Services.AddSingleton<LocalCommentStore>();
 builder.Services.AddSingleton<CommentNoteStore>();
 builder.Services.AddSingleton<CommentFlagStore>();
 builder.Services.AddSingleton<AssignmentBoardStore>();
@@ -50,7 +50,6 @@ builder.Services.AddSingleton<WorkingOnStore>();
 
 // ── Repositories ──
 builder.Services.AddScoped<ISubtaskRepository, LocalSubtaskRepository>();
-builder.Services.AddScoped<ICommentRepository, LocalCommentRepository>();
 builder.Services.AddScoped<ISubtaskLoader, SubtaskLoader>();
 
 // ── Application Services ──
@@ -158,14 +157,13 @@ app.MapGet("api/assignments/comments/counts", (AssignmentService assignmentSvc, 
         return Results.BadRequest($"Error getting comment counts: {ex.Message}");
     }
 });
-app.MapPost("api/assignments/{id:int}/comments", async (int id, CommentService svc, ITaskDataSource ds, HttpRequest req) =>
+app.MapPost("api/assignments/{id:int}/comments", async (int id, CommentService svc, HttpRequest req) =>
 {
     var body = await req.ReadFromJsonAsync<AddCommentRequest>();
     if (body == null || string.IsNullOrWhiteSpace(body.Content))
         return Results.BadRequest("content is required");
 
-    var authorName = await ds.GetCurrentUserNameAsync();
-    var c = svc.AddComment(id, body.Content.Trim(), authorName);
+    var c = svc.AddComment(id, body.Content.Trim());
     return Results.Ok(c);
 });
 app.MapGet("api/comments/{id:int}/note", (int id, CommentNoteService svc) =>

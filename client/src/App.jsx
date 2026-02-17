@@ -29,30 +29,29 @@ function App() {
   const [allAssignmentsCollapsed, setAllAssignmentsCollapsed] = useState(false);
 
   useEffect(() => {
-    // Fetch current user
-    fetch("http://localhost:5000/api/user/current")
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to fetch current user");
-        return res.json();
-      })
-      .then((data) => {
-        setCurrentUser(data.userName);
-      })
-      .catch((err) => {
-        console.error("Error fetching current user:", err);
-      });
+    const loadInitialData = async () => {
+      try {
+        // Fetch current user and assignments in parallel, but wait for both
+        // before clearing the loading state. This guarantees currentUser is
+        // available before the UI becomes interactive.
+        const [userRes, assignmentsRes] = await Promise.all([
+          fetch("http://localhost:5000/api/user/current"),
+          fetch(ASSIGNMENTS_API_URL),
+        ]);
 
-    // Fetch assignments
-    fetch(ASSIGNMENTS_API_URL)
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to fetch assignments");
-        return res.json();
-      })
-      .then((data) => {
-        setAssignments(data);
+        if (userRes.ok) {
+          const userData = await userRes.json();
+          setCurrentUser(userData.userName);
+        } else {
+          console.error("Failed to fetch current user:", userRes.status);
+        }
+
+        if (!assignmentsRes.ok) throw new Error("Failed to fetch assignments");
+        const assignmentsData = await assignmentsRes.json();
+        setAssignments(assignmentsData);
         setLoading(false);
-        
-        // Fetch comment counts for all assignments
+
+        // Fetch secondary data (comment counts, working-on flags) after core data is ready
         fetch("http://localhost:5000/api/assignments/comments/counts")
           .then((res) => {
             if (!res.ok) throw new Error("Failed to fetch comment counts");
@@ -64,13 +63,15 @@ function App() {
           .catch((err) => {
             console.error("Error fetching comment counts:", err);
           });
-      })
-      .catch((err) => {
+      } catch (err) {
         setError(err.toString());
         setLoading(false);
-      });
+      }
+    };
 
-    // Fetch working on flags
+    loadInitialData();
+
+    // Fetch working on flags (independent, non-blocking)
     fetch("http://localhost:5000/api/assignments/working-on")
       .then((res) => {
         if (res.ok) return res.json();

@@ -17,6 +17,7 @@ public class MFilesConnector : ITaskDataSource, IDisposable
     private bool _isConnected;
     private readonly object _connectionLock = new();
     private bool _disposed;
+    private string? _cachedUserDisplayName;
 
     public MFilesConnector(MFilesConfiguration config, ILogger logger)
     {
@@ -134,28 +135,280 @@ public class MFilesConnector : ITaskDataSource, IDisposable
 
     public Task<string> GetCurrentUserNameAsync()
     {
+        if (_cachedUserDisplayName != null)
+            return Task.FromResult(_cachedUserDisplayName);
+
         var vault = GetVault();
 
+        // Resolve display name from the built-in Users value list.
+        // This returns the same name used by version history's LastModifiedBy.DisplayValue,
+        // ensuring the current user name matches comment author names.
         try
         {
-            var userLookupValue = new TypedValue();
-            userLookupValue.SetValue(MFDataType.MFDatatypeLookup, vault.CurrentLoggedInUserID);
-            var displayValue = userLookupValue.DisplayValue;
-            if (!string.IsNullOrWhiteSpace(displayValue))
-                return Task.FromResult(displayValue);
-        }
-        catch { }
+            var userItem = vault.ValueListItemOperations.GetValueListItemByID(
+                (int)MFBuiltInValueList.MFBuiltInValueListUsers,
+                vault.CurrentLoggedInUserID);
 
+            if (!string.IsNullOrWhiteSpace(userItem.Name))
+            {
+                _cachedUserDisplayName = userItem.Name;
+                return Task.FromResult(_cachedUserDisplayName);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to resolve user display name from value list");
+        }
+
+        // Fallback: session account name
         try
         {
             var sessionInfo = vault.SessionInfo;
             if (sessionInfo != null && !string.IsNullOrWhiteSpace(sessionInfo.AccountName))
-                return Task.FromResult(sessionInfo.AccountName);
+            {
+                _cachedUserDisplayName = sessionInfo.AccountName;
+                return Task.FromResult(_cachedUserDisplayName);
+            }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to resolve user name from session info");
+        }
 
-        return Task.FromResult($"User_{vault.CurrentLoggedInUserID}");
+        var fallback = $"User_{vault.CurrentLoggedInUserID}";
+        _cachedUserDisplayName = fallback;
+        return Task.FromResult(fallback);
     }
+
+    // ── Comments ──
+
+    public Task<IReadOnlyList<CommentDTO>> GetCommentsForTaskAsync(string taskId)
+    {
+        if (!int.TryParse(taskId, out var assignmentId))
+            return Task.FromResult<IReadOnlyList<CommentDTO>>(new List<CommentDTO>());
+
+        try
+        {
+            var vault = GetVault();
+            var comments = new List<CommentDTO>();
+
+            var objID = new ObjID();
+            objID.SetIDs(
+                ObjType: (int)MFBuiltInObjectType.MFBuiltInObjectTypeAssignment,
+                ID: assignmentId);
+
+            // Read version comments by iterating versions from latest to first
+            try
+            {
+                var latest = vault.ObjectOperations.GetLatestObjVer(objID, AllowCheckedOut: true);
+                for (int v = latest.Version; v >= 1; v--)
+                {
+                    var objVer = new ObjVer();
+                    objVer.SetIDs((int)MFBuiltInObjectType.MFBuiltInObjectTypeAssignment, assignmentId, v);
+
+                    try
+                    {
+                        var vc = vault.ObjectPropertyOperations.GetVersionComment(objVer);
+                        if (vc != null)
+                        {
+                            var commentContent = vc.VersionComment.Value?.Value?.ToString()
+                                ?? vc.VersionComment.Value?.DisplayValue
+                                ?? string.Empty;
+
+                            if (!string.IsNullOrWhiteSpace(commentContent))
+                            {
+                                comments.Add(new CommentDTO
+                                {
+                                    Id = vc.ObjVer.Version,
+                                    Content = commentContent,
+                                    AuthorName = vc.LastModifiedBy.Value.DisplayValue,
+                                    CreatedDate = (DateTime)vc.StatusChanged.Value.GetValueAsTimestamp().UtcToLocalTime().GetValue(),
+                                    AssignmentId = assignmentId
+                                });
+                            }
+                        }
+                    }
+                    catch { }
+                }
+            }
+            catch { }
+
+            // Fallback: parse multi-line comment property if no version comments found
+            if (comments.Count == 0)
+            {
+                var latestObjVer = vault.ObjectOperations.GetLatestObjVer(objID, AllowCheckedOut: true);
+                var propertyValues = vault.ObjectPropertyOperations.GetProperties(latestObjVer);
+
+                if (propertyValues.IndexOf((int)MFBuiltInPropertyDef.MFBuiltInPropertyDefComment) != -1)
+                {
+                    var commentProperty = propertyValues.SearchForProperty(
+                        (int)MFBuiltInPropertyDef.MFBuiltInPropertyDefComment);
+
+                    if (commentProperty != null && !commentProperty.TypedValue.IsNULL())
+                    {
+                        var commentText = commentProperty.TypedValue.Value?.ToString() ?? string.Empty;
+
+                        if (!string.IsNullOrWhiteSpace(commentText))
+                        {
+                            var commentLines = System.Text.RegularExpressions.Regex.Split(
+                                commentText,
+                                "(?:\r?\n){2,}",
+                                System.Text.RegularExpressions.RegexOptions.Singleline)
+                                .Where(s => !string.IsNullOrWhiteSpace(s))
+                                .ToArray();
+
+                            int commentId = 1;
+                            foreach (var line in commentLines)
+                            {
+                                var parsed = ParseCommentLine(line, assignmentId, commentId);
+                                if (parsed != null)
+                                {
+                                    comments.Add(parsed);
+                                    commentId++;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            var sorted = comments.OrderBy(c => c.Id).ToList();
+            return Task.FromResult<IReadOnlyList<CommentDTO>>(sorted);
+        }
+        catch (Exception ex)
+        {
+            throw new ApplicationException(
+                $"Failed to retrieve comments for assignment {assignmentId}", ex);
+        }
+    }
+
+    public Task<CommentDTO> AddCommentAsync(string taskId, string content)
+    {
+        if (!int.TryParse(taskId, out var assignmentId))
+            throw new ArgumentException("Invalid task ID", nameof(taskId));
+
+        var vault = GetVault();
+
+        var objID = new ObjID();
+        objID.SetIDs(
+            ObjType: (int)MFBuiltInObjectType.MFBuiltInObjectTypeAssignment,
+            ID: assignmentId);
+
+        try
+        {
+            var checkedOutVersion = vault.ObjectOperations.CheckOut(objID);
+            var propertyValues = vault.ObjectPropertyOperations.GetProperties(checkedOutVersion.ObjVer);
+
+            AppendToMultiLineTextProperty(
+                propertyValues,
+                (int)MFBuiltInPropertyDef.MFBuiltInPropertyDefComment,
+                content);
+
+            vault.ObjectPropertyOperations.SetAllProperties(
+                checkedOutVersion.ObjVer,
+                AllowModifyingCheckedInObject: true,
+                propertyValues);
+            vault.ObjectOperations.CheckIn(checkedOutVersion.ObjVer);
+
+            var pseudoId = (int)(DateTime.UtcNow.Ticks % int.MaxValue);
+            var author = GetCurrentUserNameAsync().GetAwaiter().GetResult();
+
+            var result = new CommentDTO
+            {
+                Id = pseudoId,
+                Content = content,
+                AuthorName = author,
+                CreatedDate = DateTime.UtcNow,
+                AssignmentId = assignmentId
+            };
+
+            return Task.FromResult(result);
+        }
+        catch (Exception ex)
+        {
+            throw new ApplicationException(
+                $"Failed to add comment to assignment {assignmentId}", ex);
+        }
+    }
+
+    public Task<int> GetCommentCountAsync(string taskId)
+    {
+        try
+        {
+            var comments = GetCommentsForTaskAsync(taskId).GetAwaiter().GetResult();
+            return Task.FromResult(comments.Count);
+        }
+        catch
+        {
+            return Task.FromResult(0);
+        }
+    }
+
+    // ── Comment Helpers ──
+
+    private static CommentDTO? ParseCommentLine(string line, int assignmentId, int commentId)
+    {
+        try
+        {
+            var match = System.Text.RegularExpressions.Regex.Match(
+                line,
+                @"\[([\d\-\s:]+)\]\s+([^:]+):\s+(.+)",
+                System.Text.RegularExpressions.RegexOptions.Singleline);
+
+            if (match.Success)
+            {
+                return new CommentDTO
+                {
+                    Id = commentId,
+                    Content = match.Groups[3].Value.Trim(),
+                    AuthorName = match.Groups[2].Value.Trim(),
+                    CreatedDate = DateTime.Parse(match.Groups[1].Value),
+                    AssignmentId = assignmentId
+                };
+            }
+
+            return new CommentDTO
+            {
+                Id = commentId,
+                Content = line,
+                AuthorName = "Unknown",
+                CreatedDate = DateTime.UtcNow,
+                AssignmentId = assignmentId
+            };
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static void AppendToMultiLineTextProperty(
+        PropertyValues properties,
+        int propertyDef,
+        string textToAppend,
+        string separator = "\n\n")
+    {
+        var propertyValue = new PropertyValue { PropertyDef = propertyDef };
+
+        if (properties.IndexOf(propertyDef) == -1)
+            properties.Add(-1, propertyValue);
+
+        var existingProperty = properties.SearchForProperty(propertyDef);
+
+        string existingText = string.Empty;
+        if (existingProperty != null && !existingProperty.TypedValue.IsNULL())
+            existingText = existingProperty.TypedValue.Value?.ToString() ?? string.Empty;
+
+        var newText = string.IsNullOrEmpty(existingText)
+            ? textToAppend
+            : $"{existingText}{separator}{textToAppend}";
+
+        propertyValue.TypedValue.SetValue(MFDataType.MFDatatypeMultiLineText, newText);
+
+        existingProperty!.TypedValue = propertyValue.TypedValue;
+    }
+
+    // ── Connection ──
 
     private void Connect()
     {
