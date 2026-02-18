@@ -903,6 +903,7 @@
   line-height: 1.5;
   word-wrap: break-word;
   flex: 1;
+  white-space: pre-wrap;
 }
 
 .subtask-input-container {
