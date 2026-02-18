@@ -1360,218 +1360,227 @@ function App() {
                                         subtasks[assignment.id] || [];
 
                                       return assignmentSubtasks.length > 0 ? (
-                                        assignmentSubtasks.map((subtask) => (
-                                          <div
-                                            key={subtask.id}
-                                            className={`subtask-item ${draggedSubtaskId === subtask.id ? "dragging" : ""} ${dragOverSubtaskId === subtask.id ? "drag-over" : ""}`}
-                                            draggable
-                                            onDragStart={(e) =>
-                                              handleDragStart(e, subtask.id)
-                                            }
-                                            onDragOver={(e) =>
-                                              handleDragOver(e, subtask.id)
-                                            }
-                                            onDragLeave={handleDragLeave}
-                                            onDrop={(e) =>
-                                              handleDrop(
-                                                e,
-                                                subtask.id,
-                                                assignment.id
-                                              )
-                                            }
-                                            onDragEnd={handleDragEnd}
-                                          >
-                                            <div className="subtask-drag-handle">
-                                              ⋮⋮
-                                            </div>
-                                            <div className="subtask-content">
-                                              <div className="subtask-main">
-                                                <label className="subtask-checkbox-label">
-                                                  <input
-                                                    type="checkbox"
-                                                    className="subtask-checkbox"
-                                                    checked={
-                                                      subtask.isCompleted
-                                                    }
-                                                    onChange={(e) =>
-                                                      handleToggleSubtask(
-                                                        subtask.id,
-                                                        e.target.checked
-                                                      )
-                                                    }
+                                        [...assignmentSubtasks]
+                                          .sort(
+                                            (a, b) =>
+                                              a.isCompleted - b.isCompleted
+                                          )
+                                          .map((subtask) => (
+                                            <div
+                                              key={subtask.id}
+                                              className={`subtask-item ${draggedSubtaskId === subtask.id ? "dragging" : ""} ${dragOverSubtaskId === subtask.id ? "drag-over" : ""}`}
+                                              draggable
+                                              onDragStart={(e) =>
+                                                handleDragStart(e, subtask.id)
+                                              }
+                                              onDragOver={(e) =>
+                                                handleDragOver(e, subtask.id)
+                                              }
+                                              onDragLeave={handleDragLeave}
+                                              onDrop={(e) =>
+                                                handleDrop(
+                                                  e,
+                                                  subtask.id,
+                                                  assignment.id
+                                                )
+                                              }
+                                              onDragEnd={handleDragEnd}
+                                            >
+                                              <div className="subtask-drag-handle">
+                                                ⋮⋮
+                                              </div>
+                                              <div className="subtask-content">
+                                                <div className="subtask-main">
+                                                  <label className="subtask-checkbox-label">
+                                                    <input
+                                                      type="checkbox"
+                                                      className="subtask-checkbox"
+                                                      checked={
+                                                        subtask.isCompleted
+                                                      }
+                                                      onChange={(e) =>
+                                                        handleToggleSubtask(
+                                                          subtask.id,
+                                                          e.target.checked
+                                                        )
+                                                      }
+                                                      onMouseDown={(e) =>
+                                                        e.stopPropagation()
+                                                      }
+                                                    />
+                                                    <span
+                                                      className={`subtask-title ${subtask.isCompleted ? "completed" : ""}`}
+                                                    >
+                                                      {subtask.title}
+                                                    </span>
+                                                  </label>
+                                                  <button
+                                                    className="subtask-note-button"
                                                     onMouseDown={(e) =>
                                                       e.stopPropagation()
                                                     }
-                                                  />
-                                                  <span
-                                                    className={`subtask-title ${subtask.isCompleted ? "completed" : ""}`}
-                                                  >
-                                                    {subtask.title}
-                                                  </span>
-                                                </label>
-                                                <button
-                                                  className="subtask-note-button"
-                                                  onMouseDown={(e) =>
-                                                    e.stopPropagation()
-                                                  }
-                                                  onClick={() => {
-                                                    setEditingNotes((prev) => ({
-                                                      ...prev,
-                                                      [subtask.id]:
-                                                        !prev[subtask.id]
-                                                    }));
-                                                    if (
-                                                      !subtaskNotes[
-                                                        subtask.id
-                                                      ] &&
-                                                      subtask.personalNote
-                                                    ) {
-                                                      setSubtaskNotes(
+                                                    onClick={() => {
+                                                      setEditingNotes(
                                                         (prev) => ({
                                                           ...prev,
                                                           [subtask.id]:
-                                                            subtask.personalNote
+                                                            !prev[subtask.id]
                                                         })
                                                       );
-                                                    }
-                                                  }}
-                                                  title={
-                                                    subtaskNotes[subtask.id] ||
-                                                    subtask.personalNote
-                                                      ? "Edit note"
-                                                      : "Add note"
-                                                  }
-                                                >
-                                                  {subtaskNotes[subtask.id] ||
-                                                  subtask.personalNote
-                                                    ? "📝"
-                                                    : "📄"}
-                                                </button>
-                                                <button
-                                                  className="subtask-delete-button"
-                                                  onMouseDown={(e) =>
-                                                    e.stopPropagation()
-                                                  }
-                                                  onClick={() => {
-                                                    if (
-                                                      window.confirm(
-                                                        "Are you sure you want to delete this subtask?"
-                                                      )
-                                                    ) {
-                                                      handleDeleteSubtask(
-                                                        subtask.id,
-                                                        assignment.id
-                                                      );
-                                                    }
-                                                  }}
-                                                  title="Delete subtask"
-                                                >
-                                                  🗑️
-                                                </button>
-                                              </div>
-                                              {editingNotes[subtask.id] && (
-                                                <div className="subtask-note-editor">
-                                                  <textarea
-                                                    className="subtask-note-input"
-                                                    placeholder="Add a personal note..."
-                                                    value={
-                                                      subtaskNotes[
-                                                        subtask.id
-                                                      ] ??
-                                                      subtask.personalNote ??
-                                                      ""
-                                                    }
-                                                    onChange={(e) =>
-                                                      setSubtaskNotes(
-                                                        (prev) => ({
-                                                          ...prev,
-                                                          [subtask.id]:
-                                                            e.target.value
-                                                        })
-                                                      )
-                                                    }
-                                                    rows={3}
-                                                  />
-                                                  <div className="subtask-note-actions">
-                                                    <button
-                                                      className="subtask-note-save"
-                                                      onClick={() =>
-                                                        handleUpdateSubtaskNote(
-                                                          subtask.id,
-                                                          subtaskNotes[
-                                                            subtask.id
-                                                          ]
-                                                        )
-                                                      }
-                                                    >
-                                                      Save
-                                                    </button>
-                                                    <button
-                                                      className="subtask-note-cancel"
-                                                      onClick={() => {
-                                                        setEditingNotes(
+                                                      if (
+                                                        !subtaskNotes[
+                                                          subtask.id
+                                                        ] &&
+                                                        subtask.personalNote
+                                                      ) {
+                                                        setSubtaskNotes(
                                                           (prev) => ({
                                                             ...prev,
-                                                            [subtask.id]: false
+                                                            [subtask.id]:
+                                                              subtask.personalNote
                                                           })
                                                         );
-                                                        setSubtaskNotes(
-                                                          (prev) => {
-                                                            const updated = {
-                                                              ...prev
-                                                            };
-                                                            if (
-                                                              subtask.personalNote
-                                                            ) {
-                                                              updated[
-                                                                subtask.id
-                                                              ] =
-                                                                subtask.personalNote;
-                                                            } else {
-                                                              delete updated[
-                                                                subtask.id
-                                                              ];
-                                                            }
-                                                            return updated;
-                                                          }
+                                                      }
+                                                    }}
+                                                    title={
+                                                      subtaskNotes[
+                                                        subtask.id
+                                                      ] || subtask.personalNote
+                                                        ? "Edit note"
+                                                        : "Add note"
+                                                    }
+                                                  >
+                                                    {subtaskNotes[subtask.id] ||
+                                                    subtask.personalNote
+                                                      ? "📝"
+                                                      : "📄"}
+                                                  </button>
+                                                  <button
+                                                    className="subtask-delete-button"
+                                                    onMouseDown={(e) =>
+                                                      e.stopPropagation()
+                                                    }
+                                                    onClick={() => {
+                                                      if (
+                                                        window.confirm(
+                                                          "Are you sure you want to delete this subtask?"
+                                                        )
+                                                      ) {
+                                                        handleDeleteSubtask(
+                                                          subtask.id,
+                                                          assignment.id
                                                         );
-                                                      }}
-                                                    >
-                                                      Cancel
-                                                    </button>
-                                                  </div>
+                                                      }
+                                                    }}
+                                                    title="Delete subtask"
+                                                  >
+                                                    🗑️
+                                                  </button>
                                                 </div>
-                                              )}
-                                              {!editingNotes[subtask.id] &&
-                                                (subtaskNotes[subtask.id] ||
-                                                  subtask.personalNote) && (
-                                                  <div className="subtask-note-display">
-                                                    <div className="subtask-note-header">
-                                                      <span className="subtask-note-label">
-                                                        Note:
-                                                      </span>
+                                                {editingNotes[subtask.id] && (
+                                                  <div className="subtask-note-editor">
+                                                    <textarea
+                                                      className="subtask-note-input"
+                                                      placeholder="Add a personal note..."
+                                                      value={
+                                                        subtaskNotes[
+                                                          subtask.id
+                                                        ] ??
+                                                        subtask.personalNote ??
+                                                        ""
+                                                      }
+                                                      onChange={(e) =>
+                                                        setSubtaskNotes(
+                                                          (prev) => ({
+                                                            ...prev,
+                                                            [subtask.id]:
+                                                              e.target.value
+                                                          })
+                                                        )
+                                                      }
+                                                      rows={3}
+                                                    />
+                                                    <div className="subtask-note-actions">
                                                       <button
-                                                        className="subtask-note-delete-button"
+                                                        className="subtask-note-save"
                                                         onClick={() =>
-                                                          handleDeleteSubtaskNote(
-                                                            subtask.id
+                                                          handleUpdateSubtaskNote(
+                                                            subtask.id,
+                                                            subtaskNotes[
+                                                              subtask.id
+                                                            ]
                                                           )
                                                         }
-                                                        title="Delete personal note"
                                                       >
-                                                        🗑️
+                                                        Save
+                                                      </button>
+                                                      <button
+                                                        className="subtask-note-cancel"
+                                                        onClick={() => {
+                                                          setEditingNotes(
+                                                            (prev) => ({
+                                                              ...prev,
+                                                              [subtask.id]: false
+                                                            })
+                                                          );
+                                                          setSubtaskNotes(
+                                                            (prev) => {
+                                                              const updated = {
+                                                                ...prev
+                                                              };
+                                                              if (
+                                                                subtask.personalNote
+                                                              ) {
+                                                                updated[
+                                                                  subtask.id
+                                                                ] =
+                                                                  subtask.personalNote;
+                                                              } else {
+                                                                delete updated[
+                                                                  subtask.id
+                                                                ];
+                                                              }
+                                                              return updated;
+                                                            }
+                                                          );
+                                                        }}
+                                                      >
+                                                        Cancel
                                                       </button>
                                                     </div>
-                                                    <span className="subtask-note-text">
-                                                      {subtaskNotes[
-                                                        subtask.id
-                                                      ] || subtask.personalNote}
-                                                    </span>
                                                   </div>
                                                 )}
+                                                {!editingNotes[subtask.id] &&
+                                                  (subtaskNotes[subtask.id] ||
+                                                    subtask.personalNote) && (
+                                                    <div className="subtask-note-display">
+                                                      <div className="subtask-note-header">
+                                                        <span className="subtask-note-label">
+                                                          Note:
+                                                        </span>
+                                                        <button
+                                                          className="subtask-note-delete-button"
+                                                          onClick={() =>
+                                                            handleDeleteSubtaskNote(
+                                                              subtask.id
+                                                            )
+                                                          }
+                                                          title="Delete personal note"
+                                                        >
+                                                          🗑️
+                                                        </button>
+                                                      </div>
+                                                      <span className="subtask-note-text">
+                                                        {subtaskNotes[
+                                                          subtask.id
+                                                        ] ||
+                                                          subtask.personalNote}
+                                                      </span>
+                                                    </div>
+                                                  )}
+                                              </div>
                                             </div>
-                                          </div>
-                                        ))
+                                          ))
                                       ) : (
                                         <div className="subtasks-empty">
                                           No subtasks yet. Add one below!
@@ -2183,200 +2192,211 @@ function App() {
                                     subtasks[assignment.id] || [];
 
                                   return assignmentSubtasks.length > 0 ? (
-                                    assignmentSubtasks.map((subtask) => (
-                                      <div
-                                        key={subtask.id}
-                                        className={`subtask-item ${draggedSubtaskId === subtask.id ? "dragging" : ""} ${dragOverSubtaskId === subtask.id ? "drag-over" : ""}`}
-                                        draggable
-                                        onDragStart={(e) =>
-                                          handleDragStart(e, subtask.id)
-                                        }
-                                        onDragOver={(e) =>
-                                          handleDragOver(e, subtask.id)
-                                        }
-                                        onDragLeave={handleDragLeave}
-                                        onDrop={(e) =>
-                                          handleDrop(
-                                            e,
-                                            subtask.id,
-                                            assignment.id
-                                          )
-                                        }
-                                        onDragEnd={handleDragEnd}
-                                      >
-                                        <div className="subtask-drag-handle">
-                                          ⋮⋮
-                                        </div>
-                                        <div className="subtask-content">
-                                          <div className="subtask-main">
-                                            <label className="subtask-checkbox-label">
-                                              <input
-                                                type="checkbox"
-                                                className="subtask-checkbox"
-                                                checked={subtask.isCompleted}
-                                                onChange={(e) =>
-                                                  handleToggleSubtask(
-                                                    subtask.id,
-                                                    e.target.checked
-                                                  )
-                                                }
+                                    [...assignmentSubtasks]
+                                      .sort(
+                                        (a, b) => a.isCompleted - b.isCompleted
+                                      )
+                                      .map((subtask) => (
+                                        <div
+                                          key={subtask.id}
+                                          className={`subtask-item ${draggedSubtaskId === subtask.id ? "dragging" : ""} ${dragOverSubtaskId === subtask.id ? "drag-over" : ""}`}
+                                          draggable
+                                          onDragStart={(e) =>
+                                            handleDragStart(e, subtask.id)
+                                          }
+                                          onDragOver={(e) =>
+                                            handleDragOver(e, subtask.id)
+                                          }
+                                          onDragLeave={handleDragLeave}
+                                          onDrop={(e) =>
+                                            handleDrop(
+                                              e,
+                                              subtask.id,
+                                              assignment.id
+                                            )
+                                          }
+                                          onDragEnd={handleDragEnd}
+                                        >
+                                          <div className="subtask-drag-handle">
+                                            ⋮⋮
+                                          </div>
+                                          <div className="subtask-content">
+                                            <div className="subtask-main">
+                                              <label className="subtask-checkbox-label">
+                                                <input
+                                                  type="checkbox"
+                                                  className="subtask-checkbox"
+                                                  checked={subtask.isCompleted}
+                                                  onChange={(e) =>
+                                                    handleToggleSubtask(
+                                                      subtask.id,
+                                                      e.target.checked
+                                                    )
+                                                  }
+                                                  onMouseDown={(e) =>
+                                                    e.stopPropagation()
+                                                  }
+                                                />
+                                                <span
+                                                  className={`subtask-title ${subtask.isCompleted ? "completed" : ""}`}
+                                                >
+                                                  {subtask.title}
+                                                </span>
+                                              </label>
+                                              <button
+                                                className="subtask-note-button"
                                                 onMouseDown={(e) =>
                                                   e.stopPropagation()
                                                 }
-                                              />
-                                              <span
-                                                className={`subtask-title ${subtask.isCompleted ? "completed" : ""}`}
-                                              >
-                                                {subtask.title}
-                                              </span>
-                                            </label>
-                                            <button
-                                              className="subtask-note-button"
-                                              onMouseDown={(e) =>
-                                                e.stopPropagation()
-                                              }
-                                              onClick={() => {
-                                                setEditingNotes((prev) => ({
-                                                  ...prev,
-                                                  [subtask.id]:
-                                                    !prev[subtask.id]
-                                                }));
-                                                // Initialize note in state if not already set
-                                                if (
-                                                  !subtaskNotes[subtask.id] &&
-                                                  subtask.personalNote
-                                                ) {
-                                                  setSubtaskNotes((prev) => ({
+                                                onClick={() => {
+                                                  setEditingNotes((prev) => ({
                                                     ...prev,
                                                     [subtask.id]:
-                                                      subtask.personalNote
+                                                      !prev[subtask.id]
                                                   }));
-                                                }
-                                              }}
-                                              title={
-                                                subtaskNotes[subtask.id] ||
-                                                subtask.personalNote
-                                                  ? "Edit note"
-                                                  : "Add note"
-                                              }
-                                            >
-                                              {subtaskNotes[subtask.id] ||
-                                              subtask.personalNote
-                                                ? "📝"
-                                                : "📄"}
-                                            </button>
-                                            <button
-                                              className="subtask-delete-button"
-                                              onMouseDown={(e) =>
-                                                e.stopPropagation()
-                                              }
-                                              onClick={() => {
-                                                if (
-                                                  window.confirm(
-                                                    "Are you sure you want to delete this subtask?"
-                                                  )
-                                                ) {
-                                                  handleDeleteSubtask(
-                                                    subtask.id,
-                                                    assignment.id
-                                                  );
-                                                }
-                                              }}
-                                              title="Delete subtask"
-                                            >
-                                              🗑️
-                                            </button>
-                                          </div>
-                                          {editingNotes[subtask.id] && (
-                                            <div className="subtask-note-editor">
-                                              <textarea
-                                                className="subtask-note-input"
-                                                placeholder="Add a personal note..."
-                                                value={
-                                                  subtaskNotes[subtask.id] ??
-                                                  subtask.personalNote ??
-                                                  ""
-                                                }
-                                                onChange={(e) =>
-                                                  setSubtaskNotes((prev) => ({
-                                                    ...prev,
-                                                    [subtask.id]: e.target.value
-                                                  }))
-                                                }
-                                                rows={3}
-                                              />
-                                              <div className="subtask-note-actions">
-                                                <button
-                                                  className="subtask-note-save"
-                                                  onClick={() =>
-                                                    handleUpdateSubtaskNote(
-                                                      subtask.id,
-                                                      subtaskNotes[subtask.id]
-                                                    )
-                                                  }
-                                                >
-                                                  Save
-                                                </button>
-                                                <button
-                                                  className="subtask-note-cancel"
-                                                  onClick={() => {
-                                                    setEditingNotes((prev) => ({
+                                                  // Initialize note in state if not already set
+                                                  if (
+                                                    !subtaskNotes[subtask.id] &&
+                                                    subtask.personalNote
+                                                  ) {
+                                                    setSubtaskNotes((prev) => ({
                                                       ...prev,
-                                                      [subtask.id]: false
-                                                    }));
-                                                    // Restore original note
-                                                    setSubtaskNotes((prev) => {
-                                                      const updated = {
-                                                        ...prev
-                                                      };
-                                                      if (
+                                                      [subtask.id]:
                                                         subtask.personalNote
-                                                      ) {
-                                                        updated[subtask.id] =
-                                                          subtask.personalNote;
-                                                      } else {
-                                                        delete updated[
-                                                          subtask.id
-                                                        ];
-                                                      }
-                                                      return updated;
-                                                    });
-                                                  }}
-                                                >
-                                                  Cancel
-                                                </button>
-                                              </div>
+                                                    }));
+                                                  }
+                                                }}
+                                                title={
+                                                  subtaskNotes[subtask.id] ||
+                                                  subtask.personalNote
+                                                    ? "Edit note"
+                                                    : "Add note"
+                                                }
+                                              >
+                                                {subtaskNotes[subtask.id] ||
+                                                subtask.personalNote
+                                                  ? "📝"
+                                                  : "📄"}
+                                              </button>
+                                              <button
+                                                className="subtask-delete-button"
+                                                onMouseDown={(e) =>
+                                                  e.stopPropagation()
+                                                }
+                                                onClick={() => {
+                                                  if (
+                                                    window.confirm(
+                                                      "Are you sure you want to delete this subtask?"
+                                                    )
+                                                  ) {
+                                                    handleDeleteSubtask(
+                                                      subtask.id,
+                                                      assignment.id
+                                                    );
+                                                  }
+                                                }}
+                                                title="Delete subtask"
+                                              >
+                                                🗑️
+                                              </button>
                                             </div>
-                                          )}
-                                          {!editingNotes[subtask.id] &&
-                                            (subtaskNotes[subtask.id] ||
-                                              subtask.personalNote) && (
-                                              <div className="subtask-note-display">
-                                                <div className="subtask-note-header">
-                                                  <span className="subtask-note-label">
-                                                    Note:
-                                                  </span>
+                                            {editingNotes[subtask.id] && (
+                                              <div className="subtask-note-editor">
+                                                <textarea
+                                                  className="subtask-note-input"
+                                                  placeholder="Add a personal note..."
+                                                  value={
+                                                    subtaskNotes[subtask.id] ??
+                                                    subtask.personalNote ??
+                                                    ""
+                                                  }
+                                                  onChange={(e) =>
+                                                    setSubtaskNotes((prev) => ({
+                                                      ...prev,
+                                                      [subtask.id]:
+                                                        e.target.value
+                                                    }))
+                                                  }
+                                                  rows={3}
+                                                />
+                                                <div className="subtask-note-actions">
                                                   <button
-                                                    className="subtask-note-delete-button"
+                                                    className="subtask-note-save"
                                                     onClick={() =>
-                                                      handleDeleteSubtaskNote(
-                                                        subtask.id
+                                                      handleUpdateSubtaskNote(
+                                                        subtask.id,
+                                                        subtaskNotes[subtask.id]
                                                       )
                                                     }
-                                                    title="Delete personal note"
                                                   >
-                                                    🗑️
+                                                    Save
+                                                  </button>
+                                                  <button
+                                                    className="subtask-note-cancel"
+                                                    onClick={() => {
+                                                      setEditingNotes(
+                                                        (prev) => ({
+                                                          ...prev,
+                                                          [subtask.id]: false
+                                                        })
+                                                      );
+                                                      // Restore original note
+                                                      setSubtaskNotes(
+                                                        (prev) => {
+                                                          const updated = {
+                                                            ...prev
+                                                          };
+                                                          if (
+                                                            subtask.personalNote
+                                                          ) {
+                                                            updated[
+                                                              subtask.id
+                                                            ] =
+                                                              subtask.personalNote;
+                                                          } else {
+                                                            delete updated[
+                                                              subtask.id
+                                                            ];
+                                                          }
+                                                          return updated;
+                                                        }
+                                                      );
+                                                    }}
+                                                  >
+                                                    Cancel
                                                   </button>
                                                 </div>
-                                                <span className="subtask-note-text">
-                                                  {subtaskNotes[subtask.id] ||
-                                                    subtask.personalNote}
-                                                </span>
                                               </div>
                                             )}
+                                            {!editingNotes[subtask.id] &&
+                                              (subtaskNotes[subtask.id] ||
+                                                subtask.personalNote) && (
+                                                <div className="subtask-note-display">
+                                                  <div className="subtask-note-header">
+                                                    <span className="subtask-note-label">
+                                                      Note:
+                                                    </span>
+                                                    <button
+                                                      className="subtask-note-delete-button"
+                                                      onClick={() =>
+                                                        handleDeleteSubtaskNote(
+                                                          subtask.id
+                                                        )
+                                                      }
+                                                      title="Delete personal note"
+                                                    >
+                                                      🗑️
+                                                    </button>
+                                                  </div>
+                                                  <span className="subtask-note-text">
+                                                    {subtaskNotes[subtask.id] ||
+                                                      subtask.personalNote}
+                                                  </span>
+                                                </div>
+                                              )}
+                                          </div>
                                         </div>
-                                      </div>
-                                    ))
+                                      ))
                                   ) : (
                                     <div className="subtasks-empty">
                                       No subtasks yet. Add one below!
