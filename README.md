@@ -1,6 +1,6 @@
 # Taskify
 
-Taskify is a personal productivity tool that extends M-Files assignment management. It pulls assignments from M-Files and layers on subtasks, personal notes, comment management, and a focused "Working On" view — features M-Files doesn't provide natively.
+Taskify is a personal productivity tool that extends M-Files assignment management. It pulls assignments from M-Files and layers on subtasks, personal notes, comment management, and a focused "Hot Zone" view — features M-Files doesn't provide natively.
 
 ## Overview
 
@@ -9,7 +9,7 @@ Taskify is a personal productivity tool that extends M-Files assignment manageme
   - Pull assignments and comments from M-Files
   - Add, manage, reorder, and delete subtasks per assignment
   - Add vault comments (synced to M-Files) and personal notes (local only)
-  - Pin assignments to a "Working On" section for focused work
+  - Pin assignments to a "Hot Zone" section for focused work
   - Mark assignments as complete directly from the app
   - Collapse/expand assignment cards for a clean overview
 
@@ -199,7 +199,7 @@ Automated code quality and coverage checks via GitHub Actions. Requires `SONAR_T
 - ✅ Subtask management (add, delete, reorder via drag-and-drop)
 - ✅ Vault comments (synced to M-Files) and personal notes
 - ✅ Mark assignments as complete
-- ✅ "Working On" pinning and assignment board
+- ✅ "Hot Zone" pinning and assignment board
 - ✅ Connector abstraction (Mock + M-Files)
 - 🔜 Component refactoring (extract from monolithic App.jsx)
 - 🔜 New comment indicators
