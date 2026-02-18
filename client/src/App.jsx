@@ -36,7 +36,7 @@ function App() {
         // available before the UI becomes interactive.
         const [userRes, assignmentsRes] = await Promise.all([
           fetch("http://localhost:5000/api/user/current"),
-          fetch(ASSIGNMENTS_API_URL),
+          fetch(ASSIGNMENTS_API_URL)
         ]);
 
         if (userRes.ok) {
@@ -88,10 +88,11 @@ function App() {
   const formatDate = (dateString) => {
     if (!dateString) return null;
     const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", { 
-      month: "short", 
+    return date.toLocaleDateString("en-US", {
+      month: "short",
       day: "numeric",
-      year: date.getFullYear() !== new Date().getFullYear() ? "numeric" : undefined
+      year:
+        date.getFullYear() !== new Date().getFullYear() ? "numeric" : undefined
     });
   };
 
@@ -103,7 +104,7 @@ function App() {
       3: "#f59e0b", // OnHold - amber
       4: "#8b5cf6", // WaitingForInformation - purple
       5: "#ec4899", // WaitingForFeedback - pink
-      6: "#6366f1", // WaitingForReview - indigo
+      6: "#6366f1" // WaitingForReview - indigo
     };
     return statusMap[status] || "#6b7280";
   };
@@ -116,7 +117,7 @@ function App() {
       3: "On Hold",
       4: "Waiting for Information",
       5: "Waiting for Feedback",
-      6: "Waiting for Review",
+      6: "Waiting for Review"
     };
     return statusMap[status] || "Unknown";
   };
@@ -129,19 +130,19 @@ function App() {
   const handleCompleteAssignment = async (id) => {
     try {
       const response = await fetch(`${ASSIGNMENTS_API_URL}/${id}/complete`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-        },
+          "Content-Type": "application/json"
+        }
       });
 
       if (!response.ok) {
-        throw new Error('Failed to mark assignment as complete');
+        throw new Error("Failed to mark assignment as complete");
       }
 
       // Update the assignment in local state
-      setAssignments(prevAssignments =>
-        prevAssignments.map(assignment =>
+      setAssignments((prevAssignments) =>
+        prevAssignments.map((assignment) =>
           assignment.id === id
             ? { ...assignment, status: 2 } // 2 = Completed
             : assignment
@@ -154,56 +155,64 @@ function App() {
 
   const toggleComments = async (assignmentId) => {
     const isOpen = openComments[assignmentId];
-    setOpenComments(prev => ({
+    setOpenComments((prev) => ({
       ...prev,
       [assignmentId]: !isOpen
     }));
 
     // Fetch comments if opening for the first time
     if (!isOpen && !comments[assignmentId]) {
-      setLoadingComments(prev => ({ ...prev, [assignmentId]: true }));
+      setLoadingComments((prev) => ({ ...prev, [assignmentId]: true }));
       try {
-        const response = await fetch(`${ASSIGNMENTS_API_URL}/${assignmentId}/comments`);
-        if (!response.ok) throw new Error('Failed to fetch comments');
+        const response = await fetch(
+          `${ASSIGNMENTS_API_URL}/${assignmentId}/comments`
+        );
+        if (!response.ok) throw new Error("Failed to fetch comments");
         const data = await response.json();
-        setComments(prev => ({ ...prev, [assignmentId]: data }));
+        setComments((prev) => ({ ...prev, [assignmentId]: data }));
         // Update comment count if it's different
-        setCommentCounts(prev => ({
+        setCommentCounts((prev) => ({
           ...prev,
           [assignmentId]: data.length
         }));
         // Load comment notes and flags for all comments
-        const notesPromises = data.map(comment =>
+        const notesPromises = data.map((comment) =>
           fetch(`http://localhost:5000/api/comments/${comment.id}/note`)
-            .then(res => res.ok ? res.json() : null)
-            .then(noteData => noteData?.note ? { id: comment.id, note: noteData.note } : null)
+            .then((res) => (res.ok ? res.json() : null))
+            .then((noteData) =>
+              noteData?.note ? { id: comment.id, note: noteData.note } : null
+            )
             .catch(() => null)
         );
-        const flagsPromises = data.map(comment =>
+        const flagsPromises = data.map((comment) =>
           fetch(`http://localhost:5000/api/comments/${comment.id}/flag`)
-            .then(res => res.ok ? res.json() : null)
-            .then(flagData => flagData?.isFlagged ? { id: comment.id, isFlagged: flagData.isFlagged } : null)
+            .then((res) => (res.ok ? res.json() : null))
+            .then((flagData) =>
+              flagData?.isFlagged
+                ? { id: comment.id, isFlagged: flagData.isFlagged }
+                : null
+            )
             .catch(() => null)
         );
-        Promise.all([...notesPromises, ...flagsPromises]).then(results => {
+        Promise.all([...notesPromises, ...flagsPromises]).then((results) => {
           const notesState = {};
           const flagsState = {};
-          results.forEach(result => {
+          results.forEach((result) => {
             if (result) {
-              if ('note' in result) {
+              if ("note" in result) {
                 notesState[result.id] = result.note;
-              } else if ('isFlagged' in result) {
+              } else if ("isFlagged" in result) {
                 flagsState[result.id] = result.isFlagged;
               }
             }
           });
-          setCommentNotes(prev => ({ ...prev, ...notesState }));
-          setCommentFlags(prev => ({ ...prev, ...flagsState }));
+          setCommentNotes((prev) => ({ ...prev, ...notesState }));
+          setCommentFlags((prev) => ({ ...prev, ...flagsState }));
         });
       } catch (err) {
         setError(err.toString());
       } finally {
-        setLoadingComments(prev => ({ ...prev, [assignmentId]: false }));
+        setLoadingComments((prev) => ({ ...prev, [assignmentId]: false }));
       }
     }
   };
@@ -213,26 +222,29 @@ function App() {
     if (!text) return;
 
     try {
-      const response = await fetch(`${ASSIGNMENTS_API_URL}/${assignmentId}/comments`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ content: text }),
-      });
+      const response = await fetch(
+        `${ASSIGNMENTS_API_URL}/${assignmentId}/comments`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ content: text })
+        }
+      );
 
       if (!response.ok) {
-        throw new Error('Failed to add comment');
+        throw new Error("Failed to add comment");
       }
 
       const newComment = await response.json();
-      setComments(prev => ({
+      setComments((prev) => ({
         ...prev,
         [assignmentId]: [...(prev[assignmentId] || []), newComment]
       }));
-      setNewCommentText(prev => ({ ...prev, [assignmentId]: '' }));
+      setNewCommentText((prev) => ({ ...prev, [assignmentId]: "" }));
       // Update comment count
-      setCommentCounts(prev => ({
+      setCommentCounts((prev) => ({
         ...prev,
         [assignmentId]: (prev[assignmentId] || 0) + 1
       }));
@@ -243,29 +255,31 @@ function App() {
 
   const toggleSubtasks = async (assignmentId) => {
     const isOpen = openSubtasks[assignmentId];
-    setOpenSubtasks(prev => ({
+    setOpenSubtasks((prev) => ({
       ...prev,
       [assignmentId]: !isOpen
     }));
 
     // Fetch subtasks if opening for the first time
     if (!isOpen && !subtasks[assignmentId]) {
-      setLoadingSubtasks(prev => ({ ...prev, [assignmentId]: true }));
+      setLoadingSubtasks((prev) => ({ ...prev, [assignmentId]: true }));
       try {
-        const response = await fetch(`${ASSIGNMENTS_API_URL}/${assignmentId}/subtasks`);
-        if (!response.ok) throw new Error('Failed to fetch subtasks');
+        const response = await fetch(
+          `${ASSIGNMENTS_API_URL}/${assignmentId}/subtasks`
+        );
+        if (!response.ok) throw new Error("Failed to fetch subtasks");
         const data = await response.json();
-        setSubtasks(prev => ({ ...prev, [assignmentId]: data }));
+        setSubtasks((prev) => ({ ...prev, [assignmentId]: data }));
         // Initialize notes state from API response
         const notesState = {};
-        data.forEach(subtask => {
+        data.forEach((subtask) => {
           if (subtask.personalNote) {
             notesState[subtask.id] = subtask.personalNote;
           }
         });
-        setSubtaskNotes(prev => {
+        setSubtaskNotes((prev) => {
           const updated = { ...prev };
-          Object.keys(notesState).forEach(id => {
+          Object.keys(notesState).forEach((id) => {
             updated[id] = notesState[id];
           });
           return updated;
@@ -273,78 +287,82 @@ function App() {
       } catch (err) {
         setError(err.toString());
       } finally {
-        setLoadingSubtasks(prev => ({ ...prev, [assignmentId]: false }));
+        setLoadingSubtasks((prev) => ({ ...prev, [assignmentId]: false }));
       }
     }
   };
 
   const handleToggleSubtask = async (subtaskId, isCompleted) => {
     // Find which assignment this subtask belongs to
-    const assignmentId = Object.keys(subtasks).find(aId => 
-      subtasks[aId]?.some(s => s.id === subtaskId)
-    ) || null;
+    const assignmentId =
+      Object.keys(subtasks).find((aId) =>
+        subtasks[aId]?.some((s) => s.id === subtaskId)
+      ) || null;
 
     // Optimistic update - update UI immediately
-    setSubtasks(prev => {
+    setSubtasks((prev) => {
       const updated = {};
-      Object.keys(prev).forEach(aId => {
-        updated[aId] = prev[aId].map(subtask =>
-          subtask.id === subtaskId
-            ? { ...subtask, isCompleted }
-            : subtask
+      Object.keys(prev).forEach((aId) => {
+        updated[aId] = prev[aId].map((subtask) =>
+          subtask.id === subtaskId ? { ...subtask, isCompleted } : subtask
         );
       });
       return updated;
     });
 
     try {
-      const response = await fetch(`http://localhost:5000/api/subtasks/${subtaskId}/toggle`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ isCompleted }),
-      });
+      const response = await fetch(
+        `http://localhost:5000/api/subtasks/${subtaskId}/toggle`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ isCompleted })
+        }
+      );
 
       if (!response.ok) {
-        throw new Error('Failed to toggle subtask');
+        throw new Error("Failed to toggle subtask");
       }
 
       // Refetch subtasks to ensure we have the latest data from server
       if (assignmentId) {
         try {
-          const fetchResponse = await fetch(`${ASSIGNMENTS_API_URL}/${assignmentId}/subtasks`);
+          const fetchResponse = await fetch(
+            `${ASSIGNMENTS_API_URL}/${assignmentId}/subtasks`
+          );
           if (fetchResponse.ok) {
             const data = await fetchResponse.json();
-            setSubtasks(prev => ({
+            setSubtasks((prev) => ({
               ...prev,
               [assignmentId]: data
             }));
             // Update notes state if needed
             const notesState = {};
-            data.forEach(subtask => {
+            data.forEach((subtask) => {
               if (subtask.personalNote) {
                 notesState[subtask.id] = subtask.personalNote;
               }
             });
-            setSubtaskNotes(prev => {
+            setSubtaskNotes((prev) => {
               const updated = { ...prev };
-              Object.keys(notesState).forEach(id => {
+              Object.keys(notesState).forEach((id) => {
                 updated[id] = notesState[id];
               });
               return updated;
             });
           }
         } catch (fetchErr) {
-          console.error('Error refetching subtasks:', fetchErr);
+          console.error("Error refetching subtasks:", fetchErr);
         }
       }
     } catch (err) {
       // Revert optimistic update on error
-      setSubtasks(prev => {
+      setSubtasks((prev) => {
         const updated = {};
-        Object.keys(prev).forEach(aId => {
-          updated[aId] = prev[aId].map(subtask =>
+        Object.keys(prev).forEach((aId) => {
+          updated[aId] = prev[aId].map((subtask) =>
             subtask.id === subtaskId
               ? { ...subtask, isCompleted: !isCompleted }
               : subtask
@@ -361,24 +379,27 @@ function App() {
     if (!text) return;
 
     try {
-      const response = await fetch(`${ASSIGNMENTS_API_URL}/${assignmentId}/subtasks`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ title: text }),
-      });
+      const response = await fetch(
+        `${ASSIGNMENTS_API_URL}/${assignmentId}/subtasks`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ title: text })
+        }
+      );
 
       if (!response.ok) {
-        throw new Error('Failed to add subtask');
+        throw new Error("Failed to add subtask");
       }
 
       const newSubtask = await response.json();
-      setSubtasks(prev => ({
+      setSubtasks((prev) => ({
         ...prev,
         [assignmentId]: [...(prev[assignmentId] || []), newSubtask]
       }));
-      setNewSubtaskText(prev => ({ ...prev, [assignmentId]: '' }));
+      setNewSubtaskText((prev) => ({ ...prev, [assignmentId]: "" }));
     } catch (err) {
       setError(err.toString());
     }
@@ -386,22 +407,27 @@ function App() {
 
   const handleDeleteSubtask = async (subtaskId, assignmentId) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/subtasks/${subtaskId}`, {
-        method: 'DELETE',
-      });
+      const response = await fetch(
+        `http://localhost:5000/api/subtasks/${subtaskId}`,
+        {
+          method: "DELETE"
+        }
+      );
 
       if (!response.ok) {
-        throw new Error('Failed to delete subtask');
+        throw new Error("Failed to delete subtask");
       }
 
       // Remove subtask from local state
-      setSubtasks(prev => ({
+      setSubtasks((prev) => ({
         ...prev,
-        [assignmentId]: (prev[assignmentId] || []).filter(s => s.id !== subtaskId)
+        [assignmentId]: (prev[assignmentId] || []).filter(
+          (s) => s.id !== subtaskId
+        )
       }));
 
       // Also remove note from state if it exists
-      setSubtaskNotes(prev => {
+      setSubtaskNotes((prev) => {
         const updated = { ...prev };
         delete updated[subtaskId];
         return updated;
@@ -413,36 +439,41 @@ function App() {
 
   const handleReorderSubtasks = async (assignmentId, newOrder) => {
     try {
-      const response = await fetch(`${ASSIGNMENTS_API_URL}/${assignmentId}/subtasks/reorder`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ subtaskOrders: newOrder }),
-      });
+      const response = await fetch(
+        `${ASSIGNMENTS_API_URL}/${assignmentId}/subtasks/reorder`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ subtaskOrders: newOrder })
+        }
+      );
 
       if (!response.ok) {
-        throw new Error('Failed to reorder subtasks');
+        throw new Error("Failed to reorder subtasks");
       }
 
       // Refetch subtasks to get updated order
-      const fetchResponse = await fetch(`${ASSIGNMENTS_API_URL}/${assignmentId}/subtasks`);
+      const fetchResponse = await fetch(
+        `${ASSIGNMENTS_API_URL}/${assignmentId}/subtasks`
+      );
       if (fetchResponse.ok) {
         const data = await fetchResponse.json();
-        setSubtasks(prev => ({
+        setSubtasks((prev) => ({
           ...prev,
           [assignmentId]: data
         }));
         // Update notes state if needed
         const notesState = {};
-        data.forEach(subtask => {
+        data.forEach((subtask) => {
           if (subtask.personalNote) {
             notesState[subtask.id] = subtask.personalNote;
           }
         });
-        setSubtaskNotes(prev => {
+        setSubtaskNotes((prev) => {
           const updated = { ...prev };
-          Object.keys(notesState).forEach(id => {
+          Object.keys(notesState).forEach((id) => {
             updated[id] = notesState[id];
           });
           return updated;
@@ -455,13 +486,13 @@ function App() {
 
   const handleDragStart = (e, subtaskId) => {
     setDraggedSubtaskId(subtaskId);
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/html', subtaskId);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/html", subtaskId);
   };
 
   const handleDragOver = (e, subtaskId) => {
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
+    e.dataTransfer.dropEffect = "move";
     if (subtaskId !== draggedSubtaskId) {
       setDragOverSubtaskId(subtaskId);
     }
@@ -474,15 +505,19 @@ function App() {
   const handleDrop = (e, targetSubtaskId, assignmentId) => {
     e.preventDefault();
     setDragOverSubtaskId(null);
-    
+
     if (!draggedSubtaskId || draggedSubtaskId === targetSubtaskId) {
       setDraggedSubtaskId(null);
       return;
     }
 
     const assignmentSubtasks = subtasks[assignmentId] || [];
-    const draggedIndex = assignmentSubtasks.findIndex(s => s.id === draggedSubtaskId);
-    const targetIndex = assignmentSubtasks.findIndex(s => s.id === targetSubtaskId);
+    const draggedIndex = assignmentSubtasks.findIndex(
+      (s) => s.id === draggedSubtaskId
+    );
+    const targetIndex = assignmentSubtasks.findIndex(
+      (s) => s.id === targetSubtaskId
+    );
 
     if (draggedIndex === -1 || targetIndex === -1) {
       setDraggedSubtaskId(null);
@@ -501,7 +536,7 @@ function App() {
     });
 
     // Optimistically update UI
-    setSubtasks(prev => ({
+    setSubtasks((prev) => ({
       ...prev,
       [assignmentId]: reordered
     }));
@@ -518,19 +553,22 @@ function App() {
 
   const handleToggleWorkingOn = async (assignmentId, isWorkingOn) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/assignments/${assignmentId}/working-on`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ isWorkingOn }),
-      });
+      const response = await fetch(
+        `http://localhost:5000/api/assignments/${assignmentId}/working-on`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ isWorkingOn })
+        }
+      );
 
       if (!response.ok) {
-        throw new Error('Failed to update working on flag');
+        throw new Error("Failed to update working on flag");
       }
 
-      setWorkingOn(prev => {
+      setWorkingOn((prev) => {
         const updated = new Set(prev);
         if (isWorkingOn) {
           updated.add(assignmentId);
@@ -546,23 +584,26 @@ function App() {
 
   const handleUpdateSubtaskNote = async (subtaskId, note) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/subtasks/${subtaskId}/note`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ note: note || null }),
-      });
+      const response = await fetch(
+        `http://localhost:5000/api/subtasks/${subtaskId}/note`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ note: note || null })
+        }
+      );
 
       if (!response.ok) {
-        throw new Error('Failed to update note');
+        throw new Error("Failed to update note");
       }
 
-      setSubtaskNotes(prev => ({
+      setSubtaskNotes((prev) => ({
         ...prev,
         [subtaskId]: note || null
       }));
-      setEditingNotes(prev => ({
+      setEditingNotes((prev) => ({
         ...prev,
         [subtaskId]: false
       }));
@@ -572,30 +613,33 @@ function App() {
   };
 
   const handleDeleteSubtaskNote = async (subtaskId) => {
-    if (window.confirm('Are you sure you want to delete this personal note?')) {
+    if (window.confirm("Are you sure you want to delete this personal note?")) {
       await handleUpdateSubtaskNote(subtaskId, null);
     }
   };
 
   const handleUpdateCommentNote = async (commentId, note) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/comments/${commentId}/note`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ note: note || null }),
-      });
+      const response = await fetch(
+        `http://localhost:5000/api/comments/${commentId}/note`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ note: note || null })
+        }
+      );
 
       if (!response.ok) {
-        throw new Error('Failed to update comment note');
+        throw new Error("Failed to update comment note");
       }
 
-      setCommentNotes(prev => ({
+      setCommentNotes((prev) => ({
         ...prev,
         [commentId]: note || null
       }));
-      setEditingCommentNotes(prev => ({
+      setEditingCommentNotes((prev) => ({
         ...prev,
         [commentId]: false
       }));
@@ -605,26 +649,29 @@ function App() {
   };
 
   const handleDeleteCommentNote = async (commentId) => {
-    if (window.confirm('Are you sure you want to delete this personal note?')) {
+    if (window.confirm("Are you sure you want to delete this personal note?")) {
       await handleUpdateCommentNote(commentId, null);
     }
   };
 
   const handleToggleCommentFlag = async (commentId, isFlagged) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/comments/${commentId}/flag`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ isFlagged }),
-      });
+      const response = await fetch(
+        `http://localhost:5000/api/comments/${commentId}/flag`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ isFlagged })
+        }
+      );
 
       if (!response.ok) {
-        throw new Error('Failed to toggle comment flag');
+        throw new Error("Failed to toggle comment flag");
       }
 
-      setCommentFlags(prev => ({
+      setCommentFlags((prev) => ({
         ...prev,
         [commentId]: isFlagged
       }));
@@ -634,7 +681,7 @@ function App() {
   };
 
   const formatCommentDate = (dateString) => {
-    if (!dateString) return '';
+    if (!dateString) return "";
     const date = new Date(dateString);
     const now = new Date();
     const diffMs = now - date;
@@ -642,7 +689,7 @@ function App() {
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
 
-    if (diffMins < 1) return 'Just now';
+    if (diffMins < 1) return "Just now";
     if (diffMins < 60) return `${diffMins}m ago`;
     if (diffHours < 24) return `${diffHours}h ago`;
     if (diffDays < 7) return `${diffDays}d ago`;
@@ -651,28 +698,28 @@ function App() {
 
   // Generate a deterministic color for a user based on their name
   const getUserColor = (userName) => {
-    if (!userName) return '#6b7280';
-    
+    if (!userName) return "#6b7280";
+
     // Generate a hash from the username
     let hash = 0;
     for (let i = 0; i < userName.length; i++) {
       hash = userName.charCodeAt(i) + ((hash << 5) - hash);
     }
-    
+
     // Use a palette of distinct colors
     const colors = [
-      '#3b82f6', // blue
-      '#10b981', // green
-      '#f59e0b', // amber
-      '#8b5cf6', // purple
-      '#ec4899', // pink
-      '#6366f1', // indigo
-      '#14b8a6', // teal
-      '#f97316', // orange
-      '#06b6d4', // cyan
-      '#a855f7', // violet
+      "#3b82f6", // blue
+      "#10b981", // green
+      "#f59e0b", // amber
+      "#8b5cf6", // purple
+      "#ec4899", // pink
+      "#6366f1", // indigo
+      "#14b8a6", // teal
+      "#f97316", // orange
+      "#06b6d4", // cyan
+      "#a855f7" // violet
     ];
-    
+
     return colors[Math.abs(hash) % colors.length];
   };
 
@@ -690,7 +737,7 @@ function App() {
     <div className="app">
       <header className="app-header">
         <h1>Taskify</h1>
-        <p className="subtitle">Your assignments</p>
+        <p className="subtitle">Connect. Organize. Complete.</p>
       </header>
 
       {loading && (
@@ -711,61 +758,95 @@ function App() {
             <div className="empty-state">
               <p>No assignments found</p>
             </div>
-          ) : (() => {
-            // Separate working on and other assignments
-            const workingOnAssignments = assignments.filter(a => workingOn.has(a.id));
-            const otherAssignments = assignments.filter(a => !workingOn.has(a.id));
-            
-            return (
-            <div className="assignments-list">
-                {workingOnAssignments.length > 0 && (
-                  <div className="working-on-section">
+          ) : (
+            (() => {
+              // Separate working on and other assignments
+              const workingOnAssignments = assignments.filter((a) =>
+                workingOn.has(a.id)
+              );
+              const otherAssignments = assignments.filter(
+                (a) => !workingOn.has(a.id)
+              );
+
+              return (
+                <div className="assignments-list">
+                  {workingOnAssignments.length > 0 && (
+                    <div className="working-on-section">
                       <div className="working-on-header">
-                        <h3 className="working-on-title">🔥 Working On</h3>
-                        <span className="working-on-count">{workingOnAssignments.length}</span>
+                        <h3 className="working-on-title">🔥 Hot Zone</h3>
+                        <span className="working-on-count">
+                          {workingOnAssignments.length}
+                        </span>
                       </div>
                       {workingOnAssignments.map((assignment) => {
                         // Render full assignment card - we'll create a reusable component inline
                         return (
-                          <div key={assignment.id} className={`assignment-card working-on`}>
-                  <div className="assignment-header">
+                          <div
+                            key={assignment.id}
+                            className={`assignment-card working-on`}
+                          >
+                            <div className="assignment-header">
                               <div className="assignment-title-row">
                                 <button
                                   className="working-on-toggle active"
-                                  onClick={() => handleToggleWorkingOn(assignment.id, false)}
-                                  title="Stop working on this"
+                                  onClick={() =>
+                                    handleToggleWorkingOn(assignment.id, false)
+                                  }
+                                  title="Remove from Hot Zone"
                                 >
                                   🔥
                                 </button>
-                    <h2 className="assignment-title">{assignment.title}</h2>
+                                <h2 className="assignment-title">
+                                  {assignment.title}
+                                </h2>
                               </div>
-                    <span 
-                      className="status-badge"
-                      style={{ backgroundColor: getStatusColor(assignment.status) }}
-                    >
-                      {getStatusLabel(assignment.status)}
-                    </span>
-                  </div>
-                  
-                  {assignment.description && (
-                    <p className="assignment-description">{assignment.description}</p>
-                  )}
+                              <span
+                                className="status-badge"
+                                style={{
+                                  backgroundColor: getStatusColor(
+                                    assignment.status
+                                  )
+                                }}
+                              >
+                                {getStatusLabel(assignment.status)}
+                              </span>
+                            </div>
 
-                  <div className="assignment-meta">
-                    {assignment.dueDate && (
-                      <span className={`due-date ${isOverdue(assignment.dueDate, assignment.status) ? 'overdue' : ''}`}>
-                        {isOverdue(assignment.dueDate, assignment.status) ? '⚠ ' : ''}
-                        Due {formatDate(assignment.dueDate)}
-                      </span>
-                    )}
+                            {assignment.description && (
+                              <p className="assignment-description">
+                                {assignment.description}
+                              </p>
+                            )}
+
+                            <div className="assignment-meta">
+                              {assignment.dueDate && (
+                                <span
+                                  className={`due-date ${isOverdue(assignment.dueDate, assignment.status) ? "overdue" : ""}`}
+                                >
+                                  {isOverdue(
+                                    assignment.dueDate,
+                                    assignment.status
+                                  )
+                                    ? "⚠ "
+                                    : ""}
+                                  Due {formatDate(assignment.dueDate)}
+                                </span>
+                              )}
                               {(() => {
-                                const assignmentSubtasks = subtasks[assignment.id] || assignment.subtasks || [];
+                                const assignmentSubtasks =
+                                  subtasks[assignment.id] ||
+                                  assignment.subtasks ||
+                                  [];
                                 if (assignmentSubtasks.length > 0) {
-                                  const completedCount = assignmentSubtasks.filter(s => s.isCompleted).length;
+                                  const completedCount =
+                                    assignmentSubtasks.filter(
+                                      (s) => s.isCompleted
+                                    ).length;
                                   return (
-                      <span className="subtask-count">
-                                      {completedCount} / {assignmentSubtasks.length} subtasks
-                      </span>
+                                    <span className="subtask-count">
+                                      {completedCount} /{" "}
+                                      {assignmentSubtasks.length} subtasks
+                                    </span>
                                   );
                                 }
                                 return null;
@@ -774,18 +855,29 @@ function App() {
                                 className="comments-button"
                                 onClick={() => toggleComments(assignment.id)}
                               >
-                                💬 {commentCounts[assignment.id] || 0} {openComments[assignment.id] ? 'Hide' : 'Comments'}
+                                💬 {commentCounts[assignment.id] || 0}{" "}
+                                {openComments[assignment.id]
+                                  ? "Hide"
+                                  : "Comments"}
                               </button>
                               <button
                                 className="subtasks-button"
                                 onClick={() => toggleSubtasks(assignment.id)}
                               >
-                                ✓ {subtasks[assignment.id]?.length ?? assignment.subtasks?.length ?? 0} {openSubtasks[assignment.id] ? 'Hide' : 'Subtasks'}
+                                ✓{" "}
+                                {subtasks[assignment.id]?.length ??
+                                  assignment.subtasks?.length ??
+                                  0}{" "}
+                                {openSubtasks[assignment.id]
+                                  ? "Hide"
+                                  : "Subtasks"}
                               </button>
                               {assignment.status !== 2 && (
                                 <button
                                   className="complete-button"
-                                  onClick={() => handleCompleteAssignment(assignment.id)}
+                                  onClick={() =>
+                                    handleCompleteAssignment(assignment.id)
+                                  }
                                 >
                                   Complete
                                 </button>
@@ -798,26 +890,52 @@ function App() {
                                 <div className="comments-filters">
                                   <select
                                     className="comment-filter-select"
-                                    value={commentFilters[assignment.id]?.user || ''}
-                                    onChange={(e) => setCommentFilters(prev => ({
-                                      ...prev,
-                                      [assignment.id]: { ...prev[assignment.id], user: e.target.value || null }
-                                    }))}
+                                    value={
+                                      commentFilters[assignment.id]?.user || ""
+                                    }
+                                    onChange={(e) =>
+                                      setCommentFilters((prev) => ({
+                                        ...prev,
+                                        [assignment.id]: {
+                                          ...prev[assignment.id],
+                                          user: e.target.value || null
+                                        }
+                                      }))
+                                    }
                                   >
                                     <option value="">All Users</option>
-                                    {comments[assignment.id] && Array.from(new Set(comments[assignment.id].map(c => c.authorName)))
-                                      .sort()
-                                      .map(userName => (
-                                        <option key={userName} value={userName}>{userName}</option>
-                                      ))}
+                                    {comments[assignment.id] &&
+                                      Array.from(
+                                        new Set(
+                                          comments[assignment.id].map(
+                                            (c) => c.authorName
+                                          )
+                                        )
+                                      )
+                                        .sort()
+                                        .map((userName) => (
+                                          <option
+                                            key={userName}
+                                            value={userName}
+                                          >
+                                            {userName}
+                                          </option>
+                                        ))}
                                   </select>
                                   <select
                                     className="comment-filter-select"
-                                    value={commentFilters[assignment.id]?.date || ''}
-                                    onChange={(e) => setCommentFilters(prev => ({
-                                      ...prev,
-                                      [assignment.id]: { ...prev[assignment.id], date: e.target.value || null }
-                                    }))}
+                                    value={
+                                      commentFilters[assignment.id]?.date || ""
+                                    }
+                                    onChange={(e) =>
+                                      setCommentFilters((prev) => ({
+                                        ...prev,
+                                        [assignment.id]: {
+                                          ...prev[assignment.id],
+                                          date: e.target.value || null
+                                        }
+                                      }))
+                                    }
                                   >
                                     <option value="">All Dates</option>
                                     <option value="today">Today</option>
@@ -826,35 +944,65 @@ function App() {
                                   </select>
                                   <select
                                     className="comment-filter-select"
-                                    value={commentFilters[assignment.id]?.flag || ''}
-                                    onChange={(e) => setCommentFilters(prev => ({
-                                      ...prev,
-                                      [assignment.id]: { ...prev[assignment.id], flag: e.target.value || null }
-                                    }))}
+                                    value={
+                                      commentFilters[assignment.id]?.flag || ""
+                                    }
+                                    onChange={(e) =>
+                                      setCommentFilters((prev) => ({
+                                        ...prev,
+                                        [assignment.id]: {
+                                          ...prev[assignment.id],
+                                          flag: e.target.value || null
+                                        }
+                                      }))
+                                    }
                                   >
                                     <option value="">All Comments</option>
                                     <option value="flagged">Flagged</option>
-                                    <option value="not-flagged">Not Flagged</option>
+                                    <option value="not-flagged">
+                                      Not Flagged
+                                    </option>
                                   </select>
                                   <select
                                     className="comment-filter-select"
-                                    value={commentFilters[assignment.id]?.note || ''}
-                                    onChange={(e) => setCommentFilters(prev => ({
-                                      ...prev,
-                                      [assignment.id]: { ...prev[assignment.id], note: e.target.value || null }
-                                    }))}
+                                    value={
+                                      commentFilters[assignment.id]?.note || ""
+                                    }
+                                    onChange={(e) =>
+                                      setCommentFilters((prev) => ({
+                                        ...prev,
+                                        [assignment.id]: {
+                                          ...prev[assignment.id],
+                                          note: e.target.value || null
+                                        }
+                                      }))
+                                    }
                                   >
                                     <option value="">All Comments</option>
-                                    <option value="has-note">Has Personal Note</option>
-                                    <option value="no-note">No Personal Note</option>
+                                    <option value="has-note">
+                                      Has Personal Note
+                                    </option>
+                                    <option value="no-note">
+                                      No Personal Note
+                                    </option>
                                   </select>
-                                  {(commentFilters[assignment.id]?.user || commentFilters[assignment.id]?.date || commentFilters[assignment.id]?.flag || commentFilters[assignment.id]?.note) && (
+                                  {(commentFilters[assignment.id]?.user ||
+                                    commentFilters[assignment.id]?.date ||
+                                    commentFilters[assignment.id]?.flag ||
+                                    commentFilters[assignment.id]?.note) && (
                                     <button
                                       className="comment-filter-clear"
-                                      onClick={() => setCommentFilters(prev => ({
-                                        ...prev,
-                                        [assignment.id]: { user: null, date: null, flag: null, note: null }
-                                      }))}
+                                      onClick={() =>
+                                        setCommentFilters((prev) => ({
+                                          ...prev,
+                                          [assignment.id]: {
+                                            user: null,
+                                            date: null,
+                                            flag: null,
+                                            note: null
+                                          }
+                                        }))
+                                      }
                                     >
                                       Clear Filters
                                     </button>
@@ -862,182 +1010,321 @@ function App() {
                                 </div>
                                 <div className="comments-list">
                                   {loadingComments[assignment.id] ? (
-                                    <div className="comments-loading">Loading comments...</div>
-                                  ) : (() => {
-                                    const allComments = comments[assignment.id] || [];
-                                    const filter = commentFilters[assignment.id] || {};
-                                    
-                                    let filteredComments = allComments;
-                                    
-                                    if (filter.user) {
-                                      filteredComments = filteredComments.filter(c => c.authorName === filter.user);
-                                    }
-                                    
-                                    if (filter.date) {
-                                      const now = new Date();
-                                      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-                                      
-                                      filteredComments = filteredComments.filter(c => {
-                                        const commentDate = new Date(c.createdDate);
-                                        const commentDateOnly = new Date(commentDate.getFullYear(), commentDate.getMonth(), commentDate.getDate());
-                                        
-                                        switch (filter.date) {
-                                          case 'today': {
-                                            return commentDateOnly.getTime() === today.getTime();
-                                          }
-                                          case 'week': {
-                                            const weekAgo = new Date(today);
-                                            weekAgo.setDate(weekAgo.getDate() - 7);
-                                            return commentDateOnly >= weekAgo;
-                                          }
-                                          case 'month': {
-                                            const monthAgo = new Date(today);
-                                            monthAgo.setMonth(monthAgo.getMonth() - 1);
-                                            return commentDateOnly >= monthAgo;
-                                          }
-                                          default:
-                                            return true;
-                                        }
-                                      });
-                                    }
-                                    
-                                    if (filter.flag) {
-                                      if (filter.flag === 'flagged') {
-                                        filteredComments = filteredComments.filter(c => commentFlags[c.id] === true);
-                                      } else if (filter.flag === 'not-flagged') {
-                                        filteredComments = filteredComments.filter(c => !commentFlags[c.id]);
+                                    <div className="comments-loading">
+                                      Loading comments...
+                                    </div>
+                                  ) : (
+                                    (() => {
+                                      const allComments =
+                                        comments[assignment.id] || [];
+                                      const filter =
+                                        commentFilters[assignment.id] || {};
+
+                                      let filteredComments = allComments;
+
+                                      if (filter.user) {
+                                        filteredComments =
+                                          filteredComments.filter(
+                                            (c) => c.authorName === filter.user
+                                          );
                                       }
-                                    }
-                                    
-                                    if (filter.note) {
-                                      if (filter.note === 'has-note') {
-                                        filteredComments = filteredComments.filter(c => commentNotes[c.id]);
-                                      } else if (filter.note === 'no-note') {
-                                        filteredComments = filteredComments.filter(c => !commentNotes[c.id]);
-                                      }
-                                    }
-                                    
-                                    return filteredComments.length > 0 ? (
-                                      filteredComments.map((comment) => {
-                                        const isCurrentUser = currentUser && comment.authorName === currentUser;
-                                        const userColor = getUserColor(comment.authorName);
-                                        return (
-                                          <div 
-                                            key={comment.id} 
-                                            className="comment-bubble"
-                                            style={{ 
-                                              '--user-color': userColor,
-                                              backgroundColor: isCurrentUser ? hexToRgba(userColor, 0.2) : 'rgba(255, 255, 255, 0.08)',
-                                              borderColor: isCurrentUser ? hexToRgba(userColor, 0.4) : 'rgba(255, 255, 255, 0.1)'
-                                            }}
-                                          >
-                                            <div className="comment-header">
-                                              <span className="comment-author" style={{ color: userColor }}>
-                                                {comment.authorName}
-                                              </span>
-                                              <span className="comment-date">{formatCommentDate(comment.createdDate)}</span>
-                                              <button
-                                                className={`comment-flag-button ${commentFlags[comment.id] ? 'flagged' : ''}`}
-                                                onClick={() => handleToggleCommentFlag(comment.id, !commentFlags[comment.id])}
-                                                title={commentFlags[comment.id] ? 'Unflag comment' : 'Flag comment'}
-                                              >
-                                                {commentFlags[comment.id] ? '🚩' : '🏳️'}
-                                              </button>
-                                              <button
-                                                className="comment-note-button"
-                                                onClick={() => {
-                                                  setEditingCommentNotes(prev => ({
-                                                    ...prev,
-                                                    [comment.id]: !prev[comment.id]
-                                                  }));
-                                                  if (!commentNotes[comment.id]) {
-                                                    fetch(`http://localhost:5000/api/comments/${comment.id}/note`)
-                                                      .then(res => res.ok ? res.json() : null)
-                                                      .then(data => {
-                                                        if (data?.note) {
-                                                          setCommentNotes(prev => ({
-                                                            ...prev,
-                                                            [comment.id]: data.note
-                                                          }));
-                                                        }
-                                                      })
-                                                      .catch(err => console.error('Error loading comment note:', err));
-                                                  }
-                                                }}
-                                                title={commentNotes[comment.id] ? 'Edit personal note' : 'Add personal note'}
-                                              >
-                                                {commentNotes[comment.id] ? '📝' : '📄'}
-                                              </button>
-                                            </div>
-                                            <div className="comment-content">{comment.content}</div>
-                                            {editingCommentNotes[comment.id] && (
-                                              <div className="comment-note-editor">
-                                                <textarea
-                                                  className="comment-note-input"
-                                                  placeholder="Add a personal note about this comment..."
-                                                  value={commentNotes[comment.id] || ''}
-                                                  onChange={(e) => setCommentNotes(prev => ({
-                                                    ...prev,
-                                                    [comment.id]: e.target.value
-                                                  }))}
-                                                  rows={3}
-                                                />
-                                                <div className="comment-note-actions">
-                                                  <button
-                                                    className="comment-note-save"
-                                                    onClick={() => handleUpdateCommentNote(comment.id, commentNotes[comment.id])}
-                                                  >
-                                                    Save
-                                                  </button>
-                                                  <button
-                                                    className="comment-note-cancel"
-                                                    onClick={() => {
-                                                      setEditingCommentNotes(prev => ({
-                                                        ...prev,
-                                                        [comment.id]: false
-                                                      }));
-                                                    }}
-                                                  >
-                                                    Cancel
-                                                  </button>
-                                                </div>
-                                              </div>
-                                            )}
-                                            {!editingCommentNotes[comment.id] && commentNotes[comment.id] && (
-                                              <div className="comment-note-display">
-                                                <div className="comment-note-header">
-                                                  <span className="comment-note-label">Personal Note:</span>
-                                                  <button
-                                                    className="comment-note-delete-button"
-                                                    onClick={() => handleDeleteCommentNote(comment.id)}
-                                                    title="Delete personal note"
-                                                  >
-                                                    🗑️
-                                                  </button>
-                                                </div>
-                                                <span className="comment-note-text">{commentNotes[comment.id]}</span>
-                                              </div>
-                                            )}
-                                          </div>
+
+                                      if (filter.date) {
+                                        const now = new Date();
+                                        const today = new Date(
+                                          now.getFullYear(),
+                                          now.getMonth(),
+                                          now.getDate()
                                         );
-                                      })
-                                    ) : (
-                                      <div className="comments-empty">
-                                        {allComments.length === 0 
-                                          ? "No comments yet. Be the first to comment!"
-                                          : "No comments match the selected filters."}
-                                      </div>
-                                    );
-                                  })()}
+
+                                        filteredComments =
+                                          filteredComments.filter((c) => {
+                                            const commentDate = new Date(
+                                              c.createdDate
+                                            );
+                                            const commentDateOnly = new Date(
+                                              commentDate.getFullYear(),
+                                              commentDate.getMonth(),
+                                              commentDate.getDate()
+                                            );
+
+                                            switch (filter.date) {
+                                              case "today": {
+                                                return (
+                                                  commentDateOnly.getTime() ===
+                                                  today.getTime()
+                                                );
+                                              }
+                                              case "week": {
+                                                const weekAgo = new Date(today);
+                                                weekAgo.setDate(
+                                                  weekAgo.getDate() - 7
+                                                );
+                                                return (
+                                                  commentDateOnly >= weekAgo
+                                                );
+                                              }
+                                              case "month": {
+                                                const monthAgo = new Date(
+                                                  today
+                                                );
+                                                monthAgo.setMonth(
+                                                  monthAgo.getMonth() - 1
+                                                );
+                                                return (
+                                                  commentDateOnly >= monthAgo
+                                                );
+                                              }
+                                              default:
+                                                return true;
+                                            }
+                                          });
+                                      }
+
+                                      if (filter.flag) {
+                                        if (filter.flag === "flagged") {
+                                          filteredComments =
+                                            filteredComments.filter(
+                                              (c) => commentFlags[c.id] === true
+                                            );
+                                        } else if (
+                                          filter.flag === "not-flagged"
+                                        ) {
+                                          filteredComments =
+                                            filteredComments.filter(
+                                              (c) => !commentFlags[c.id]
+                                            );
+                                        }
+                                      }
+
+                                      if (filter.note) {
+                                        if (filter.note === "has-note") {
+                                          filteredComments =
+                                            filteredComments.filter(
+                                              (c) => commentNotes[c.id]
+                                            );
+                                        } else if (filter.note === "no-note") {
+                                          filteredComments =
+                                            filteredComments.filter(
+                                              (c) => !commentNotes[c.id]
+                                            );
+                                        }
+                                      }
+
+                                      return filteredComments.length > 0 ? (
+                                        filteredComments.map((comment) => {
+                                          const isCurrentUser =
+                                            currentUser &&
+                                            comment.authorName === currentUser;
+                                          const userColor = getUserColor(
+                                            comment.authorName
+                                          );
+                                          return (
+                                            <div
+                                              key={comment.id}
+                                              className="comment-bubble"
+                                              style={{
+                                                "--user-color": userColor,
+                                                backgroundColor: isCurrentUser
+                                                  ? hexToRgba(userColor, 0.2)
+                                                  : "rgba(255, 255, 255, 0.08)",
+                                                borderColor: isCurrentUser
+                                                  ? hexToRgba(userColor, 0.4)
+                                                  : "rgba(255, 255, 255, 0.1)"
+                                              }}
+                                            >
+                                              <div className="comment-header">
+                                                <span
+                                                  className="comment-author"
+                                                  style={{ color: userColor }}
+                                                >
+                                                  {comment.authorName}
+                                                </span>
+                                                <span className="comment-date">
+                                                  {formatCommentDate(
+                                                    comment.createdDate
+                                                  )}
+                                                </span>
+                                                <button
+                                                  className={`comment-flag-button ${commentFlags[comment.id] ? "flagged" : ""}`}
+                                                  onClick={() =>
+                                                    handleToggleCommentFlag(
+                                                      comment.id,
+                                                      !commentFlags[comment.id]
+                                                    )
+                                                  }
+                                                  title={
+                                                    commentFlags[comment.id]
+                                                      ? "Unflag comment"
+                                                      : "Flag comment"
+                                                  }
+                                                >
+                                                  {commentFlags[comment.id]
+                                                    ? "🚩"
+                                                    : "🏳️"}
+                                                </button>
+                                                <button
+                                                  className="comment-note-button"
+                                                  onClick={() => {
+                                                    setEditingCommentNotes(
+                                                      (prev) => ({
+                                                        ...prev,
+                                                        [comment.id]:
+                                                          !prev[comment.id]
+                                                      })
+                                                    );
+                                                    if (
+                                                      !commentNotes[comment.id]
+                                                    ) {
+                                                      fetch(
+                                                        `http://localhost:5000/api/comments/${comment.id}/note`
+                                                      )
+                                                        .then((res) =>
+                                                          res.ok
+                                                            ? res.json()
+                                                            : null
+                                                        )
+                                                        .then((data) => {
+                                                          if (data?.note) {
+                                                            setCommentNotes(
+                                                              (prev) => ({
+                                                                ...prev,
+                                                                [comment.id]:
+                                                                  data.note
+                                                              })
+                                                            );
+                                                          }
+                                                        })
+                                                        .catch((err) =>
+                                                          console.error(
+                                                            "Error loading comment note:",
+                                                            err
+                                                          )
+                                                        );
+                                                    }
+                                                  }}
+                                                  title={
+                                                    commentNotes[comment.id]
+                                                      ? "Edit personal note"
+                                                      : "Add personal note"
+                                                  }
+                                                >
+                                                  {commentNotes[comment.id]
+                                                    ? "📝"
+                                                    : "📄"}
+                                                </button>
+                                              </div>
+                                              <div className="comment-content">
+                                                {comment.content}
+                                              </div>
+                                              {editingCommentNotes[
+                                                comment.id
+                                              ] && (
+                                                <div className="comment-note-editor">
+                                                  <textarea
+                                                    className="comment-note-input"
+                                                    placeholder="Add a personal note about this comment..."
+                                                    value={
+                                                      commentNotes[
+                                                        comment.id
+                                                      ] || ""
+                                                    }
+                                                    onChange={(e) =>
+                                                      setCommentNotes(
+                                                        (prev) => ({
+                                                          ...prev,
+                                                          [comment.id]:
+                                                            e.target.value
+                                                        })
+                                                      )
+                                                    }
+                                                    rows={3}
+                                                  />
+                                                  <div className="comment-note-actions">
+                                                    <button
+                                                      className="comment-note-save"
+                                                      onClick={() =>
+                                                        handleUpdateCommentNote(
+                                                          comment.id,
+                                                          commentNotes[
+                                                            comment.id
+                                                          ]
+                                                        )
+                                                      }
+                                                    >
+                                                      Save
+                                                    </button>
+                                                    <button
+                                                      className="comment-note-cancel"
+                                                      onClick={() => {
+                                                        setEditingCommentNotes(
+                                                          (prev) => ({
+                                                            ...prev,
+                                                            [comment.id]: false
+                                                          })
+                                                        );
+                                                      }}
+                                                    >
+                                                      Cancel
+                                                    </button>
+                                                  </div>
+                                                </div>
+                                              )}
+                                              {!editingCommentNotes[
+                                                comment.id
+                                              ] &&
+                                                commentNotes[comment.id] && (
+                                                  <div className="comment-note-display">
+                                                    <div className="comment-note-header">
+                                                      <span className="comment-note-label">
+                                                        Personal Note:
+                                                      </span>
+                                                      <button
+                                                        className="comment-note-delete-button"
+                                                        onClick={() =>
+                                                          handleDeleteCommentNote(
+                                                            comment.id
+                                                          )
+                                                        }
+                                                        title="Delete personal note"
+                                                      >
+                                                        🗑️
+                                                      </button>
+                                                    </div>
+                                                    <span className="comment-note-text">
+                                                      {commentNotes[comment.id]}
+                                                    </span>
+                                                  </div>
+                                                )}
+                                            </div>
+                                          );
+                                        })
+                                      ) : (
+                                        <div className="comments-empty">
+                                          {allComments.length === 0
+                                            ? "No comments yet. Be the first to comment!"
+                                            : "No comments match the selected filters."}
+                                        </div>
+                                      );
+                                    })()
+                                  )}
                                 </div>
                                 <div className="comment-input-container">
                                   <textarea
                                     className="comment-input"
                                     placeholder="Add a comment..."
-                                    value={newCommentText[assignment.id] || ''}
-                                    onChange={(e) => setNewCommentText(prev => ({ ...prev, [assignment.id]: e.target.value }))}
+                                    value={newCommentText[assignment.id] || ""}
+                                    onChange={(e) =>
+                                      setNewCommentText((prev) => ({
+                                        ...prev,
+                                        [assignment.id]: e.target.value
+                                      }))
+                                    }
                                     onKeyDown={(e) => {
-                                      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                                      if (
+                                        e.key === "Enter" &&
+                                        (e.ctrlKey || e.metaKey)
+                                      ) {
                                         e.preventDefault();
                                         handleAddComment(assignment.id);
                                       }
@@ -1046,8 +1333,12 @@ function App() {
                                   />
                                   <button
                                     className="comment-submit-button"
-                                    onClick={() => handleAddComment(assignment.id)}
-                                    disabled={!newCommentText[assignment.id]?.trim()}
+                                    onClick={() =>
+                                      handleAddComment(assignment.id)
+                                    }
+                                    disabled={
+                                      !newCommentText[assignment.id]?.trim()
+                                    }
                                   >
                                     Post
                                   </button>
@@ -1060,145 +1351,249 @@ function App() {
                               <div className="subtasks-section">
                                 <div className="subtasks-list">
                                   {loadingSubtasks[assignment.id] ? (
-                                    <div className="subtasks-loading">Loading subtasks...</div>
-                                  ) : (() => {
-                                    const assignmentSubtasks = subtasks[assignment.id] || [];
-                                    
-                                    return assignmentSubtasks.length > 0 ? (
-                                      assignmentSubtasks.map((subtask) => (
-                                        <div 
-                                          key={subtask.id} 
-                                          className={`subtask-item ${draggedSubtaskId === subtask.id ? 'dragging' : ''} ${dragOverSubtaskId === subtask.id ? 'drag-over' : ''}`}
-                                          draggable
-                                          onDragStart={(e) => handleDragStart(e, subtask.id)}
-                                          onDragOver={(e) => handleDragOver(e, subtask.id)}
-                                          onDragLeave={handleDragLeave}
-                                          onDrop={(e) => handleDrop(e, subtask.id, assignment.id)}
-                                          onDragEnd={handleDragEnd}
-                                        >
-                                          <div className="subtask-drag-handle">⋮⋮</div>
-                                          <div className="subtask-content">
-                                            <div className="subtask-main">
-                                              <label className="subtask-checkbox-label">
-                                                <input
-                                                  type="checkbox"
-                                                  className="subtask-checkbox"
-                                                  checked={subtask.isCompleted}
-                                                  onChange={(e) => handleToggleSubtask(subtask.id, e.target.checked)}
-                                                  onMouseDown={(e) => e.stopPropagation()}
-                                                />
-                                                <span className={`subtask-title ${subtask.isCompleted ? 'completed' : ''}`}>
-                                                  {subtask.title}
-                                                </span>
-                                              </label>
-                                              <button
-                                                className="subtask-note-button"
-                                                onMouseDown={(e) => e.stopPropagation()}
-                                                onClick={() => {
-                                                  setEditingNotes(prev => ({
-                                                    ...prev,
-                                                    [subtask.id]: !prev[subtask.id]
-                                                  }));
-                                                  if (!subtaskNotes[subtask.id] && subtask.personalNote) {
-                                                    setSubtaskNotes(prev => ({
-                                                      ...prev,
-                                                      [subtask.id]: subtask.personalNote
-                                                    }));
-                                                  }
-                                                }}
-                                                title={(subtaskNotes[subtask.id] || subtask.personalNote) ? 'Edit note' : 'Add note'}
-                                              >
-                                                {(subtaskNotes[subtask.id] || subtask.personalNote) ? '📝' : '📄'}
-                                              </button>
-                                              <button
-                                                className="subtask-delete-button"
-                                                onMouseDown={(e) => e.stopPropagation()}
-                                                onClick={() => {
-                                                  if (window.confirm('Are you sure you want to delete this subtask?')) {
-                                                    handleDeleteSubtask(subtask.id, assignment.id);
-                                                  }
-                                                }}
-                                                title="Delete subtask"
-                                              >
-                                                🗑️
-                                              </button>
+                                    <div className="subtasks-loading">
+                                      Loading subtasks...
+                                    </div>
+                                  ) : (
+                                    (() => {
+                                      const assignmentSubtasks =
+                                        subtasks[assignment.id] || [];
+
+                                      return assignmentSubtasks.length > 0 ? (
+                                        assignmentSubtasks.map((subtask) => (
+                                          <div
+                                            key={subtask.id}
+                                            className={`subtask-item ${draggedSubtaskId === subtask.id ? "dragging" : ""} ${dragOverSubtaskId === subtask.id ? "drag-over" : ""}`}
+                                            draggable
+                                            onDragStart={(e) =>
+                                              handleDragStart(e, subtask.id)
+                                            }
+                                            onDragOver={(e) =>
+                                              handleDragOver(e, subtask.id)
+                                            }
+                                            onDragLeave={handleDragLeave}
+                                            onDrop={(e) =>
+                                              handleDrop(
+                                                e,
+                                                subtask.id,
+                                                assignment.id
+                                              )
+                                            }
+                                            onDragEnd={handleDragEnd}
+                                          >
+                                            <div className="subtask-drag-handle">
+                                              ⋮⋮
                                             </div>
-                                            {editingNotes[subtask.id] && (
-                                              <div className="subtask-note-editor">
-                                                <textarea
-                                                  className="subtask-note-input"
-                                                  placeholder="Add a personal note..."
-                                                  value={subtaskNotes[subtask.id] ?? subtask.personalNote ?? ''}
-                                                  onChange={(e) => setSubtaskNotes(prev => ({
-                                                    ...prev,
-                                                    [subtask.id]: e.target.value
-                                                  }))}
-                                                  rows={3}
-                                                />
-                                                <div className="subtask-note-actions">
-                                                  <button
-                                                    className="subtask-note-save"
-                                                    onClick={() => handleUpdateSubtaskNote(subtask.id, subtaskNotes[subtask.id])}
+                                            <div className="subtask-content">
+                                              <div className="subtask-main">
+                                                <label className="subtask-checkbox-label">
+                                                  <input
+                                                    type="checkbox"
+                                                    className="subtask-checkbox"
+                                                    checked={
+                                                      subtask.isCompleted
+                                                    }
+                                                    onChange={(e) =>
+                                                      handleToggleSubtask(
+                                                        subtask.id,
+                                                        e.target.checked
+                                                      )
+                                                    }
+                                                    onMouseDown={(e) =>
+                                                      e.stopPropagation()
+                                                    }
+                                                  />
+                                                  <span
+                                                    className={`subtask-title ${subtask.isCompleted ? "completed" : ""}`}
                                                   >
-                                                    Save
-                                                  </button>
-                                                  <button
-                                                    className="subtask-note-cancel"
-                                                    onClick={() => {
-                                                      setEditingNotes(prev => ({
-                                                        ...prev,
-                                                        [subtask.id]: false
-                                                      }));
-                                                      setSubtaskNotes(prev => {
-                                                        const updated = { ...prev };
-                                                        if (subtask.personalNote) {
-                                                          updated[subtask.id] = subtask.personalNote;
-                                                        } else {
-                                                          delete updated[subtask.id];
+                                                    {subtask.title}
+                                                  </span>
+                                                </label>
+                                                <button
+                                                  className="subtask-note-button"
+                                                  onMouseDown={(e) =>
+                                                    e.stopPropagation()
+                                                  }
+                                                  onClick={() => {
+                                                    setEditingNotes((prev) => ({
+                                                      ...prev,
+                                                      [subtask.id]:
+                                                        !prev[subtask.id]
+                                                    }));
+                                                    if (
+                                                      !subtaskNotes[
+                                                        subtask.id
+                                                      ] &&
+                                                      subtask.personalNote
+                                                    ) {
+                                                      setSubtaskNotes(
+                                                        (prev) => ({
+                                                          ...prev,
+                                                          [subtask.id]:
+                                                            subtask.personalNote
+                                                        })
+                                                      );
+                                                    }
+                                                  }}
+                                                  title={
+                                                    subtaskNotes[subtask.id] ||
+                                                    subtask.personalNote
+                                                      ? "Edit note"
+                                                      : "Add note"
+                                                  }
+                                                >
+                                                  {subtaskNotes[subtask.id] ||
+                                                  subtask.personalNote
+                                                    ? "📝"
+                                                    : "📄"}
+                                                </button>
+                                                <button
+                                                  className="subtask-delete-button"
+                                                  onMouseDown={(e) =>
+                                                    e.stopPropagation()
+                                                  }
+                                                  onClick={() => {
+                                                    if (
+                                                      window.confirm(
+                                                        "Are you sure you want to delete this subtask?"
+                                                      )
+                                                    ) {
+                                                      handleDeleteSubtask(
+                                                        subtask.id,
+                                                        assignment.id
+                                                      );
+                                                    }
+                                                  }}
+                                                  title="Delete subtask"
+                                                >
+                                                  🗑️
+                                                </button>
+                                              </div>
+                                              {editingNotes[subtask.id] && (
+                                                <div className="subtask-note-editor">
+                                                  <textarea
+                                                    className="subtask-note-input"
+                                                    placeholder="Add a personal note..."
+                                                    value={
+                                                      subtaskNotes[
+                                                        subtask.id
+                                                      ] ??
+                                                      subtask.personalNote ??
+                                                      ""
+                                                    }
+                                                    onChange={(e) =>
+                                                      setSubtaskNotes(
+                                                        (prev) => ({
+                                                          ...prev,
+                                                          [subtask.id]:
+                                                            e.target.value
+                                                        })
+                                                      )
+                                                    }
+                                                    rows={3}
+                                                  />
+                                                  <div className="subtask-note-actions">
+                                                    <button
+                                                      className="subtask-note-save"
+                                                      onClick={() =>
+                                                        handleUpdateSubtaskNote(
+                                                          subtask.id,
+                                                          subtaskNotes[
+                                                            subtask.id
+                                                          ]
+                                                        )
+                                                      }
+                                                    >
+                                                      Save
+                                                    </button>
+                                                    <button
+                                                      className="subtask-note-cancel"
+                                                      onClick={() => {
+                                                        setEditingNotes(
+                                                          (prev) => ({
+                                                            ...prev,
+                                                            [subtask.id]: false
+                                                          })
+                                                        );
+                                                        setSubtaskNotes(
+                                                          (prev) => {
+                                                            const updated = {
+                                                              ...prev
+                                                            };
+                                                            if (
+                                                              subtask.personalNote
+                                                            ) {
+                                                              updated[
+                                                                subtask.id
+                                                              ] =
+                                                                subtask.personalNote;
+                                                            } else {
+                                                              delete updated[
+                                                                subtask.id
+                                                              ];
+                                                            }
+                                                            return updated;
+                                                          }
+                                                        );
+                                                      }}
+                                                    >
+                                                      Cancel
+                                                    </button>
+                                                  </div>
+                                                </div>
+                                              )}
+                                              {!editingNotes[subtask.id] &&
+                                                (subtaskNotes[subtask.id] ||
+                                                  subtask.personalNote) && (
+                                                  <div className="subtask-note-display">
+                                                    <div className="subtask-note-header">
+                                                      <span className="subtask-note-label">
+                                                        Note:
+                                                      </span>
+                                                      <button
+                                                        className="subtask-note-delete-button"
+                                                        onClick={() =>
+                                                          handleDeleteSubtaskNote(
+                                                            subtask.id
+                                                          )
                                                         }
-                                                        return updated;
-                                                      });
-                                                    }}
-                                                  >
-                                                    Cancel
-                                                  </button>
-                                                </div>
-                                              </div>
-                                            )}
-                                            {!editingNotes[subtask.id] && (subtaskNotes[subtask.id] || subtask.personalNote) && (
-                                              <div className="subtask-note-display">
-                                                <div className="subtask-note-header">
-                                                  <span className="subtask-note-label">Note:</span>
-                                                  <button
-                                                    className="subtask-note-delete-button"
-                                                    onClick={() => handleDeleteSubtaskNote(subtask.id)}
-                                                    title="Delete personal note"
-                                                  >
-                                                    🗑️
-                                                  </button>
-                                                </div>
-                                                <span className="subtask-note-text">{subtaskNotes[subtask.id] || subtask.personalNote}</span>
-                                              </div>
-                                            )}
+                                                        title="Delete personal note"
+                                                      >
+                                                        🗑️
+                                                      </button>
+                                                    </div>
+                                                    <span className="subtask-note-text">
+                                                      {subtaskNotes[
+                                                        subtask.id
+                                                      ] || subtask.personalNote}
+                                                    </span>
+                                                  </div>
+                                                )}
+                                            </div>
                                           </div>
+                                        ))
+                                      ) : (
+                                        <div className="subtasks-empty">
+                                          No subtasks yet. Add one below!
                                         </div>
-                                      ))
-                                    ) : (
-                                      <div className="subtasks-empty">
-                                        No subtasks yet. Add one below!
-                                      </div>
-                                    );
-                                  })()}
+                                      );
+                                    })()
+                                  )}
                                 </div>
                                 <div className="subtask-input-container">
                                   <input
                                     type="text"
                                     className="subtask-input"
                                     placeholder="Add a subtask..."
-                                    value={newSubtaskText[assignment.id] || ''}
-                                    onChange={(e) => setNewSubtaskText(prev => ({ ...prev, [assignment.id]: e.target.value }))}
+                                    value={newSubtaskText[assignment.id] || ""}
+                                    onChange={(e) =>
+                                      setNewSubtaskText((prev) => ({
+                                        ...prev,
+                                        [assignment.id]: e.target.value
+                                      }))
+                                    }
                                     onKeyDown={(e) => {
-                                      if (e.key === 'Enter') {
+                                      if (e.key === "Enter") {
                                         e.preventDefault();
                                         handleAddSubtask(assignment.id);
                                       }
@@ -1206,8 +1601,12 @@ function App() {
                                   />
                                   <button
                                     className="subtask-submit-button"
-                                    onClick={() => handleAddSubtask(assignment.id)}
-                                    disabled={!newSubtaskText[assignment.id]?.trim()}
+                                    onClick={() =>
+                                      handleAddSubtask(assignment.id)
+                                    }
+                                    disabled={
+                                      !newSubtaskText[assignment.id]?.trim()
+                                    }
                                   >
                                     Add
                                   </button>
@@ -1217,519 +1616,812 @@ function App() {
                           </div>
                         );
                       })}
-                  </div>
-                )}
-                {workingOnAssignments.length > 0 && otherAssignments.length > 0 && (
-                  <div className="assignments-divider">
-                    <button
-                      className="assignments-section-toggle"
-                      onClick={() => setAllAssignmentsCollapsed(!allAssignmentsCollapsed)}
-                      title={allAssignmentsCollapsed ? 'Expand all assignments' : 'Collapse all assignments'}
-                    >
-                      <span className="section-toggle-icon">{allAssignmentsCollapsed ? '▶' : '▼'}</span>
-                      <span className="divider-text">All Assignments</span>
-                      <span className="section-count">({otherAssignments.length})</span>
-                    </button>
-                  </div>
-                )}
-                {!allAssignmentsCollapsed && otherAssignments.map((assignment) => (
+                    </div>
+                  )}
+                  {workingOnAssignments.length > 0 &&
+                    otherAssignments.length > 0 && (
+                      <div className="assignments-divider">
+                        <button
+                          className="assignments-section-toggle"
+                          onClick={() =>
+                            setAllAssignmentsCollapsed(!allAssignmentsCollapsed)
+                          }
+                          title={
+                            allAssignmentsCollapsed
+                              ? "Expand all assignments"
+                              : "Collapse all assignments"
+                          }
+                        >
+                          <span className="section-toggle-icon">
+                            {allAssignmentsCollapsed ? "▶" : "▼"}
+                          </span>
+                          <span className="divider-text">All Assignments</span>
+                          <span className="section-count">
+                            ({otherAssignments.length})
+                          </span>
+                        </button>
+                      </div>
+                    )}
+                  {!allAssignmentsCollapsed &&
+                    otherAssignments.map((assignment) => (
                       <div key={assignment.id} className="assignment-card">
                         <div className="assignment-header">
                           <div className="assignment-title-row">
                             <button
                               className="working-on-toggle"
-                              onClick={() => handleToggleWorkingOn(assignment.id, true)}
-                              title="Mark as working on"
+                              onClick={() =>
+                                handleToggleWorkingOn(assignment.id, true)
+                              }
+                              title="Add to Hot Zone"
                             >
                               ⭐
                             </button>
-                            <h2 className="assignment-title">{assignment.title}</h2>
+                            <h2 className="assignment-title">
+                              {assignment.title}
+                            </h2>
                           </div>
-                          <span 
+                          <span
                             className="status-badge"
-                            style={{ backgroundColor: getStatusColor(assignment.status) }}
+                            style={{
+                              backgroundColor: getStatusColor(assignment.status)
+                            }}
                           >
                             {getStatusLabel(assignment.status)}
                           </span>
                         </div>
-                  
-                  {assignment.description && (
-                    <p className="assignment-description">{assignment.description}</p>
-                  )}
 
-                  <div className="assignment-meta">
-                    {assignment.dueDate && (
-                      <span className={`due-date ${isOverdue(assignment.dueDate, assignment.status) ? 'overdue' : ''}`}>
-                        {isOverdue(assignment.dueDate, assignment.status) ? '⚠ ' : ''}
-                        Due {formatDate(assignment.dueDate)}
-                      </span>
-                    )}
-                    {(() => {
-                      const assignmentSubtasks = subtasks[assignment.id] || assignment.subtasks || [];
-                      if (assignmentSubtasks.length > 0) {
-                        const completedCount = assignmentSubtasks.filter(s => s.isCompleted).length;
-                        return (
-                          <span className="subtask-count">
-                            {completedCount} / {assignmentSubtasks.length} subtasks
-                          </span>
-                        );
-                      }
-                      return null;
-                    })()}
-                    <button
-                      className="comments-button"
-                      onClick={() => toggleComments(assignment.id)}
-                    >
-                      💬 {commentCounts[assignment.id] || 0} {openComments[assignment.id] ? 'Hide' : 'Comments'}
-                    </button>
-                    <button
-                      className="subtasks-button"
-                      onClick={() => toggleSubtasks(assignment.id)}
-                    >
-                      ✓ {subtasks[assignment.id]?.length ?? assignment.subtasks?.length ?? 0} {openSubtasks[assignment.id] ? 'Hide' : 'Subtasks'}
-                    </button>
-                    {assignment.status !== 2 && (
-                      <button
-                        className="complete-button"
-                        onClick={() => handleCompleteAssignment(assignment.id)}
-                      >
-                        Complete
-                      </button>
-                    )}
-                  </div>
-
-                  {openComments[assignment.id] && (
-                    <div className="comments-section">
-                      <div className="comments-filters">
-                        <select
-                          className="comment-filter-select"
-                          value={commentFilters[assignment.id]?.user || ''}
-                          onChange={(e) => setCommentFilters(prev => ({
-                            ...prev,
-                            [assignment.id]: { ...prev[assignment.id], user: e.target.value || null }
-                          }))}
-                        >
-                          <option value="">All Users</option>
-                          {comments[assignment.id] && Array.from(new Set(comments[assignment.id].map(c => c.authorName)))
-                            .sort()
-                            .map(userName => (
-                              <option key={userName} value={userName}>{userName}</option>
-                            ))}
-                        </select>
-                        <select
-                          className="comment-filter-select"
-                          value={commentFilters[assignment.id]?.date || ''}
-                          onChange={(e) => setCommentFilters(prev => ({
-                            ...prev,
-                            [assignment.id]: { ...prev[assignment.id], date: e.target.value || null }
-                          }))}
-                        >
-                          <option value="">All Dates</option>
-                          <option value="today">Today</option>
-                          <option value="week">This Week</option>
-                          <option value="month">This Month</option>
-                        </select>
-                        <select
-                          className="comment-filter-select"
-                          value={commentFilters[assignment.id]?.flag || ''}
-                          onChange={(e) => setCommentFilters(prev => ({
-                            ...prev,
-                            [assignment.id]: { ...prev[assignment.id], flag: e.target.value || null }
-                          }))}
-                        >
-                          <option value="">All Comments</option>
-                          <option value="flagged">Flagged</option>
-                          <option value="not-flagged">Not Flagged</option>
-                        </select>
-                        <select
-                          className="comment-filter-select"
-                          value={commentFilters[assignment.id]?.note || ''}
-                          onChange={(e) => setCommentFilters(prev => ({
-                            ...prev,
-                            [assignment.id]: { ...prev[assignment.id], note: e.target.value || null }
-                          }))}
-                        >
-                          <option value="">All Comments</option>
-                          <option value="has-note">Has Personal Note</option>
-                          <option value="no-note">No Personal Note</option>
-                        </select>
-                        {(commentFilters[assignment.id]?.user || commentFilters[assignment.id]?.date || commentFilters[assignment.id]?.flag || commentFilters[assignment.id]?.note) && (
-                          <button
-                            className="comment-filter-clear"
-                            onClick={() => setCommentFilters(prev => ({
-                              ...prev,
-                              [assignment.id]: { user: null, date: null, flag: null, note: null }
-                            }))}
-                          >
-                            Clear Filters
-                          </button>
+                        {assignment.description && (
+                          <p className="assignment-description">
+                            {assignment.description}
+                          </p>
                         )}
-                      </div>
-                      <div className="comments-list">
-                        {loadingComments[assignment.id] ? (
-                          <div className="comments-loading">Loading comments...</div>
-                        ) : (() => {
-                          const allComments = comments[assignment.id] || [];
-                          const filter = commentFilters[assignment.id] || {};
-                          
-                          let filteredComments = allComments;
-                          
-                          // Filter by user
-                          if (filter.user) {
-                            filteredComments = filteredComments.filter(c => c.authorName === filter.user);
-                          }
-                          
-                          // Filter by date
-                          if (filter.date) {
-                            const now = new Date();
-                            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-                            
-                            filteredComments = filteredComments.filter(c => {
-                              const commentDate = new Date(c.createdDate);
-                              const commentDateOnly = new Date(commentDate.getFullYear(), commentDate.getMonth(), commentDate.getDate());
-                              
-                              switch (filter.date) {
-                                case 'today': {
-                                  return commentDateOnly.getTime() === today.getTime();
-                                }
-                                case 'week': {
-                                  const weekAgo = new Date(today);
-                                  weekAgo.setDate(weekAgo.getDate() - 7);
-                                  return commentDateOnly >= weekAgo;
-                                }
-                                case 'month': {
-                                  const monthAgo = new Date(today);
-                                  monthAgo.setMonth(monthAgo.getMonth() - 1);
-                                  return commentDateOnly >= monthAgo;
-                                }
-                                default:
-                                  return true;
-                              }
-                            });
-                          }
-                          
-                          // Filter by flag
-                          if (filter.flag) {
-                            if (filter.flag === 'flagged') {
-                              filteredComments = filteredComments.filter(c => commentFlags[c.id] === true);
-                            } else if (filter.flag === 'not-flagged') {
-                              filteredComments = filteredComments.filter(c => !commentFlags[c.id]);
-                            }
-                          }
-                          
-                          // Filter by note
-                          if (filter.note) {
-                            if (filter.note === 'has-note') {
-                              filteredComments = filteredComments.filter(c => commentNotes[c.id]);
-                            } else if (filter.note === 'no-note') {
-                              filteredComments = filteredComments.filter(c => !commentNotes[c.id]);
-                            }
-                          }
-                          
-                          return filteredComments.length > 0 ? (
-                            filteredComments.map((comment) => {
-                            const isCurrentUser = currentUser && comment.authorName === currentUser;
-                            const userColor = getUserColor(comment.authorName);
-                            return (
-                              <div 
-                                key={comment.id} 
-                                className="comment-bubble"
-                                style={{ 
-                                  '--user-color': userColor,
-                                  backgroundColor: isCurrentUser ? hexToRgba(userColor, 0.2) : 'rgba(255, 255, 255, 0.08)',
-                                  borderColor: isCurrentUser ? hexToRgba(userColor, 0.4) : 'rgba(255, 255, 255, 0.1)'
-                                }}
-                              >
-                                <div className="comment-header">
-                                  <span className="comment-author" style={{ color: userColor }}>
-                                    {comment.authorName}
-                                  </span>
-                                  <span className="comment-date">{formatCommentDate(comment.createdDate)}</span>
-                                  <button
-                                    className={`comment-flag-button ${commentFlags[comment.id] ? 'flagged' : ''}`}
-                                    onClick={() => handleToggleCommentFlag(comment.id, !commentFlags[comment.id])}
-                                    title={commentFlags[comment.id] ? 'Unflag comment' : 'Flag comment'}
-                                  >
-                                    {commentFlags[comment.id] ? '🚩' : '🏳️'}
-                                  </button>
-                                  <button
-                                    className="comment-note-button"
-                                    onClick={() => {
-                                      setEditingCommentNotes(prev => ({
-                                        ...prev,
-                                        [comment.id]: !prev[comment.id]
-                                      }));
-                                      // Load note if not already loaded
-                                      if (!commentNotes[comment.id]) {
-                                        fetch(`http://localhost:5000/api/comments/${comment.id}/note`)
-                                          .then(res => res.ok ? res.json() : null)
-                                          .then(data => {
-                                            if (data?.note) {
-                                              setCommentNotes(prev => ({
-                                                ...prev,
-                                                [comment.id]: data.note
-                                              }));
-                                            }
-                                          })
-                                          .catch(err => console.error('Error loading comment note:', err));
-                                      }
-                                    }}
-                                    title={commentNotes[comment.id] ? 'Edit personal note' : 'Add personal note'}
-                                  >
-                                    {commentNotes[comment.id] ? '📝' : '📄'}
-                                  </button>
-                                </div>
-                                <div className="comment-content">{comment.content}</div>
-                                {editingCommentNotes[comment.id] && (
-                                  <div className="comment-note-editor">
-                                    <textarea
-                                      className="comment-note-input"
-                                      placeholder="Add a personal note about this comment..."
-                                      value={commentNotes[comment.id] || ''}
-                                      onChange={(e) => setCommentNotes(prev => ({
-                                        ...prev,
-                                        [comment.id]: e.target.value
-                                      }))}
-                                      rows={3}
-                                    />
-                                    <div className="comment-note-actions">
-                                      <button
-                                        className="comment-note-save"
-                                        onClick={() => handleUpdateCommentNote(comment.id, commentNotes[comment.id])}
-                                      >
-                                        Save
-                                      </button>
-                                      <button
-                                        className="comment-note-cancel"
-                                        onClick={() => {
-                                          setEditingCommentNotes(prev => ({
-                                            ...prev,
-                                            [comment.id]: false
-                                          }));
-                                        }}
-                                      >
-                                        Cancel
-                                      </button>
-                                    </div>
-                                  </div>
-                                )}
-                                {!editingCommentNotes[comment.id] && commentNotes[comment.id] && (
-                                  <div className="comment-note-display">
-                                    <div className="comment-note-header">
-                                      <span className="comment-note-label">Personal Note:</span>
-                                      <button
-                                        className="comment-note-delete-button"
-                                        onClick={() => handleDeleteCommentNote(comment.id)}
-                                        title="Delete personal note"
-                                      >
-                                        🗑️
-                                      </button>
-                                    </div>
-                                    <span className="comment-note-text">{commentNotes[comment.id]}</span>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })
-                          ) : (
-                            <div className="comments-empty">
-                              {allComments.length === 0 
-                                ? "No comments yet. Be the first to comment!"
-                                : "No comments match the selected filters."}
-                            </div>
-                          );
-                        })()}
-                      </div>
-                      <div className="comment-input-container">
-                        <textarea
-                          className="comment-input"
-                          placeholder="Add a comment..."
-                          value={newCommentText[assignment.id] || ''}
-                          onChange={(e) => setNewCommentText(prev => ({ ...prev, [assignment.id]: e.target.value }))}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                              e.preventDefault();
-                              handleAddComment(assignment.id);
-                            }
-                          }}
-                          rows={3}
-                        />
-                        <button
-                          className="comment-submit-button"
-                          onClick={() => handleAddComment(assignment.id)}
-                          disabled={!newCommentText[assignment.id]?.trim()}
-                        >
-                          Post
-                        </button>
-                      </div>
-                    </div>
-                  )}
 
-                  {openSubtasks[assignment.id] && (
-                    <div className="subtasks-section">
-                      <div className="subtasks-list">
-                        {loadingSubtasks[assignment.id] ? (
-                          <div className="subtasks-loading">Loading subtasks...</div>
-                        ) : (() => {
-                          const assignmentSubtasks = subtasks[assignment.id] || [];
-                          
-                          return assignmentSubtasks.length > 0 ? (
-                            assignmentSubtasks.map((subtask) => (
-                              <div 
-                                key={subtask.id} 
-                                className={`subtask-item ${draggedSubtaskId === subtask.id ? 'dragging' : ''} ${dragOverSubtaskId === subtask.id ? 'drag-over' : ''}`}
-                                draggable
-                                onDragStart={(e) => handleDragStart(e, subtask.id)}
-                                onDragOver={(e) => handleDragOver(e, subtask.id)}
-                                onDragLeave={handleDragLeave}
-                                onDrop={(e) => handleDrop(e, subtask.id, assignment.id)}
-                                onDragEnd={handleDragEnd}
+                        <div className="assignment-meta">
+                          {assignment.dueDate && (
+                            <span
+                              className={`due-date ${isOverdue(assignment.dueDate, assignment.status) ? "overdue" : ""}`}
+                            >
+                              {isOverdue(assignment.dueDate, assignment.status)
+                                ? "⚠ "
+                                : ""}
+                              Due {formatDate(assignment.dueDate)}
+                            </span>
+                          )}
+                          {(() => {
+                            const assignmentSubtasks =
+                              subtasks[assignment.id] ||
+                              assignment.subtasks ||
+                              [];
+                            if (assignmentSubtasks.length > 0) {
+                              const completedCount = assignmentSubtasks.filter(
+                                (s) => s.isCompleted
+                              ).length;
+                              return (
+                                <span className="subtask-count">
+                                  {completedCount} / {assignmentSubtasks.length}{" "}
+                                  subtasks
+                                </span>
+                              );
+                            }
+                            return null;
+                          })()}
+                          <button
+                            className="comments-button"
+                            onClick={() => toggleComments(assignment.id)}
+                          >
+                            💬 {commentCounts[assignment.id] || 0}{" "}
+                            {openComments[assignment.id] ? "Hide" : "Comments"}
+                          </button>
+                          <button
+                            className="subtasks-button"
+                            onClick={() => toggleSubtasks(assignment.id)}
+                          >
+                            ✓{" "}
+                            {subtasks[assignment.id]?.length ??
+                              assignment.subtasks?.length ??
+                              0}{" "}
+                            {openSubtasks[assignment.id] ? "Hide" : "Subtasks"}
+                          </button>
+                          {assignment.status !== 2 && (
+                            <button
+                              className="complete-button"
+                              onClick={() =>
+                                handleCompleteAssignment(assignment.id)
+                              }
+                            >
+                              Complete
+                            </button>
+                          )}
+                        </div>
+
+                        {openComments[assignment.id] && (
+                          <div className="comments-section">
+                            <div className="comments-filters">
+                              <select
+                                className="comment-filter-select"
+                                value={
+                                  commentFilters[assignment.id]?.user || ""
+                                }
+                                onChange={(e) =>
+                                  setCommentFilters((prev) => ({
+                                    ...prev,
+                                    [assignment.id]: {
+                                      ...prev[assignment.id],
+                                      user: e.target.value || null
+                                    }
+                                  }))
+                                }
                               >
-                                <div className="subtask-drag-handle">⋮⋮</div>
-                                <div className="subtask-content">
-                                  <div className="subtask-main">
-                                    <label className="subtask-checkbox-label">
-                                      <input
-                                        type="checkbox"
-                                        className="subtask-checkbox"
-                                        checked={subtask.isCompleted}
-                                        onChange={(e) => handleToggleSubtask(subtask.id, e.target.checked)}
-                                        onMouseDown={(e) => e.stopPropagation()}
-                                      />
-                                      <span className={`subtask-title ${subtask.isCompleted ? 'completed' : ''}`}>
-                                        {subtask.title}
-                                      </span>
-                                    </label>
-                                    <button
-                                      className="subtask-note-button"
-                                      onMouseDown={(e) => e.stopPropagation()}
-                                      onClick={() => {
-                                        setEditingNotes(prev => ({
-                                          ...prev,
-                                          [subtask.id]: !prev[subtask.id]
-                                        }));
-                                        // Initialize note in state if not already set
-                                        if (!subtaskNotes[subtask.id] && subtask.personalNote) {
-                                          setSubtaskNotes(prev => ({
-                                            ...prev,
-                                            [subtask.id]: subtask.personalNote
-                                          }));
+                                <option value="">All Users</option>
+                                {comments[assignment.id] &&
+                                  Array.from(
+                                    new Set(
+                                      comments[assignment.id].map(
+                                        (c) => c.authorName
+                                      )
+                                    )
+                                  )
+                                    .sort()
+                                    .map((userName) => (
+                                      <option key={userName} value={userName}>
+                                        {userName}
+                                      </option>
+                                    ))}
+                              </select>
+                              <select
+                                className="comment-filter-select"
+                                value={
+                                  commentFilters[assignment.id]?.date || ""
+                                }
+                                onChange={(e) =>
+                                  setCommentFilters((prev) => ({
+                                    ...prev,
+                                    [assignment.id]: {
+                                      ...prev[assignment.id],
+                                      date: e.target.value || null
+                                    }
+                                  }))
+                                }
+                              >
+                                <option value="">All Dates</option>
+                                <option value="today">Today</option>
+                                <option value="week">This Week</option>
+                                <option value="month">This Month</option>
+                              </select>
+                              <select
+                                className="comment-filter-select"
+                                value={
+                                  commentFilters[assignment.id]?.flag || ""
+                                }
+                                onChange={(e) =>
+                                  setCommentFilters((prev) => ({
+                                    ...prev,
+                                    [assignment.id]: {
+                                      ...prev[assignment.id],
+                                      flag: e.target.value || null
+                                    }
+                                  }))
+                                }
+                              >
+                                <option value="">All Comments</option>
+                                <option value="flagged">Flagged</option>
+                                <option value="not-flagged">Not Flagged</option>
+                              </select>
+                              <select
+                                className="comment-filter-select"
+                                value={
+                                  commentFilters[assignment.id]?.note || ""
+                                }
+                                onChange={(e) =>
+                                  setCommentFilters((prev) => ({
+                                    ...prev,
+                                    [assignment.id]: {
+                                      ...prev[assignment.id],
+                                      note: e.target.value || null
+                                    }
+                                  }))
+                                }
+                              >
+                                <option value="">All Comments</option>
+                                <option value="has-note">
+                                  Has Personal Note
+                                </option>
+                                <option value="no-note">
+                                  No Personal Note
+                                </option>
+                              </select>
+                              {(commentFilters[assignment.id]?.user ||
+                                commentFilters[assignment.id]?.date ||
+                                commentFilters[assignment.id]?.flag ||
+                                commentFilters[assignment.id]?.note) && (
+                                <button
+                                  className="comment-filter-clear"
+                                  onClick={() =>
+                                    setCommentFilters((prev) => ({
+                                      ...prev,
+                                      [assignment.id]: {
+                                        user: null,
+                                        date: null,
+                                        flag: null,
+                                        note: null
+                                      }
+                                    }))
+                                  }
+                                >
+                                  Clear Filters
+                                </button>
+                              )}
+                            </div>
+                            <div className="comments-list">
+                              {loadingComments[assignment.id] ? (
+                                <div className="comments-loading">
+                                  Loading comments...
+                                </div>
+                              ) : (
+                                (() => {
+                                  const allComments =
+                                    comments[assignment.id] || [];
+                                  const filter =
+                                    commentFilters[assignment.id] || {};
+
+                                  let filteredComments = allComments;
+
+                                  // Filter by user
+                                  if (filter.user) {
+                                    filteredComments = filteredComments.filter(
+                                      (c) => c.authorName === filter.user
+                                    );
+                                  }
+
+                                  // Filter by date
+                                  if (filter.date) {
+                                    const now = new Date();
+                                    const today = new Date(
+                                      now.getFullYear(),
+                                      now.getMonth(),
+                                      now.getDate()
+                                    );
+
+                                    filteredComments = filteredComments.filter(
+                                      (c) => {
+                                        const commentDate = new Date(
+                                          c.createdDate
+                                        );
+                                        const commentDateOnly = new Date(
+                                          commentDate.getFullYear(),
+                                          commentDate.getMonth(),
+                                          commentDate.getDate()
+                                        );
+
+                                        switch (filter.date) {
+                                          case "today": {
+                                            return (
+                                              commentDateOnly.getTime() ===
+                                              today.getTime()
+                                            );
+                                          }
+                                          case "week": {
+                                            const weekAgo = new Date(today);
+                                            weekAgo.setDate(
+                                              weekAgo.getDate() - 7
+                                            );
+                                            return commentDateOnly >= weekAgo;
+                                          }
+                                          case "month": {
+                                            const monthAgo = new Date(today);
+                                            monthAgo.setMonth(
+                                              monthAgo.getMonth() - 1
+                                            );
+                                            return commentDateOnly >= monthAgo;
+                                          }
+                                          default:
+                                            return true;
                                         }
-                                      }}
-                                      title={(subtaskNotes[subtask.id] || subtask.personalNote) ? 'Edit note' : 'Add note'}
-                                    >
-                                      {(subtaskNotes[subtask.id] || subtask.personalNote) ? '📝' : '📄'}
-                                    </button>
-                                    <button
-                                      className="subtask-delete-button"
-                                      onMouseDown={(e) => e.stopPropagation()}
-                                      onClick={() => {
-                                        if (window.confirm('Are you sure you want to delete this subtask?')) {
-                                          handleDeleteSubtask(subtask.id, assignment.id);
-                                        }
-                                      }}
-                                      title="Delete subtask"
-                                    >
-                                      🗑️
-                                    </button>
-                </div>
-                                  {editingNotes[subtask.id] && (
-                                    <div className="subtask-note-editor">
-                                      <textarea
-                                        className="subtask-note-input"
-                                        placeholder="Add a personal note..."
-                                        value={subtaskNotes[subtask.id] ?? subtask.personalNote ?? ''}
-                                        onChange={(e) => setSubtaskNotes(prev => ({
-                                          ...prev,
-                                          [subtask.id]: e.target.value
-                                        }))}
-                                        rows={3}
-                                      />
-                                      <div className="subtask-note-actions">
-                                        <button
-                                          className="subtask-note-save"
-                                          onClick={() => handleUpdateSubtaskNote(subtask.id, subtaskNotes[subtask.id])}
-                                        >
-                                          Save
-                                        </button>
-                                        <button
-                                          className="subtask-note-cancel"
-                                          onClick={() => {
-                                            setEditingNotes(prev => ({
-                                              ...prev,
-                                              [subtask.id]: false
-                                            }));
-                                            // Restore original note
-                                            setSubtaskNotes(prev => {
-                                              const updated = { ...prev };
-                                              if (subtask.personalNote) {
-                                                updated[subtask.id] = subtask.personalNote;
-                                              } else {
-                                                delete updated[subtask.id];
-                                              }
-                                              return updated;
-                                            });
+                                      }
+                                    );
+                                  }
+
+                                  // Filter by flag
+                                  if (filter.flag) {
+                                    if (filter.flag === "flagged") {
+                                      filteredComments =
+                                        filteredComments.filter(
+                                          (c) => commentFlags[c.id] === true
+                                        );
+                                    } else if (filter.flag === "not-flagged") {
+                                      filteredComments =
+                                        filteredComments.filter(
+                                          (c) => !commentFlags[c.id]
+                                        );
+                                    }
+                                  }
+
+                                  // Filter by note
+                                  if (filter.note) {
+                                    if (filter.note === "has-note") {
+                                      filteredComments =
+                                        filteredComments.filter(
+                                          (c) => commentNotes[c.id]
+                                        );
+                                    } else if (filter.note === "no-note") {
+                                      filteredComments =
+                                        filteredComments.filter(
+                                          (c) => !commentNotes[c.id]
+                                        );
+                                    }
+                                  }
+
+                                  return filteredComments.length > 0 ? (
+                                    filteredComments.map((comment) => {
+                                      const isCurrentUser =
+                                        currentUser &&
+                                        comment.authorName === currentUser;
+                                      const userColor = getUserColor(
+                                        comment.authorName
+                                      );
+                                      return (
+                                        <div
+                                          key={comment.id}
+                                          className="comment-bubble"
+                                          style={{
+                                            "--user-color": userColor,
+                                            backgroundColor: isCurrentUser
+                                              ? hexToRgba(userColor, 0.2)
+                                              : "rgba(255, 255, 255, 0.08)",
+                                            borderColor: isCurrentUser
+                                              ? hexToRgba(userColor, 0.4)
+                                              : "rgba(255, 255, 255, 0.1)"
                                           }}
                                         >
-                                          Cancel
-                                        </button>
-                                      </div>
-            </div>
-          )}
-                                  {!editingNotes[subtask.id] && (subtaskNotes[subtask.id] || subtask.personalNote) && (
-                                    <div className="subtask-note-display">
-                                      <div className="subtask-note-header">
-                                        <span className="subtask-note-label">Note:</span>
-                                        <button
-                                          className="subtask-note-delete-button"
-                                          onClick={() => handleDeleteSubtaskNote(subtask.id)}
-                                          title="Delete personal note"
-                                        >
-                                          🗑️
-                                        </button>
-                                      </div>
-                                      <span className="subtask-note-text">{subtaskNotes[subtask.id] || subtask.personalNote}</span>
-        </div>
-      )}
-                                </div>
-                              </div>
-                            ))
-                          ) : (
-                            <div className="subtasks-empty">
-                              No subtasks yet. Add one below!
+                                          <div className="comment-header">
+                                            <span
+                                              className="comment-author"
+                                              style={{ color: userColor }}
+                                            >
+                                              {comment.authorName}
+                                            </span>
+                                            <span className="comment-date">
+                                              {formatCommentDate(
+                                                comment.createdDate
+                                              )}
+                                            </span>
+                                            <button
+                                              className={`comment-flag-button ${commentFlags[comment.id] ? "flagged" : ""}`}
+                                              onClick={() =>
+                                                handleToggleCommentFlag(
+                                                  comment.id,
+                                                  !commentFlags[comment.id]
+                                                )
+                                              }
+                                              title={
+                                                commentFlags[comment.id]
+                                                  ? "Unflag comment"
+                                                  : "Flag comment"
+                                              }
+                                            >
+                                              {commentFlags[comment.id]
+                                                ? "🚩"
+                                                : "🏳️"}
+                                            </button>
+                                            <button
+                                              className="comment-note-button"
+                                              onClick={() => {
+                                                setEditingCommentNotes(
+                                                  (prev) => ({
+                                                    ...prev,
+                                                    [comment.id]:
+                                                      !prev[comment.id]
+                                                  })
+                                                );
+                                                // Load note if not already loaded
+                                                if (!commentNotes[comment.id]) {
+                                                  fetch(
+                                                    `http://localhost:5000/api/comments/${comment.id}/note`
+                                                  )
+                                                    .then((res) =>
+                                                      res.ok ? res.json() : null
+                                                    )
+                                                    .then((data) => {
+                                                      if (data?.note) {
+                                                        setCommentNotes(
+                                                          (prev) => ({
+                                                            ...prev,
+                                                            [comment.id]:
+                                                              data.note
+                                                          })
+                                                        );
+                                                      }
+                                                    })
+                                                    .catch((err) =>
+                                                      console.error(
+                                                        "Error loading comment note:",
+                                                        err
+                                                      )
+                                                    );
+                                                }
+                                              }}
+                                              title={
+                                                commentNotes[comment.id]
+                                                  ? "Edit personal note"
+                                                  : "Add personal note"
+                                              }
+                                            >
+                                              {commentNotes[comment.id]
+                                                ? "📝"
+                                                : "📄"}
+                                            </button>
+                                          </div>
+                                          <div className="comment-content">
+                                            {comment.content}
+                                          </div>
+                                          {editingCommentNotes[comment.id] && (
+                                            <div className="comment-note-editor">
+                                              <textarea
+                                                className="comment-note-input"
+                                                placeholder="Add a personal note about this comment..."
+                                                value={
+                                                  commentNotes[comment.id] || ""
+                                                }
+                                                onChange={(e) =>
+                                                  setCommentNotes((prev) => ({
+                                                    ...prev,
+                                                    [comment.id]: e.target.value
+                                                  }))
+                                                }
+                                                rows={3}
+                                              />
+                                              <div className="comment-note-actions">
+                                                <button
+                                                  className="comment-note-save"
+                                                  onClick={() =>
+                                                    handleUpdateCommentNote(
+                                                      comment.id,
+                                                      commentNotes[comment.id]
+                                                    )
+                                                  }
+                                                >
+                                                  Save
+                                                </button>
+                                                <button
+                                                  className="comment-note-cancel"
+                                                  onClick={() => {
+                                                    setEditingCommentNotes(
+                                                      (prev) => ({
+                                                        ...prev,
+                                                        [comment.id]: false
+                                                      })
+                                                    );
+                                                  }}
+                                                >
+                                                  Cancel
+                                                </button>
+                                              </div>
+                                            </div>
+                                          )}
+                                          {!editingCommentNotes[comment.id] &&
+                                            commentNotes[comment.id] && (
+                                              <div className="comment-note-display">
+                                                <div className="comment-note-header">
+                                                  <span className="comment-note-label">
+                                                    Personal Note:
+                                                  </span>
+                                                  <button
+                                                    className="comment-note-delete-button"
+                                                    onClick={() =>
+                                                      handleDeleteCommentNote(
+                                                        comment.id
+                                                      )
+                                                    }
+                                                    title="Delete personal note"
+                                                  >
+                                                    🗑️
+                                                  </button>
+                                                </div>
+                                                <span className="comment-note-text">
+                                                  {commentNotes[comment.id]}
+                                                </span>
+                                              </div>
+                                            )}
+                                        </div>
+                                      );
+                                    })
+                                  ) : (
+                                    <div className="comments-empty">
+                                      {allComments.length === 0
+                                        ? "No comments yet. Be the first to comment!"
+                                        : "No comments match the selected filters."}
+                                    </div>
+                                  );
+                                })()
+                              )}
                             </div>
-                          );
-                        })()}
+                            <div className="comment-input-container">
+                              <textarea
+                                className="comment-input"
+                                placeholder="Add a comment..."
+                                value={newCommentText[assignment.id] || ""}
+                                onChange={(e) =>
+                                  setNewCommentText((prev) => ({
+                                    ...prev,
+                                    [assignment.id]: e.target.value
+                                  }))
+                                }
+                                onKeyDown={(e) => {
+                                  if (
+                                    e.key === "Enter" &&
+                                    (e.ctrlKey || e.metaKey)
+                                  ) {
+                                    e.preventDefault();
+                                    handleAddComment(assignment.id);
+                                  }
+                                }}
+                                rows={3}
+                              />
+                              <button
+                                className="comment-submit-button"
+                                onClick={() => handleAddComment(assignment.id)}
+                                disabled={
+                                  !newCommentText[assignment.id]?.trim()
+                                }
+                              >
+                                Post
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {openSubtasks[assignment.id] && (
+                          <div className="subtasks-section">
+                            <div className="subtasks-list">
+                              {loadingSubtasks[assignment.id] ? (
+                                <div className="subtasks-loading">
+                                  Loading subtasks...
+                                </div>
+                              ) : (
+                                (() => {
+                                  const assignmentSubtasks =
+                                    subtasks[assignment.id] || [];
+
+                                  return assignmentSubtasks.length > 0 ? (
+                                    assignmentSubtasks.map((subtask) => (
+                                      <div
+                                        key={subtask.id}
+                                        className={`subtask-item ${draggedSubtaskId === subtask.id ? "dragging" : ""} ${dragOverSubtaskId === subtask.id ? "drag-over" : ""}`}
+                                        draggable
+                                        onDragStart={(e) =>
+                                          handleDragStart(e, subtask.id)
+                                        }
+                                        onDragOver={(e) =>
+                                          handleDragOver(e, subtask.id)
+                                        }
+                                        onDragLeave={handleDragLeave}
+                                        onDrop={(e) =>
+                                          handleDrop(
+                                            e,
+                                            subtask.id,
+                                            assignment.id
+                                          )
+                                        }
+                                        onDragEnd={handleDragEnd}
+                                      >
+                                        <div className="subtask-drag-handle">
+                                          ⋮⋮
+                                        </div>
+                                        <div className="subtask-content">
+                                          <div className="subtask-main">
+                                            <label className="subtask-checkbox-label">
+                                              <input
+                                                type="checkbox"
+                                                className="subtask-checkbox"
+                                                checked={subtask.isCompleted}
+                                                onChange={(e) =>
+                                                  handleToggleSubtask(
+                                                    subtask.id,
+                                                    e.target.checked
+                                                  )
+                                                }
+                                                onMouseDown={(e) =>
+                                                  e.stopPropagation()
+                                                }
+                                              />
+                                              <span
+                                                className={`subtask-title ${subtask.isCompleted ? "completed" : ""}`}
+                                              >
+                                                {subtask.title}
+                                              </span>
+                                            </label>
+                                            <button
+                                              className="subtask-note-button"
+                                              onMouseDown={(e) =>
+                                                e.stopPropagation()
+                                              }
+                                              onClick={() => {
+                                                setEditingNotes((prev) => ({
+                                                  ...prev,
+                                                  [subtask.id]:
+                                                    !prev[subtask.id]
+                                                }));
+                                                // Initialize note in state if not already set
+                                                if (
+                                                  !subtaskNotes[subtask.id] &&
+                                                  subtask.personalNote
+                                                ) {
+                                                  setSubtaskNotes((prev) => ({
+                                                    ...prev,
+                                                    [subtask.id]:
+                                                      subtask.personalNote
+                                                  }));
+                                                }
+                                              }}
+                                              title={
+                                                subtaskNotes[subtask.id] ||
+                                                subtask.personalNote
+                                                  ? "Edit note"
+                                                  : "Add note"
+                                              }
+                                            >
+                                              {subtaskNotes[subtask.id] ||
+                                              subtask.personalNote
+                                                ? "📝"
+                                                : "📄"}
+                                            </button>
+                                            <button
+                                              className="subtask-delete-button"
+                                              onMouseDown={(e) =>
+                                                e.stopPropagation()
+                                              }
+                                              onClick={() => {
+                                                if (
+                                                  window.confirm(
+                                                    "Are you sure you want to delete this subtask?"
+                                                  )
+                                                ) {
+                                                  handleDeleteSubtask(
+                                                    subtask.id,
+                                                    assignment.id
+                                                  );
+                                                }
+                                              }}
+                                              title="Delete subtask"
+                                            >
+                                              🗑️
+                                            </button>
+                                          </div>
+                                          {editingNotes[subtask.id] && (
+                                            <div className="subtask-note-editor">
+                                              <textarea
+                                                className="subtask-note-input"
+                                                placeholder="Add a personal note..."
+                                                value={
+                                                  subtaskNotes[subtask.id] ??
+                                                  subtask.personalNote ??
+                                                  ""
+                                                }
+                                                onChange={(e) =>
+                                                  setSubtaskNotes((prev) => ({
+                                                    ...prev,
+                                                    [subtask.id]: e.target.value
+                                                  }))
+                                                }
+                                                rows={3}
+                                              />
+                                              <div className="subtask-note-actions">
+                                                <button
+                                                  className="subtask-note-save"
+                                                  onClick={() =>
+                                                    handleUpdateSubtaskNote(
+                                                      subtask.id,
+                                                      subtaskNotes[subtask.id]
+                                                    )
+                                                  }
+                                                >
+                                                  Save
+                                                </button>
+                                                <button
+                                                  className="subtask-note-cancel"
+                                                  onClick={() => {
+                                                    setEditingNotes((prev) => ({
+                                                      ...prev,
+                                                      [subtask.id]: false
+                                                    }));
+                                                    // Restore original note
+                                                    setSubtaskNotes((prev) => {
+                                                      const updated = {
+                                                        ...prev
+                                                      };
+                                                      if (
+                                                        subtask.personalNote
+                                                      ) {
+                                                        updated[subtask.id] =
+                                                          subtask.personalNote;
+                                                      } else {
+                                                        delete updated[
+                                                          subtask.id
+                                                        ];
+                                                      }
+                                                      return updated;
+                                                    });
+                                                  }}
+                                                >
+                                                  Cancel
+                                                </button>
+                                              </div>
+                                            </div>
+                                          )}
+                                          {!editingNotes[subtask.id] &&
+                                            (subtaskNotes[subtask.id] ||
+                                              subtask.personalNote) && (
+                                              <div className="subtask-note-display">
+                                                <div className="subtask-note-header">
+                                                  <span className="subtask-note-label">
+                                                    Note:
+                                                  </span>
+                                                  <button
+                                                    className="subtask-note-delete-button"
+                                                    onClick={() =>
+                                                      handleDeleteSubtaskNote(
+                                                        subtask.id
+                                                      )
+                                                    }
+                                                    title="Delete personal note"
+                                                  >
+                                                    🗑️
+                                                  </button>
+                                                </div>
+                                                <span className="subtask-note-text">
+                                                  {subtaskNotes[subtask.id] ||
+                                                    subtask.personalNote}
+                                                </span>
+                                              </div>
+                                            )}
+                                        </div>
+                                      </div>
+                                    ))
+                                  ) : (
+                                    <div className="subtasks-empty">
+                                      No subtasks yet. Add one below!
+                                    </div>
+                                  );
+                                })()
+                              )}
+                            </div>
+                            <div className="subtask-input-container">
+                              <input
+                                type="text"
+                                className="subtask-input"
+                                placeholder="Add a subtask..."
+                                value={newSubtaskText[assignment.id] || ""}
+                                onChange={(e) =>
+                                  setNewSubtaskText((prev) => ({
+                                    ...prev,
+                                    [assignment.id]: e.target.value
+                                  }))
+                                }
+                                onKeyPress={(e) => {
+                                  if (e.key === "Enter" && !e.shiftKey) {
+                                    e.preventDefault();
+                                    handleAddSubtask(assignment.id);
+                                  }
+                                }}
+                              />
+                              <button
+                                className="subtask-submit-button"
+                                onClick={() => handleAddSubtask(assignment.id)}
+                                disabled={
+                                  !newSubtaskText[assignment.id]?.trim()
+                                }
+                              >
+                                Add
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      <div className="subtask-input-container">
-                        <input
-                          type="text"
-                          className="subtask-input"
-                          placeholder="Add a subtask..."
-                          value={newSubtaskText[assignment.id] || ''}
-                          onChange={(e) => setNewSubtaskText(prev => ({ ...prev, [assignment.id]: e.target.value }))}
-                          onKeyPress={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                              e.preventDefault();
-                              handleAddSubtask(assignment.id);
-                            }
-                          }}
-                        />
-                        <button
-                          className="subtask-submit-button"
-                          onClick={() => handleAddSubtask(assignment.id)}
-                          disabled={!newSubtaskText[assignment.id]?.trim()}
-                        >
-                          Add
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                    ))}
                 </div>
-                ))}
-              </div>
-            );
-          })()}
+              );
+            })()
+          )}
         </div>
       )}
     </div>
