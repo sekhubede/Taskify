@@ -236,8 +236,9 @@ function App() {
   const toggleComments = async (assignmentId) => {
     const isOpen = openComments[assignmentId];
 
-    if (!isOpen) {
-      // Opening the thread marks current comments as seen.
+    if (isOpen) {
+      // Closing the thread marks current comments as seen.
+      // This avoids jarring resort/filter jumps immediately after opening.
       setLastSeenCommentCounts((prev) => ({
         ...prev,
         [assignmentId]:
