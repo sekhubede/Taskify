@@ -79,6 +79,10 @@ function AssignmentCard({
   const unread = hasUnreadComments(assignment.id);
   const assignmentSubtasks = subtasks[assignment.id] || assignment.subtasks || [];
   const completedCount = assignmentSubtasks.filter((s) => s.isCompleted).length;
+  const assignedToLabel =
+    assignment.assignedTo && assignment.assignedTo.trim().length > 0
+      ? assignment.assignedTo
+      : "Unknown";
 
   return (
     <div
@@ -105,6 +109,10 @@ function AssignmentCard({
           {getStatusLabel(assignment.status)}
         </span>
       </div>
+
+      <p className="assignment-assignee-line" title={`Assigned to: ${assignedToLabel}`}>
+        Assigned to: {assignedToLabel}
+      </p>
 
       {assignment.description && (
         <p className="assignment-description">{assignment.description}</p>
