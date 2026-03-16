@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 
 function CommentsSection({
   assignmentId,
@@ -35,6 +35,9 @@ function CommentsSection({
 
   const allComments = commentsForAssignment || [];
   const activeFilter = filter || {};
+  const [commentSubtasks, setCommentSubtasks] = useState({});
+  const [loadingCommentSubtasks, setLoadingCommentSubtasks] = useState({});
+  const [newCommentSubtaskText, setNewCommentSubtaskText] = useState({});
 
   const loadCommentNoteIfNeeded = (commentId) => {
     if (commentNotes[commentId]) return;
@@ -50,6 +53,88 @@ function CommentsSection({
         }
       })
       .catch((err) => console.error("Error loading comment note:", err));
+  };
+
+  const loadCommentSubtasksIfNeeded = (commentId) => {
+    if (commentSubtasks[commentId] || loadingCommentSubtasks[commentId]) return;
+
+    setLoadingCommentSubtasks((prev) => ({ ...prev, [commentId]: true }));
+    fetch(`http://localhost:5000/api/comments/${commentId}/subtasks`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => {
+        setCommentSubtasks((prev) => ({ ...prev, [commentId]: data || [] }));
+      })
+      .catch((err) => console.error("Error loading comment subtasks:", err))
+      .finally(() => {
+        setLoadingCommentSubtasks((prev) => ({ ...prev, [commentId]: false }));
+      });
+  };
+
+  const handleAddCommentSubtask = async (commentId) => {
+    const title = (newCommentSubtaskText[commentId] || "").trim();
+    if (!title) return;
+
+    try {
+      const response = await fetch(
+        `http://localhost:5000/api/comments/${commentId}/subtasks`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title })
+        }
+      );
+
+      if (!response.ok) throw new Error("Failed to add comment subtask");
+
+      const created = await response.json();
+      setCommentSubtasks((prev) => ({
+        ...prev,
+        [commentId]: [...(prev[commentId] || []), created]
+      }));
+      setNewCommentSubtaskText((prev) => ({ ...prev, [commentId]: "" }));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleToggleCommentSubtask = async (commentId, subtaskId, isCompleted) => {
+    try {
+      const response = await fetch(
+        `http://localhost:5000/api/comments/subtasks/${subtaskId}/toggle`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ isCompleted })
+        }
+      );
+      if (!response.ok) throw new Error("Failed to toggle comment subtask");
+
+      setCommentSubtasks((prev) => ({
+        ...prev,
+        [commentId]: (prev[commentId] || []).map((item) =>
+          item.id === subtaskId ? { ...item, isCompleted } : item
+        )
+      }));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDeleteCommentSubtask = async (commentId, subtaskId) => {
+    try {
+      const response = await fetch(
+        `http://localhost:5000/api/comments/subtasks/${subtaskId}`,
+        { method: "DELETE" }
+      );
+      if (!response.ok) throw new Error("Failed to delete comment subtask");
+
+      setCommentSubtasks((prev) => ({
+        ...prev,
+        [commentId]: (prev[commentId] || []).filter((item) => item.id !== subtaskId)
+      }));
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   let filteredComments = allComments;
@@ -274,6 +359,7 @@ function CommentsSection({
                         [comment.id]: !prev[comment.id]
                       }));
                       loadCommentNoteIfNeeded(comment.id);
+                      loadCommentSubtasksIfNeeded(comment.id);
                     }}
                     title={
                       commentNotes[comment.id]
@@ -341,6 +427,90 @@ function CommentsSection({
                     </span>
                   </div>
                 )}
+
+                <div className="comment-subtasks">
+                  <div className="comment-subtasks-header">
+                    <span className="comment-subtasks-label">Checklist</span>
+                  </div>
+
+                  {loadingCommentSubtasks[comment.id] ? (
+                    <div className="comment-subtasks-loading">Loading checklist...</div>
+                  ) : (
+                    <>
+                      {(commentSubtasks[comment.id] || []).length > 0 && (
+                        <div className="comment-subtasks-list">
+                          {(commentSubtasks[comment.id] || [])
+                            .slice()
+                            .sort((a, b) => a.order - b.order)
+                            .map((item) => (
+                              <div key={item.id} className="comment-subtask-item">
+                                <label className="comment-subtask-checkbox-label">
+                                  <input
+                                    type="checkbox"
+                                    checked={item.isCompleted}
+                                    onChange={(e) =>
+                                      handleToggleCommentSubtask(
+                                        comment.id,
+                                        item.id,
+                                        e.target.checked
+                                      )
+                                    }
+                                  />
+                                  <span
+                                    className={
+                                      item.isCompleted
+                                        ? "comment-subtask-title completed"
+                                        : "comment-subtask-title"
+                                    }
+                                  >
+                                    {item.title}
+                                  </span>
+                                </label>
+                                <button
+                                  className="comment-subtask-delete"
+                                  onClick={() =>
+                                    handleDeleteCommentSubtask(comment.id, item.id)
+                                  }
+                                  title="Delete checklist item"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            ))}
+                        </div>
+                      )}
+
+                      <div className="comment-subtasks-add">
+                        <input
+                          className="comment-subtask-input"
+                          type="text"
+                          placeholder="Add checklist item..."
+                          value={newCommentSubtaskText[comment.id] || ""}
+                          onChange={(e) =>
+                            setNewCommentSubtaskText((prev) => ({
+                              ...prev,
+                              [comment.id]: e.target.value
+                            }))
+                          }
+                          onFocus={() => loadCommentSubtasksIfNeeded(comment.id)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              handleAddCommentSubtask(comment.id);
+                            }
+                          }}
+                        />
+                        <button
+                          className="comment-subtask-add-button"
+                          onClick={() => handleAddCommentSubtask(comment.id)}
+                          disabled={!newCommentSubtaskText[comment.id]?.trim()}
+                        >
+                          Add
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
             );
           })
