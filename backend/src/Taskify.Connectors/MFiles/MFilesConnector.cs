@@ -344,6 +344,215 @@ public class MFilesConnector : ITaskDataSource, IDisposable
         }
     }
 
+    public Task<IReadOnlyList<AttachmentDTO>> GetAttachmentsForTaskAsync(string taskId)
+    {
+        if (!int.TryParse(taskId, out var assignmentId))
+            return Task.FromResult<IReadOnlyList<AttachmentDTO>>(new List<AttachmentDTO>());
+
+        try
+        {
+            var vault = GetVault();
+
+            var objID = new ObjID();
+            objID.SetIDs(
+                ObjType: (int)MFBuiltInObjectType.MFBuiltInObjectTypeAssignment,
+                ID: assignmentId);
+
+            var latestObjVer = vault.ObjectOperations.GetLatestObjVer(objID, AllowCheckedOut: true);
+            var files = vault.ObjectFileOperations.GetFiles(latestObjVer);
+
+            var attachments = new List<AttachmentDTO>();
+            for (int i = 1; i <= files.Count; i++)
+            {
+                var file = files[i];
+                var fileName = string.IsNullOrWhiteSpace(file.Extension)
+                    ? file.Title
+                    : $"{file.Title}.{file.Extension}";
+
+                long sizeBytes = 0;
+                try
+                {
+                    sizeBytes = vault.ObjectFileOperations.GetFileSizeEx(objID, file.FileVer);
+                }
+                catch
+                {
+                    try { sizeBytes = vault.ObjectFileOperations.GetFileSize(file.FileVer); } catch { }
+                }
+
+                attachments.Add(new AttachmentDTO
+                {
+                    Id = file.ID.ToString(),
+                    FileName = fileName,
+                    ContentType = GetContentTypeFromFileName(fileName),
+                    SizeBytes = sizeBytes
+                });
+            }
+
+            return Task.FromResult<IReadOnlyList<AttachmentDTO>>(attachments);
+        }
+        catch (Exception ex)
+        {
+            throw new ApplicationException(
+                $"Failed to retrieve attachments for assignment {assignmentId}: {ex.Message}", ex);
+        }
+    }
+
+    public Task<AttachmentDTO> AddAttachmentAsync(
+        string taskId,
+        string fileName,
+        string contentType,
+        byte[] content)
+    {
+        if (!int.TryParse(taskId, out var assignmentId))
+            throw new ArgumentException("Invalid task ID", nameof(taskId));
+
+        if (string.IsNullOrWhiteSpace(fileName))
+            throw new ArgumentException("File name is required", nameof(fileName));
+
+        var extension = Path.GetExtension(fileName).TrimStart('.');
+        if (string.IsNullOrWhiteSpace(extension))
+            extension = "bin";
+
+        var title = Path.GetFileNameWithoutExtension(fileName);
+        if (string.IsNullOrWhiteSpace(title))
+            title = fileName;
+
+        var tempPath = Path.Combine(
+            Path.GetTempPath(),
+            $"{Guid.NewGuid()}_{SanitizeFileName(fileName)}");
+
+        try
+        {
+            File.WriteAllBytes(tempPath, content ?? Array.Empty<byte>());
+
+            var vault = GetVault();
+
+            var objID = new ObjID();
+            objID.SetIDs(
+                ObjType: (int)MFBuiltInObjectType.MFBuiltInObjectTypeAssignment,
+                ID: assignmentId);
+
+            var checkedOutVersion = vault.ObjectOperations.CheckOut(objID);
+            try
+            {
+                var addedFileVer = vault.ObjectFileOperations.AddFile(
+                    checkedOutVersion.ObjVer,
+                    title,
+                    extension,
+                    tempPath);
+
+                vault.ObjectOperations.CheckIn(checkedOutVersion.ObjVer);
+
+                var addedFileName = $"{title}.{extension}";
+                var result = new AttachmentDTO
+                {
+                    Id = addedFileVer.ID.ToString(),
+                    FileName = addedFileName,
+                    ContentType = string.IsNullOrWhiteSpace(contentType)
+                        ? GetContentTypeFromFileName(addedFileName)
+                        : contentType,
+                    SizeBytes = content?.LongLength ?? 0
+                };
+
+                return Task.FromResult(result);
+            }
+            catch
+            {
+                try { vault.ObjectOperations.UndoCheckout(checkedOutVersion.ObjVer); } catch { }
+                throw;
+            }
+        }
+        catch (Exception ex)
+        {
+            throw new ApplicationException(
+                $"Failed to add attachment to assignment {assignmentId}: {ex.Message}", ex);
+        }
+        finally
+        {
+            try { if (File.Exists(tempPath)) File.Delete(tempPath); } catch { }
+        }
+    }
+
+    public Task<AttachmentFileDTO?> GetAttachmentFileAsync(string taskId, string attachmentId)
+    {
+        if (!int.TryParse(taskId, out var assignmentId))
+            return Task.FromResult<AttachmentFileDTO?>(null);
+        if (!int.TryParse(attachmentId, out var fileId))
+            return Task.FromResult<AttachmentFileDTO?>(null);
+
+        try
+        {
+            var vault = GetVault();
+
+            var objID = new ObjID();
+            objID.SetIDs(
+                ObjType: (int)MFBuiltInObjectType.MFBuiltInObjectTypeAssignment,
+                ID: assignmentId);
+
+            var latestObjVer = vault.ObjectOperations.GetLatestObjVer(objID, AllowCheckedOut: true);
+            var files = vault.ObjectFileOperations.GetFiles(latestObjVer);
+
+            ObjectFile? targetFile = null;
+            for (int i = 1; i <= files.Count; i++)
+            {
+                var file = files[i];
+                if (file.ID == fileId)
+                {
+                    targetFile = file;
+                    break;
+                }
+            }
+
+            if (targetFile == null)
+                return Task.FromResult<AttachmentFileDTO?>(null);
+
+            var dataUri = vault.ObjectFileOperations.DownloadFileAsDataURIEx(
+                latestObjVer,
+                targetFile.FileVer);
+            if (string.IsNullOrWhiteSpace(dataUri))
+                return Task.FromResult<AttachmentFileDTO?>(null);
+
+            var commaIndex = dataUri.IndexOf(',');
+            if (commaIndex <= 0)
+                throw new ApplicationException("M-Files returned an invalid data URI payload.");
+
+            var metadata = dataUri.Substring(0, commaIndex);
+            var payload = dataUri[(commaIndex + 1)..];
+            var isBase64 = metadata.Contains(";base64", StringComparison.OrdinalIgnoreCase);
+
+            var fileName = string.IsNullOrWhiteSpace(targetFile.Extension)
+                ? targetFile.Title
+                : $"{targetFile.Title}.{targetFile.Extension}";
+
+            var mimeType = GetContentTypeFromFileName(fileName);
+            if (metadata.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+            {
+                var contentTypePart = metadata["data:".Length..].Split(';')[0];
+                if (!string.IsNullOrWhiteSpace(contentTypePart))
+                    mimeType = contentTypePart;
+            }
+
+            var bytes = isBase64
+                ? Convert.FromBase64String(payload)
+                : System.Text.Encoding.UTF8.GetBytes(Uri.UnescapeDataString(payload));
+
+            var dto = new AttachmentFileDTO
+            {
+                Id = targetFile.ID.ToString(),
+                FileName = fileName,
+                ContentType = mimeType,
+                Content = bytes
+            };
+
+            return Task.FromResult<AttachmentFileDTO?>(dto);
+        }
+        catch (Exception ex)
+        {
+            throw new ApplicationException(
+                $"Failed to download attachment {attachmentId} for assignment {assignmentId}: {ex.Message}", ex);
+        }
+    }
+
     // ── Comment Helpers ──
 
     private static CommentDTO? ParseCommentLine(string line, int assignmentId, int commentId)
@@ -406,6 +615,44 @@ public class MFilesConnector : ITaskDataSource, IDisposable
         propertyValue.TypedValue.SetValue(MFDataType.MFDatatypeMultiLineText, newText);
 
         existingProperty!.TypedValue = propertyValue.TypedValue;
+    }
+
+    private static string GetContentTypeFromFileName(string fileName)
+    {
+        var ext = Path.GetExtension(fileName).ToLowerInvariant();
+        return ext switch
+        {
+            ".pdf" => "application/pdf",
+            ".txt" => "text/plain",
+            ".csv" => "text/csv",
+            ".json" => "application/json",
+            ".xml" => "application/xml",
+            ".doc" => "application/msword",
+            ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            ".xls" => "application/vnd.ms-excel",
+            ".xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            ".ppt" => "application/vnd.ms-powerpoint",
+            ".pptx" => "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            ".png" => "image/png",
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".gif" => "image/gif",
+            ".zip" => "application/zip",
+            _ => "application/octet-stream"
+        };
+    }
+
+    private static string SanitizeFileName(string fileName)
+    {
+        if (string.IsNullOrWhiteSpace(fileName))
+            return "file.bin";
+
+        var sanitized = fileName;
+        foreach (var invalid in Path.GetInvalidFileNameChars())
+        {
+            sanitized = sanitized.Replace(invalid, '_');
+        }
+
+        return string.IsNullOrWhiteSpace(sanitized) ? "file.bin" : sanitized;
     }
 
     // ── Connection ──

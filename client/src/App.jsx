@@ -14,6 +14,13 @@ function App() {
   const [openComments, setOpenComments] = useState({});
   const [comments, setComments] = useState({});
   const [loadingComments, setLoadingComments] = useState({});
+  const [openAttachments, setOpenAttachments] = useState({});
+  const [attachments, setAttachments] = useState({});
+  const [attachmentCounts, setAttachmentCounts] = useState({});
+  const [loadingAttachments, setLoadingAttachments] = useState({});
+  const [uploadingAttachment, setUploadingAttachment] = useState({});
+  const [previewingAttachment, setPreviewingAttachment] = useState(false);
+  const [attachmentPreview, setAttachmentPreview] = useState(null);
   const [newCommentText, setNewCommentText] = useState({});
   const [currentUser, setCurrentUser] = useState(null);
   const [commentCounts, setCommentCounts] = useState({});
@@ -91,6 +98,36 @@ function App() {
       if (!assignmentsRes.ok) throw new Error("Failed to fetch assignments");
       const assignmentsData = await assignmentsRes.json();
       setAssignments(assignmentsData);
+
+      // Preload attachment counts so badges are correct without opening panels.
+      const attachmentSettled = await Promise.allSettled(
+        assignmentsData.map(async (assignment) => {
+          const response = await fetch(
+            `${ASSIGNMENTS_API_URL}/${assignment.id}/attachments`
+          );
+          if (!response.ok) {
+            throw new Error(`Failed to fetch attachments for ${assignment.id}`);
+          }
+          const list = await response.json();
+          return {
+            assignmentId: assignment.id,
+            list
+          };
+        })
+      );
+
+      const nextAttachmentCounts = {};
+      const nextAttachmentLists = {};
+      attachmentSettled.forEach((result) => {
+        if (result.status === "fulfilled") {
+          const { assignmentId, list } = result.value;
+          nextAttachmentCounts[assignmentId] = list.length;
+          nextAttachmentLists[assignmentId] = list;
+        }
+      });
+
+      setAttachmentCounts(nextAttachmentCounts);
+      setAttachments((prev) => ({ ...prev, ...nextAttachmentLists }));
 
       if (countsRes.ok) {
         const counts = await countsRes.json();
@@ -171,6 +208,14 @@ function App() {
 
     return () => clearInterval(intervalId);
   }, [autoRefreshIntervalSeconds, refreshData]);
+
+  useEffect(() => {
+    return () => {
+      if (attachmentPreview?.objectUrl) {
+        window.URL.revokeObjectURL(attachmentPreview.objectUrl);
+      }
+    };
+  }, [attachmentPreview]);
 
   useEffect(() => {
     // Initialize unseen assignments so badges only represent comments
@@ -377,6 +422,236 @@ function App() {
       }));
     } catch (err) {
       setError(err.toString());
+    }
+  };
+
+  const toggleAttachments = async (assignmentId) => {
+    const isOpen = openAttachments[assignmentId];
+    setOpenAttachments((prev) => ({
+      ...prev,
+      [assignmentId]: !isOpen
+    }));
+
+    if (!isOpen && !attachments[assignmentId]) {
+      setLoadingAttachments((prev) => ({ ...prev, [assignmentId]: true }));
+      try {
+        const response = await fetch(
+          `${ASSIGNMENTS_API_URL}/${assignmentId}/attachments`
+        );
+        if (!response.ok) throw new Error("Failed to fetch attachments");
+        const data = await response.json();
+        setAttachments((prev) => ({ ...prev, [assignmentId]: data }));
+        setAttachmentCounts((prev) => ({ ...prev, [assignmentId]: data.length }));
+      } catch (err) {
+        setError(err.toString());
+      } finally {
+        setLoadingAttachments((prev) => ({ ...prev, [assignmentId]: false }));
+      }
+    }
+  };
+
+  const handleUploadAttachment = async (assignmentId, file) => {
+    if (!file) return;
+
+    setUploadingAttachment((prev) => ({ ...prev, [assignmentId]: true }));
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch(
+        `${ASSIGNMENTS_API_URL}/${assignmentId}/attachments`,
+        {
+          method: "POST",
+          body: formData
+        }
+      );
+
+      if (!response.ok) {
+        const message = await response.text();
+        throw new Error(message || "Failed to upload attachment");
+      }
+
+      const uploaded = await response.json();
+      setAttachments((prev) => ({
+        ...prev,
+        [assignmentId]: [...(prev[assignmentId] || []), uploaded]
+      }));
+      setAttachmentCounts((prev) => ({
+        ...prev,
+        [assignmentId]: (prev[assignmentId] ?? 0) + 1
+      }));
+    } catch (err) {
+      setError(err.toString());
+    } finally {
+      setUploadingAttachment((prev) => ({ ...prev, [assignmentId]: false }));
+    }
+  };
+
+  const handleDownloadAttachment = async (assignmentId, attachment) => {
+    try {
+      const response = await fetch(
+        `${ASSIGNMENTS_API_URL}/${assignmentId}/attachments/${attachment.id}/download`
+      );
+
+      if (!response.ok) {
+        const message = await response.text();
+        throw new Error(message || "Failed to download attachment");
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = attachment.fileName || "attachment";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err.toString());
+    }
+  };
+
+  const getAttachmentExtension = (fileName = "") => {
+    const parts = fileName.toLowerCase().split(".");
+    return parts.length > 1 ? parts.pop() : "";
+  };
+
+  const getPreviewKind = (fileName, contentType = "") => {
+    const ext = getAttachmentExtension(fileName);
+    const normalizedType = contentType.toLowerCase();
+
+    if (normalizedType.startsWith("image/")) return "image";
+    if (normalizedType === "application/pdf" || ext === "pdf") return "pdf";
+    if (
+      normalizedType.startsWith("text/") ||
+      ["txt", "md", "json", "xml", "csv", "log"].includes(ext)
+    ) {
+      return "text";
+    }
+    if (
+      ext === "docx" ||
+      normalizedType ===
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    ) {
+      return "docx";
+    }
+    return "unsupported";
+  };
+
+  const closeAttachmentPreview = () => {
+    setAttachmentPreview((prev) => {
+      if (prev?.objectUrl) {
+        window.URL.revokeObjectURL(prev.objectUrl);
+      }
+      return null;
+    });
+  };
+
+  const handlePreviewAttachment = async (assignmentId, attachment) => {
+    try {
+      setPreviewingAttachment(true);
+
+      const response = await fetch(
+        `${ASSIGNMENTS_API_URL}/${assignmentId}/attachments/${attachment.id}/download`
+      );
+
+      if (!response.ok) {
+        const message = await response.text();
+        throw new Error(message || "Failed to preview attachment");
+      }
+
+      const blob = await response.blob();
+      const contentType =
+        response.headers.get("content-type") ||
+        attachment.contentType ||
+        blob.type ||
+        "";
+      const kind = getPreviewKind(attachment.fileName, contentType);
+
+      setAttachmentPreview((prev) => {
+        if (prev?.objectUrl) {
+          window.URL.revokeObjectURL(prev.objectUrl);
+        }
+        return prev;
+      });
+
+      if (kind === "image" || kind === "pdf") {
+        const objectUrl = window.URL.createObjectURL(blob);
+        setAttachmentPreview({
+          fileName: attachment.fileName,
+          kind,
+          contentType,
+          objectUrl,
+          text: "",
+          html: "",
+          error: null
+        });
+        return;
+      }
+
+      if (kind === "text") {
+        const text = await blob.text();
+        setAttachmentPreview({
+          fileName: attachment.fileName,
+          kind,
+          contentType,
+          objectUrl: "",
+          text,
+          html: "",
+          error: null
+        });
+        return;
+      }
+
+      if (kind === "docx") {
+        const arrayBuffer = await blob.arrayBuffer();
+
+        let mammothModule = null;
+        try {
+          mammothModule = await import("mammoth/mammoth.browser");
+        } catch {
+          mammothModule = await import("mammoth");
+        }
+
+        const mammothApi = mammothModule.default ?? mammothModule;
+        const result = await mammothApi.convertToHtml({ arrayBuffer });
+
+        setAttachmentPreview({
+          fileName: attachment.fileName,
+          kind,
+          contentType,
+          objectUrl: "",
+          text: "",
+          html: result.value || "",
+          error: null
+        });
+        return;
+      }
+
+      setAttachmentPreview({
+        fileName: attachment.fileName,
+        kind: "unsupported",
+        contentType,
+        objectUrl: "",
+        text: "",
+        html: "",
+        error:
+          "Preview is not available for this file type yet. Use Download instead."
+      });
+    } catch (err) {
+      setError(err.toString());
+      setAttachmentPreview({
+        fileName: attachment.fileName,
+        kind: "unsupported",
+        contentType: "",
+        objectUrl: "",
+        text: "",
+        html: "",
+        error: `Preview failed: ${err.toString()}`
+      });
+    } finally {
+      setPreviewingAttachment(false);
     }
   };
 
@@ -1191,6 +1466,18 @@ function App() {
                                   ? "Hide"
                                   : "Subtasks"}
                               </button>
+                              <button
+                                className="attachments-button"
+                                onClick={() => toggleAttachments(assignment.id)}
+                              >
+                                📎{" "}
+                                {attachmentCounts[assignment.id] ??
+                                  attachments[assignment.id]?.length ??
+                                  0}{" "}
+                                {openAttachments[assignment.id]
+                                  ? "Hide"
+                                  : "Attachments"}
+                              </button>
                               {assignment.status !== 2 && (
                                 <button
                                   className="complete-button"
@@ -1661,6 +1948,94 @@ function App() {
                                   >
                                     Post
                                   </button>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Attachments Section */}
+                            {openAttachments[assignment.id] && (
+                              <div className="attachments-section">
+                                <div className="attachments-list">
+                                  {loadingAttachments[assignment.id] ? (
+                                    <div className="attachments-loading">
+                                      Loading attachments...
+                                    </div>
+                                  ) : (attachments[assignment.id] || []).length >
+                                    0 ? (
+                                    (attachments[assignment.id] || []).map(
+                                      (attachment) => (
+                                        <div
+                                          key={attachment.id}
+                                          className="attachment-item"
+                                        >
+                                          <div className="attachment-actions">
+                                            <button
+                                              className="attachment-link"
+                                              onClick={() =>
+                                                handleDownloadAttachment(
+                                                  assignment.id,
+                                                  attachment
+                                                )
+                                              }
+                                              title={`Download ${attachment.fileName}`}
+                                            >
+                                              {attachment.fileName}
+                                            </button>
+                                            <button
+                                              className="attachment-preview-button"
+                                              onClick={() =>
+                                                handlePreviewAttachment(
+                                                  assignment.id,
+                                                  attachment
+                                                )
+                                              }
+                                              disabled={previewingAttachment}
+                                              title={`Preview ${attachment.fileName}`}
+                                            >
+                                              {previewingAttachment
+                                                ? "Opening..."
+                                                : "Preview"}
+                                            </button>
+                                          </div>
+                                          <span className="attachment-size">
+                                            {Math.max(
+                                              1,
+                                              Math.round(
+                                                attachment.sizeBytes / 1024
+                                              )
+                                            )}{" "}
+                                            KB
+                                          </span>
+                                        </div>
+                                      )
+                                    )
+                                  ) : (
+                                    <div className="attachments-empty">
+                                      No attachments yet.
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="attachment-upload-container">
+                                  <input
+                                    type="file"
+                                    className="attachment-upload-input"
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      if (file) {
+                                        handleUploadAttachment(
+                                          assignment.id,
+                                          file
+                                        );
+                                        e.target.value = "";
+                                      }
+                                    }}
+                                    disabled={uploadingAttachment[assignment.id]}
+                                  />
+                                  {uploadingAttachment[assignment.id] && (
+                                    <span className="attachment-uploading">
+                                      Uploading...
+                                    </span>
+                                  )}
                                 </div>
                               </div>
                             )}
@@ -2163,6 +2538,18 @@ function App() {
                               0}{" "}
                             {openSubtasks[assignment.id] ? "Hide" : "Subtasks"}
                           </button>
+                          <button
+                            className="attachments-button"
+                            onClick={() => toggleAttachments(assignment.id)}
+                          >
+                            📎{" "}
+                            {attachmentCounts[assignment.id] ??
+                              attachments[assignment.id]?.length ??
+                              0}{" "}
+                            {openAttachments[assignment.id]
+                              ? "Hide"
+                              : "Attachments"}
+                          </button>
                           {assignment.status !== 2 && (
                             <button
                               className="complete-button"
@@ -2611,6 +2998,90 @@ function App() {
                           </div>
                         )}
 
+                        {openAttachments[assignment.id] && (
+                          <div className="attachments-section">
+                            <div className="attachments-list">
+                              {loadingAttachments[assignment.id] ? (
+                                <div className="attachments-loading">
+                                  Loading attachments...
+                                </div>
+                              ) : (attachments[assignment.id] || []).length >
+                                0 ? (
+                                (attachments[assignment.id] || []).map(
+                                  (attachment) => (
+                                    <div
+                                      key={attachment.id}
+                                      className="attachment-item"
+                                    >
+                                      <div className="attachment-actions">
+                                        <button
+                                          className="attachment-link"
+                                          onClick={() =>
+                                            handleDownloadAttachment(
+                                              assignment.id,
+                                              attachment
+                                            )
+                                          }
+                                          title={`Download ${attachment.fileName}`}
+                                        >
+                                          {attachment.fileName}
+                                        </button>
+                                        <button
+                                          className="attachment-preview-button"
+                                          onClick={() =>
+                                            handlePreviewAttachment(
+                                              assignment.id,
+                                              attachment
+                                            )
+                                          }
+                                          disabled={previewingAttachment}
+                                          title={`Preview ${attachment.fileName}`}
+                                        >
+                                          {previewingAttachment
+                                            ? "Opening..."
+                                            : "Preview"}
+                                        </button>
+                                      </div>
+                                      <span className="attachment-size">
+                                        {Math.max(
+                                          1,
+                                          Math.round(
+                                            attachment.sizeBytes / 1024
+                                          )
+                                        )}{" "}
+                                        KB
+                                      </span>
+                                    </div>
+                                  )
+                                )
+                              ) : (
+                                <div className="attachments-empty">
+                                  No attachments yet.
+                                </div>
+                              )}
+                            </div>
+                            <div className="attachment-upload-container">
+                              <input
+                                type="file"
+                                className="attachment-upload-input"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    handleUploadAttachment(assignment.id, file);
+                                    e.target.value = "";
+                                  }
+                                }}
+                                disabled={uploadingAttachment[assignment.id]}
+                              />
+                              {uploadingAttachment[assignment.id] && (
+                                <span className="attachment-uploading">
+                                  Uploading...
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
                         {openSubtasks[assignment.id] && (
                           <div className="subtasks-section">
                             <div className="subtasks-list">
@@ -2964,6 +3435,59 @@ function App() {
               );
             })()
           )}
+        </div>
+      )}
+      {attachmentPreview && (
+        <div className="attachment-preview-overlay" onClick={closeAttachmentPreview}>
+          <div
+            className="attachment-preview-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="attachment-preview-header">
+              <h3 className="attachment-preview-title">
+                Preview: {attachmentPreview.fileName}
+              </h3>
+              <button
+                className="attachment-preview-close"
+                onClick={closeAttachmentPreview}
+              >
+                Close
+              </button>
+            </div>
+            <div className="attachment-preview-content">
+              {attachmentPreview.kind === "image" && (
+                <img
+                  src={attachmentPreview.objectUrl}
+                  alt={attachmentPreview.fileName}
+                  className="attachment-preview-image"
+                />
+              )}
+              {attachmentPreview.kind === "pdf" && (
+                <iframe
+                  src={attachmentPreview.objectUrl}
+                  title={attachmentPreview.fileName}
+                  className="attachment-preview-pdf"
+                />
+              )}
+              {attachmentPreview.kind === "text" && (
+                <pre className="attachment-preview-text">
+                  {attachmentPreview.text}
+                </pre>
+              )}
+              {attachmentPreview.kind === "docx" && (
+                <div
+                  className="attachment-preview-docx"
+                  dangerouslySetInnerHTML={{ __html: attachmentPreview.html }}
+                />
+              )}
+              {attachmentPreview.kind === "unsupported" && (
+                <div className="attachment-preview-unsupported">
+                  {attachmentPreview.error ||
+                    "Preview is not available for this file type."}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>
