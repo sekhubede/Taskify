@@ -115,6 +115,44 @@
   border-color: rgba(251, 146, 60, 0.45);
 }
 
+.assignment-refresh-button {
+  background: rgba(59, 130, 246, 0.2);
+  border: 1px solid rgba(96, 165, 250, 0.45);
+  color: #bfdbfe;
+  border-radius: 999px;
+  padding: 0.35rem 0.8rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.assignment-refresh-button:hover {
+  background: rgba(59, 130, 246, 0.3);
+  border-color: rgba(147, 197, 253, 0.6);
+}
+
+.assignment-refresh-interval {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.9);
+  border-radius: 999px;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.assignment-refresh-interval:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.assignment-refresh-meta {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.75rem;
+  margin-left: 0.2rem;
+}
+
 .assignments-list {
   display: flex;
   flex-direction: column;
