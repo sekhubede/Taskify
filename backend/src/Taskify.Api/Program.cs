@@ -45,6 +45,7 @@ builder.Services.AddSingleton<SubtaskStore>();
 builder.Services.AddSingleton<SubtaskNoteStore>();
 builder.Services.AddSingleton<CommentNoteStore>();
 builder.Services.AddSingleton<CommentFlagStore>();
+builder.Services.AddSingleton<CommentSubtaskStore>();
 builder.Services.AddSingleton<AssignmentBoardStore>();
 builder.Services.AddSingleton<WorkingOnStore>();
 
@@ -58,6 +59,7 @@ builder.Services.AddScoped<CommentService>();
 builder.Services.AddScoped<SubtaskService>();
 builder.Services.AddScoped<CommentNoteService>();
 builder.Services.AddScoped<CommentFlagService>();
+builder.Services.AddScoped<CommentSubtaskService>();
 builder.Services.AddScoped<AssignmentBoardService>();
 builder.Services.AddScoped<WorkingOnService>();
 
@@ -259,6 +261,94 @@ app.MapPut("api/comments/{id:int}/flag", async (int id, CommentFlagService svc, 
     svc.SetCommentFlag(id, body.IsFlagged);
     return Results.Ok();
 });
+app.MapGet("api/comments/{id:int}/subtasks", (int id, CommentSubtaskService svc) =>
+{
+    try
+    {
+        var subtasks = svc.GetCommentSubtasks(id);
+        return Results.Ok(subtasks);
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(ex.Message);
+    }
+});
+app.MapPost("api/comments/{id:int}/subtasks", async (int id, CommentSubtaskService svc, HttpRequest req) =>
+{
+    var body = await req.ReadFromJsonAsync<AddCommentSubtaskRequest>();
+    if (body == null || string.IsNullOrWhiteSpace(body.Title))
+        return Results.BadRequest("title is required");
+
+    try
+    {
+        var subtask = svc.AddCommentSubtask(id, body.Title, body.Order);
+        return Results.Ok(subtask);
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(ex.Message);
+    }
+});
+app.MapPost("api/comments/subtasks/{id:int}/toggle", async (int id, CommentSubtaskService svc, HttpRequest req) =>
+{
+    var body = await req.ReadFromJsonAsync<ToggleCommentSubtaskRequest>();
+    if (body == null)
+        return Results.BadRequest("body required");
+
+    try
+    {
+        var ok = svc.ToggleCommentSubtaskCompletion(id, body.IsCompleted);
+        return ok ? Results.Ok() : Results.NotFound();
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(ex.Message);
+    }
+});
+app.MapPut("api/comments/subtasks/{id:int}/title", async (int id, CommentSubtaskService svc, HttpRequest req) =>
+{
+    var body = await req.ReadFromJsonAsync<UpdateCommentSubtaskTitleRequest>();
+    if (body == null)
+        return Results.BadRequest("body required");
+
+    try
+    {
+        var ok = svc.UpdateCommentSubtaskTitle(id, body.Title);
+        return ok ? Results.Ok() : Results.NotFound();
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(ex.Message);
+    }
+});
+app.MapPut("api/comments/{id:int}/subtasks/reorder", async (int id, CommentSubtaskService svc, HttpRequest req) =>
+{
+    var body = await req.ReadFromJsonAsync<ReorderCommentSubtasksRequest>();
+    if (body == null || body.SubtaskOrders == null || body.SubtaskOrders.Count == 0)
+        return Results.BadRequest("subtaskOrders required");
+
+    try
+    {
+        svc.ReorderCommentSubtasks(id, body.SubtaskOrders);
+        return Results.Ok();
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(ex.Message);
+    }
+});
+app.MapDelete("api/comments/subtasks/{id:int}", (int id, CommentSubtaskService svc) =>
+{
+    try
+    {
+        var ok = svc.DeleteCommentSubtask(id);
+        return ok ? Results.Ok() : Results.NotFound();
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(ex.Message);
+    }
+});
 
 // ─── Subtasks ───
 app.MapGet("api/assignments/{id:int}/subtasks", (int id, SubtaskService svc) =>
@@ -338,11 +428,15 @@ app.Run();
 
 public record AddCommentRequest(string Content);
 public record AddSubtaskRequest(string Title, int? Order);
+public record AddCommentSubtaskRequest(string Title, int? Order);
 public record ToggleSubtaskRequest(bool IsCompleted);
+public record ToggleCommentSubtaskRequest(bool IsCompleted);
 public record UpdateSubtaskTitleRequest(string Title);
+public record UpdateCommentSubtaskTitleRequest(string Title);
 public record UpdateNoteRequest(string? Note);
 public record UpdateCommentNoteRequest(string? Note);
 public record UpdateCommentFlagRequest(bool IsFlagged);
 public record ReorderSubtasksRequest(Dictionary<int, int> SubtaskOrders);
+public record ReorderCommentSubtasksRequest(Dictionary<int, int> SubtaskOrders);
 public record UpdateBoardColumnRequest(string? Column);
 public record UpdateWorkingOnRequest(bool IsWorkingOn);
