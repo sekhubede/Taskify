@@ -3,6 +3,8 @@ import "./App.css";
 
 const ASSIGNMENTS_API_URL = "http://localhost:5000/api/assignments";
 const LAST_SEEN_COMMENT_COUNTS_KEY = "lastSeenCommentCounts";
+const SHOW_ONLY_UNREAD_ASSIGNMENTS_KEY = "showOnlyUnreadAssignments";
+const SORT_UNREAD_TO_TOP_KEY = "sortUnreadToTop";
 
 function App() {
   const [assignments, setAssignments] = useState([]);
@@ -39,9 +41,24 @@ function App() {
   const [workingOn, setWorkingOn] = useState(new Set()); // assignmentIds that are marked as "working on"
   const [allAssignmentsCollapsed, setAllAssignmentsCollapsed] = useState(false);
   const [assignmentSearch, setAssignmentSearch] = useState("");
-  const [showOnlyUnreadAssignments, setShowOnlyUnreadAssignments] =
-    useState(false);
-  const [sortUnreadToTop, setSortUnreadToTop] = useState(false);
+  const [showOnlyUnreadAssignments, setShowOnlyUnreadAssignments] = useState(
+    () => {
+      try {
+        return (
+          localStorage.getItem(SHOW_ONLY_UNREAD_ASSIGNMENTS_KEY) === "true"
+        );
+      } catch {
+        return false;
+      }
+    }
+  );
+  const [sortUnreadToTop, setSortUnreadToTop] = useState(() => {
+    try {
+      return localStorage.getItem(SORT_UNREAD_TO_TOP_KEY) === "true";
+    } catch {
+      return false;
+    }
+  });
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -110,6 +127,25 @@ function App() {
       // ignore storage write failures
     }
   }, [lastSeenCommentCounts]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        SHOW_ONLY_UNREAD_ASSIGNMENTS_KEY,
+        String(showOnlyUnreadAssignments)
+      );
+    } catch {
+      // ignore storage write failures
+    }
+  }, [showOnlyUnreadAssignments]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SORT_UNREAD_TO_TOP_KEY, String(sortUnreadToTop));
+    } catch {
+      // ignore storage write failures
+    }
+  }, [sortUnreadToTop]);
 
   useEffect(() => {
     // Initialize unseen assignments so badges only represent comments

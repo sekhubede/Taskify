@@ -256,9 +256,9 @@
 }
 
 .assignment-card.has-unread-comments {
-  border-color: rgba(251, 146, 60, 0.7);
-  box-shadow: 0 0 0 1px rgba(251, 146, 60, 0.35);
-  background: rgba(251, 146, 60, 0.08);
+  border-color: rgba(96, 165, 250, 0.7);
+  box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.35);
+  background: rgba(59, 130, 246, 0.1);
 }
 
 .assignment-card:hover {
@@ -283,9 +283,9 @@
 }
 
 .assignment-unread-comments-badge {
-  background: rgba(251, 146, 60, 0.2);
-  color: #fdba74;
-  border: 1px solid rgba(251, 146, 60, 0.45);
+  background: rgba(59, 130, 246, 0.2);
+  color: #93c5fd;
+  border: 1px solid rgba(96, 165, 250, 0.45);
   border-radius: 999px;
   padding: 0.15rem 0.5rem;
   font-size: 0.72rem;
