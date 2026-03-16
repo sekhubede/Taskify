@@ -219,6 +219,22 @@ app.MapPost("api/subtasks/{id:int}/toggle", async (int id, SubtaskService svc, H
     var ok = svc.ToggleSubtaskCompletion(id, body.IsCompleted);
     return ok ? Results.Ok() : Results.BadRequest();
 });
+app.MapPut("api/subtasks/{id:int}/title", async (int id, SubtaskService svc, HttpRequest req) =>
+{
+    var body = await req.ReadFromJsonAsync<UpdateSubtaskTitleRequest>();
+    if (body == null)
+        return Results.BadRequest("body required");
+
+    try
+    {
+        var ok = svc.UpdateSubtaskTitle(id, body.Title);
+        return ok ? Results.Ok() : Results.NotFound();
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(ex.Message);
+    }
+});
 app.MapPut("api/subtasks/{id:int}/note", async (int id, SubtaskService svc, HttpRequest req) =>
 {
     var body = await req.ReadFromJsonAsync<UpdateNoteRequest>();
@@ -263,6 +279,7 @@ app.Run();
 public record AddCommentRequest(string Content);
 public record AddSubtaskRequest(string Title, int? Order);
 public record ToggleSubtaskRequest(bool IsCompleted);
+public record UpdateSubtaskTitleRequest(string Title);
 public record UpdateNoteRequest(string? Note);
 public record UpdateCommentNoteRequest(string? Note);
 public record UpdateCommentFlagRequest(bool IsFlagged);

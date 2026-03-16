@@ -45,6 +45,28 @@ public class SubtaskServiceTests
         Assert.True(ok);
         repo.Verify(r => r.ToggleSubtaskCompletion(9, true), Times.Once);
     }
+
+    [Fact]
+    public void UpdateSubtaskTitle_Forwards_Trimmed_Title_To_Repository()
+    {
+        var repo = new Mock<ISubtaskRepository>();
+        repo.Setup(r => r.UpdateSubtaskTitle(7, "Updated title")).Returns(true);
+        var service = new SubtaskService(repo.Object);
+
+        var ok = service.UpdateSubtaskTitle(7, "  Updated title  ");
+
+        Assert.True(ok);
+        repo.Verify(r => r.UpdateSubtaskTitle(7, "Updated title"), Times.Once);
+    }
+
+    [Fact]
+    public void UpdateSubtaskTitle_Validates_Empty_Title()
+    {
+        var repo = new Mock<ISubtaskRepository>(MockBehavior.Strict);
+        var service = new SubtaskService(repo.Object);
+
+        Assert.Throws<ArgumentException>(() => service.UpdateSubtaskTitle(2, " "));
+    }
 }
 
 
