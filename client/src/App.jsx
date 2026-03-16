@@ -331,6 +331,10 @@ function App() {
       }
 
       const newComment = await response.json();
+      const baseCount =
+        commentCounts[assignmentId] ?? comments[assignmentId]?.length ?? 0;
+      const nextCount = baseCount + 1;
+
       setComments((prev) => ({
         ...prev,
         [assignmentId]: [...(prev[assignmentId] || []), newComment]
@@ -339,7 +343,12 @@ function App() {
       // Update comment count
       setCommentCounts((prev) => ({
         ...prev,
-        [assignmentId]: (prev[assignmentId] || 0) + 1
+        [assignmentId]: nextCount
+      }));
+      // Comments authored in-app are considered seen immediately.
+      setLastSeenCommentCounts((prev) => ({
+        ...prev,
+        [assignmentId]: nextCount
       }));
     } catch (err) {
       setError(err.toString());
