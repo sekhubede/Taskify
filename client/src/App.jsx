@@ -941,7 +941,7 @@ function App() {
                         return (
                           <div
                             key={assignment.id}
-                            className={`assignment-card working-on`}
+                            className={`assignment-card working-on ${hasUnreadComments(assignment.id) ? "has-unread-comments" : ""}`}
                           >
                             <div className="assignment-header">
                               <div className="assignment-title-row">
@@ -957,6 +957,11 @@ function App() {
                                 <h2 className="assignment-title">
                                   {assignment.title}
                                 </h2>
+                                {hasUnreadComments(assignment.id) && (
+                                  <span className="assignment-unread-comments-badge">
+                                    New comments
+                                  </span>
+                                )}
                               </div>
                               <span
                                 className="status-badge"
@@ -1911,7 +1916,10 @@ function App() {
                     )}
                   {!allAssignmentsCollapsed &&
                     otherAssignments.map((assignment) => (
-                      <div key={assignment.id} className="assignment-card">
+                      <div
+                        key={assignment.id}
+                        className={`assignment-card ${hasUnreadComments(assignment.id) ? "has-unread-comments" : ""}`}
+                      >
                         <div className="assignment-header">
                           <div className="assignment-title-row">
                             <button
@@ -1926,6 +1934,11 @@ function App() {
                             <h2 className="assignment-title">
                               {assignment.title}
                             </h2>
+                            {hasUnreadComments(assignment.id) && (
+                              <span className="assignment-unread-comments-badge">
+                                New comments
+                              </span>
+                            )}
                           </div>
                           <span
                             className="status-badge"
