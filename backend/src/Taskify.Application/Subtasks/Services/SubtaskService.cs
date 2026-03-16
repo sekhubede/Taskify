@@ -42,6 +42,21 @@ public class SubtaskService
         return _subtaskRepository.ToggleSubtaskCompletion(subtaskId, isCompleted);
     }
 
+    public bool UpdateSubtaskTitle(int subtaskId, string title)
+    {
+        if (subtaskId <= 0)
+            throw new ArgumentException("Subtask ID must be positive", nameof(subtaskId));
+
+        if (string.IsNullOrWhiteSpace(title))
+            throw new ArgumentException("Subtask title cannot be empty", nameof(title));
+
+        title = title.Trim();
+        if (title.Length > 200)
+            throw new ArgumentException("Subtask title cannot exceed 200 characters", nameof(title));
+
+        return _subtaskRepository.UpdateSubtaskTitle(subtaskId, title);
+    }
+
     public bool CompleteSubtask(int subtaskId)
     {
         return _subtaskRepository.ToggleSubtaskCompletion(subtaskId, isCompleted: true);

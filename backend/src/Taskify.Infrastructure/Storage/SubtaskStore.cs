@@ -106,6 +106,25 @@ public class SubtaskStore
         }
     }
 
+    public bool SetTitle(int subtaskId, string title)
+    {
+        lock (_syncRoot)
+        {
+            foreach (var kvp in _model.AssignmentIdToSubtasks)
+            {
+                var item = kvp.Value.FirstOrDefault(i => i.Id == subtaskId);
+                if (item != null)
+                {
+                    item.Title = title;
+                    Persist();
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
     public bool UpdateOrder(int subtaskId, int newOrder)
     {
         lock (_syncRoot)

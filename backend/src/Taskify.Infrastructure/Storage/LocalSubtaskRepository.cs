@@ -35,6 +35,14 @@ public class LocalSubtaskRepository : ISubtaskRepository
         return _store.SetCompletion(subtaskId, isCompleted);
     }
 
+    public bool UpdateSubtaskTitle(int subtaskId, string title)
+    {
+        if (string.IsNullOrWhiteSpace(title))
+            throw new ArgumentNullException(nameof(title));
+
+        return _store.SetTitle(subtaskId, title.Trim());
+    }
+
     public void UpdateSubtaskPersonalNote(int subtaskId, string? note)
     {
         if (string.IsNullOrWhiteSpace(note))

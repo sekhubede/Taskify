@@ -20,6 +20,8 @@ function App() {
   const [newSubtaskText, setNewSubtaskText] = useState({});
   const [editingNotes, setEditingNotes] = useState({});
   const [subtaskNotes, setSubtaskNotes] = useState({});
+  const [editingSubtasks, setEditingSubtasks] = useState({});
+  const [subtaskTitleDrafts, setSubtaskTitleDrafts] = useState({});
   const [editingCommentNotes, setEditingCommentNotes] = useState({});
   const [commentNotes, setCommentNotes] = useState({});
   const [commentFlags, setCommentFlags] = useState({});
@@ -615,6 +617,71 @@ function App() {
   const handleDeleteSubtaskNote = async (subtaskId) => {
     if (window.confirm("Are you sure you want to delete this personal note?")) {
       await handleUpdateSubtaskNote(subtaskId, null);
+    }
+  };
+
+  const handleStartSubtaskEdit = (subtask) => {
+    setEditingSubtasks((prev) => ({
+      ...prev,
+      [subtask.id]: true
+    }));
+    setSubtaskTitleDrafts((prev) => ({
+      ...prev,
+      [subtask.id]: subtask.title
+    }));
+  };
+
+  const handleCancelSubtaskEdit = (subtaskId) => {
+    setEditingSubtasks((prev) => ({
+      ...prev,
+      [subtaskId]: false
+    }));
+    setSubtaskTitleDrafts((prev) => {
+      const updated = { ...prev };
+      delete updated[subtaskId];
+      return updated;
+    });
+  };
+
+  const handleSaveSubtaskTitle = async (subtaskId) => {
+    const draftTitle = (subtaskTitleDrafts[subtaskId] || "").trim();
+    if (!draftTitle) {
+      setError("Subtask title cannot be empty");
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `http://localhost:5000/api/subtasks/${subtaskId}/title`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ title: draftTitle })
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || "Failed to update subtask title");
+      }
+
+      setSubtasks((prev) => {
+        const updated = {};
+        Object.keys(prev).forEach((assignmentId) => {
+          updated[assignmentId] = prev[assignmentId].map((subtask) =>
+            subtask.id === subtaskId
+              ? { ...subtask, title: draftTitle }
+              : subtask
+          );
+        });
+        return updated;
+      });
+
+      handleCancelSubtaskEdit(subtaskId);
+    } catch (err) {
+      setError(err.toString());
     }
   };
 
@@ -1408,12 +1475,106 @@ function App() {
                                                         e.stopPropagation()
                                                       }
                                                     />
-                                                    <span
-                                                      className={`subtask-title ${subtask.isCompleted ? "completed" : ""}`}
-                                                    >
-                                                      {subtask.title}
-                                                    </span>
+                                                    {editingSubtasks[
+                                                      subtask.id
+                                                    ] ? (
+                                                      <input
+                                                        type="text"
+                                                        className="subtask-title-input"
+                                                        value={
+                                                          subtaskTitleDrafts[
+                                                            subtask.id
+                                                          ] ?? ""
+                                                        }
+                                                        onChange={(e) =>
+                                                          setSubtaskTitleDrafts(
+                                                            (prev) => ({
+                                                              ...prev,
+                                                              [subtask.id]:
+                                                                e.target.value
+                                                            })
+                                                          )
+                                                        }
+                                                        onKeyDown={(e) => {
+                                                          if (e.key === "Enter") {
+                                                            e.preventDefault();
+                                                            handleSaveSubtaskTitle(
+                                                              subtask.id
+                                                            );
+                                                          } else if (
+                                                            e.key === "Escape"
+                                                          ) {
+                                                            e.preventDefault();
+                                                            handleCancelSubtaskEdit(
+                                                              subtask.id
+                                                            );
+                                                          }
+                                                        }}
+                                                        onMouseDown={(e) =>
+                                                          e.stopPropagation()
+                                                        }
+                                                        onClick={(e) =>
+                                                          e.stopPropagation()
+                                                        }
+                                                        autoFocus
+                                                      />
+                                                    ) : (
+                                                      <span
+                                                        className={`subtask-title ${subtask.isCompleted ? "completed" : ""}`}
+                                                      >
+                                                        {subtask.title}
+                                                      </span>
+                                                    )}
                                                   </label>
+                                                  {editingSubtasks[
+                                                    subtask.id
+                                                  ] ? (
+                                                    <>
+                                                      <button
+                                                        className="subtask-edit-save"
+                                                        onMouseDown={(e) =>
+                                                          e.stopPropagation()
+                                                        }
+                                                        onClick={() =>
+                                                          handleSaveSubtaskTitle(
+                                                            subtask.id
+                                                          )
+                                                        }
+                                                        title="Save title"
+                                                      >
+                                                        Save
+                                                      </button>
+                                                      <button
+                                                        className="subtask-edit-cancel"
+                                                        onMouseDown={(e) =>
+                                                          e.stopPropagation()
+                                                        }
+                                                        onClick={() =>
+                                                          handleCancelSubtaskEdit(
+                                                            subtask.id
+                                                          )
+                                                        }
+                                                        title="Cancel edit"
+                                                      >
+                                                        Cancel
+                                                      </button>
+                                                    </>
+                                                  ) : (
+                                                    <button
+                                                      className="subtask-edit-button"
+                                                      onMouseDown={(e) =>
+                                                        e.stopPropagation()
+                                                      }
+                                                      onClick={() =>
+                                                        handleStartSubtaskEdit(
+                                                          subtask
+                                                        )
+                                                      }
+                                                      title="Edit subtask"
+                                                    >
+                                                      ✏️
+                                                    </button>
+                                                  )}
                                                   <button
                                                     className="subtask-note-button"
                                                     onMouseDown={(e) =>
@@ -2237,12 +2398,102 @@ function App() {
                                                     e.stopPropagation()
                                                   }
                                                 />
-                                                <span
-                                                  className={`subtask-title ${subtask.isCompleted ? "completed" : ""}`}
-                                                >
-                                                  {subtask.title}
-                                                </span>
+                                                {editingSubtasks[subtask.id] ? (
+                                                  <input
+                                                    type="text"
+                                                    className="subtask-title-input"
+                                                    value={
+                                                      subtaskTitleDrafts[
+                                                        subtask.id
+                                                      ] ?? ""
+                                                    }
+                                                    onChange={(e) =>
+                                                      setSubtaskTitleDrafts(
+                                                        (prev) => ({
+                                                          ...prev,
+                                                          [subtask.id]:
+                                                            e.target.value
+                                                        })
+                                                      )
+                                                    }
+                                                    onKeyDown={(e) => {
+                                                      if (e.key === "Enter") {
+                                                        e.preventDefault();
+                                                        handleSaveSubtaskTitle(
+                                                          subtask.id
+                                                        );
+                                                      } else if (
+                                                        e.key === "Escape"
+                                                      ) {
+                                                        e.preventDefault();
+                                                        handleCancelSubtaskEdit(
+                                                          subtask.id
+                                                        );
+                                                      }
+                                                    }}
+                                                    onMouseDown={(e) =>
+                                                      e.stopPropagation()
+                                                    }
+                                                    onClick={(e) =>
+                                                      e.stopPropagation()
+                                                    }
+                                                    autoFocus
+                                                  />
+                                                ) : (
+                                                  <span
+                                                    className={`subtask-title ${subtask.isCompleted ? "completed" : ""}`}
+                                                  >
+                                                    {subtask.title}
+                                                  </span>
+                                                )}
                                               </label>
+                                              {editingSubtasks[subtask.id] ? (
+                                                <>
+                                                  <button
+                                                    className="subtask-edit-save"
+                                                    onMouseDown={(e) =>
+                                                      e.stopPropagation()
+                                                    }
+                                                    onClick={() =>
+                                                      handleSaveSubtaskTitle(
+                                                        subtask.id
+                                                      )
+                                                    }
+                                                    title="Save title"
+                                                  >
+                                                    Save
+                                                  </button>
+                                                  <button
+                                                    className="subtask-edit-cancel"
+                                                    onMouseDown={(e) =>
+                                                      e.stopPropagation()
+                                                    }
+                                                    onClick={() =>
+                                                      handleCancelSubtaskEdit(
+                                                        subtask.id
+                                                      )
+                                                    }
+                                                    title="Cancel edit"
+                                                  >
+                                                    Cancel
+                                                  </button>
+                                                </>
+                                              ) : (
+                                                <button
+                                                  className="subtask-edit-button"
+                                                  onMouseDown={(e) =>
+                                                    e.stopPropagation()
+                                                  }
+                                                  onClick={() =>
+                                                    handleStartSubtaskEdit(
+                                                      subtask
+                                                    )
+                                                  }
+                                                  title="Edit subtask"
+                                                >
+                                                  ✏️
+                                                </button>
+                                              )}
                                               <button
                                                 className="subtask-note-button"
                                                 onMouseDown={(e) =>

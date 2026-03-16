@@ -20,6 +20,11 @@ public interface ISubtaskRepository
     bool ToggleSubtaskCompletion(int subtaskId, bool isCompleted);
 
     /// <summary>
+    /// Updates the title of a local subtask.
+    /// </summary>
+    bool UpdateSubtaskTitle(int subtaskId, string title);
+
+    /// <summary>
     /// Updates the personal note for a subtask (stored locally, not in M-Files).
     /// </summary>
     void UpdateSubtaskPersonalNote(int subtaskId, string? note);

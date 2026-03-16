@@ -756,6 +756,23 @@
   flex: 1;
 }
 
+.subtask-title-input {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 0.9rem;
+  padding: 0.35rem 0.5rem;
+  min-width: 140px;
+}
+
+.subtask-title-input:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.12);
+}
+
 .subtask-title.completed {
   text-decoration: line-through;
   color: rgba(255, 255, 255, 0.5);
@@ -775,6 +792,50 @@
 
 .subtask-note-button:hover {
   background: rgba(255, 255, 255, 0.1);
+}
+
+.subtask-edit-button {
+  background: transparent;
+  border: none;
+  font-size: 1.05rem;
+  cursor: pointer;
+  padding: 0.25rem 0.45rem;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.subtask-edit-button:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.subtask-edit-save,
+.subtask-edit-cancel {
+  border: none;
+  border-radius: 5px;
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.subtask-edit-save {
+  background: #10b981;
+  color: white;
+}
+
+.subtask-edit-save:hover {
+  background: #059669;
+}
+
+.subtask-edit-cancel {
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.subtask-edit-cancel:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .subtask-delete-button {
