@@ -140,11 +140,19 @@
   padding: 0.35rem 0.7rem;
   font-size: 0.78rem;
   font-weight: 600;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
 }
 
 .assignment-refresh-interval:focus {
   outline: none;
   border-color: rgba(255, 255, 255, 0.35);
+}
+
+.assignment-refresh-interval option {
+  background: #0f172a;
+  color: #e5e7eb;
 }
 
 .assignment-refresh-meta {
