@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import "./App.css";
 
 const ASSIGNMENTS_API_URL = "http://localhost:5000/api/assignments";
+const LAST_SEEN_COMMENT_COUNTS_KEY = "lastSeenCommentCounts";
 
 function App() {
   const [assignments, setAssignments] = useState([]);
@@ -14,6 +15,14 @@ function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [commentCounts, setCommentCounts] = useState({});
   const [commentFilters, setCommentFilters] = useState({});
+  const [lastSeenCommentCounts, setLastSeenCommentCounts] = useState(() => {
+    try {
+      const raw = localStorage.getItem(LAST_SEEN_COMMENT_COUNTS_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
   const [openSubtasks, setOpenSubtasks] = useState({});
   const [subtasks, setSubtasks] = useState({});
   const [loadingSubtasks, setLoadingSubtasks] = useState({});
@@ -88,6 +97,35 @@ function App() {
       });
   }, []);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        LAST_SEEN_COMMENT_COUNTS_KEY,
+        JSON.stringify(lastSeenCommentCounts)
+      );
+    } catch {
+      // ignore storage write failures
+    }
+  }, [lastSeenCommentCounts]);
+
+  useEffect(() => {
+    // Initialize unseen assignments so badges only represent comments
+    // that arrived after the user has a baseline.
+    setLastSeenCommentCounts((prev) => {
+      const updated = { ...prev };
+      let changed = false;
+
+      Object.entries(commentCounts).forEach(([assignmentId, count]) => {
+        if (updated[assignmentId] === undefined) {
+          updated[assignmentId] = count;
+          changed = true;
+        }
+      });
+
+      return changed ? updated : prev;
+    });
+  }, [commentCounts]);
+
   const formatDate = (dateString) => {
     if (!dateString) return null;
     const date = new Date(dateString);
@@ -158,6 +196,18 @@ function App() {
 
   const toggleComments = async (assignmentId) => {
     const isOpen = openComments[assignmentId];
+
+    if (!isOpen) {
+      // Opening the thread marks current comments as seen.
+      setLastSeenCommentCounts((prev) => ({
+        ...prev,
+        [assignmentId]:
+          commentCounts[assignmentId] ??
+          comments[assignmentId]?.length ??
+          0
+      }));
+    }
+
     setOpenComments((prev) => ({
       ...prev,
       [assignmentId]: !isOpen
@@ -748,6 +798,13 @@ function App() {
     }
   };
 
+  const hasUnreadComments = (assignmentId) => {
+    const currentCount = commentCounts[assignmentId] || 0;
+    const seenCount = lastSeenCommentCounts[assignmentId];
+    if (seenCount === undefined || seenCount === null) return false;
+    return currentCount > seenCount;
+  };
+
   const formatCommentDate = (dateString) => {
     if (!dateString) return "";
     const date = new Date(dateString);
@@ -960,6 +1017,12 @@ function App() {
                                 {openComments[assignment.id]
                                   ? "Hide"
                                   : "Comments"}
+                                {!openComments[assignment.id] &&
+                                  hasUnreadComments(assignment.id) && (
+                                    <span className="comments-new-indicator">
+                                      New
+                                    </span>
+                                  )}
                               </button>
                               <button
                                 className="subtasks-button"
@@ -1915,6 +1978,12 @@ function App() {
                           >
                             💬 {commentCounts[assignment.id] || 0}{" "}
                             {openComments[assignment.id] ? "Hide" : "Comments"}
+                            {!openComments[assignment.id] &&
+                              hasUnreadComments(assignment.id) && (
+                                <span className="comments-new-indicator">
+                                  New
+                                </span>
+                              )}
                           </button>
                           <button
                             className="subtasks-button"
