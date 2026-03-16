@@ -145,6 +145,29 @@
   -moz-appearance: none;
 }
 
+.assignment-assignee-filter {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.9);
+  border-radius: 999px;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+}
+
+.assignment-assignee-filter:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.assignment-assignee-filter option {
+  background: #0f172a;
+  color: #e5e7eb;
+}
+
 .assignment-refresh-interval:focus {
   outline: none;
   border-color: rgba(255, 255, 255, 0.35);
@@ -377,6 +400,19 @@
   font-size: 0.85rem;
   color: rgba(255, 255, 255, 0.6);
   flex-wrap: wrap;
+}
+
+.assignment-assignee-line {
+  margin: 0 0 0.55rem 0;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.83rem;
+  line-height: 1.35;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-clamp: 2;
+  word-break: break-word;
 }
 
 .due-date {

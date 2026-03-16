@@ -19,8 +19,8 @@ public static class MFilesTaskMapper
             Description = GetPropertyValue<string>(properties, (int)MFBuiltInPropertyDef.MFBuiltInPropertyDefAssignmentDescription) ?? string.Empty,
             DueDate = GetPropertyValue<DateTime?>(properties, (int)MFBuiltInPropertyDef.MFBuiltInPropertyDefDeadline),
             Status = MapStatus(properties),
-            AssigneeId = vault.CurrentLoggedInUserID.ToString(),
-            AssigneeName = GetAssignedToName(vault, properties),
+            AssigneeId = GetAssignedToId(properties),
+            AssigneeName = GetAssignedToName(properties),
             CreatedAt = GetPropertyValue<DateTime>(properties, (int)MFBuiltInPropertyDef.MFBuiltInPropertyDefCreated),
             LastUpdatedAt = GetPropertyValue<DateTime>(properties, (int)MFBuiltInPropertyDef.MFBuiltInPropertyDefLastModified),
             CompletedAt = null,
@@ -58,7 +58,7 @@ public static class MFilesTaskMapper
         return TaskItemStatus.InProgress;
     }
 
-    private static string GetAssignedToName(Vault vault, PropertyValues properties)
+    private static string GetAssignedToName(PropertyValues properties)
     {
         try
         {
@@ -66,16 +66,43 @@ public static class MFilesTaskMapper
             if (assignedToProp == null || assignedToProp.TypedValue.IsNULL())
                 return "Unassigned";
 
-            var userName = assignedToProp.TypedValue.GetValueAsLookups()
+            var lookups = assignedToProp.TypedValue.GetValueAsLookups();
+            var names = lookups
                 .Cast<Lookup>()
-                .FirstOrDefault(a => int.Parse(a.DisplayID) == vault.CurrentLoggedInUserID)
-                ?.DisplayValue;
+                .Select(l => l.DisplayValue)
+                .Where(v => !string.IsNullOrWhiteSpace(v))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
 
-            return userName ?? "Unknown";
+            return names.Count > 0 ? string.Join(", ", names) : "Unknown";
         }
         catch
         {
             return "Unknown";
+        }
+    }
+
+    private static string GetAssignedToId(PropertyValues properties)
+    {
+        try
+        {
+            var assignedToProp = properties.SearchForProperty((int)MFBuiltInPropertyDef.MFBuiltInPropertyDefAssignedTo);
+            if (assignedToProp == null || assignedToProp.TypedValue.IsNULL())
+                return string.Empty;
+
+            var lookups = assignedToProp.TypedValue.GetValueAsLookups();
+            var ids = lookups
+                .Cast<Lookup>()
+                .Select(l => l.Item.ToString())
+                .Where(v => !string.IsNullOrWhiteSpace(v))
+                .Distinct()
+                .ToList();
+
+            return string.Join(",", ids);
+        }
+        catch
+        {
+            return string.Empty;
         }
     }
 

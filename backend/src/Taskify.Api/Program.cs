@@ -90,7 +90,8 @@ app.MapGet("api/user/current", async (ITaskDataSource ds) =>
 });
 
 // ─── Assignments ───
-app.MapGet("api/assignments", (AssignmentService svc) => Results.Ok(svc.GetUserAssignments()));
+app.MapGet("api/assignments", (bool? all, AssignmentService svc) =>
+    Results.Ok(all == true ? svc.GetAllAssignments() : svc.GetUserAssignments()));
 app.MapGet("api/assignments/{id:int}", (int id, AssignmentService svc) =>
 {
     var a = svc.GetAssignment(id);
@@ -198,11 +199,13 @@ app.MapGet("api/assignments/{id:int}/attachments/{attachmentId}/download", async
 // ─── Comments ───
 app.MapGet("api/assignments/{id:int}/comments", (int id, CommentService svc) =>
     Results.Ok(svc.GetAssignmentComments(id)));
-app.MapGet("api/assignments/comments/counts", (AssignmentService assignmentSvc, CommentService commentSvc) =>
+app.MapGet("api/assignments/comments/counts", (bool? all, AssignmentService assignmentSvc, CommentService commentSvc) =>
 {
     try
     {
-        var assignments = assignmentSvc.GetUserAssignments();
+        var assignments = all == true
+            ? assignmentSvc.GetAllAssignments()
+            : assignmentSvc.GetUserAssignments();
         var counts = assignments.ToDictionary(
             a => a.Id,
             a => commentSvc.GetCommentCount(a.Id)

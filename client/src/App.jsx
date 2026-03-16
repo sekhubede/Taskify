@@ -9,6 +9,7 @@ const SHOW_ONLY_UNREAD_ASSIGNMENTS_KEY = "showOnlyUnreadAssignments";
 const SORT_UNREAD_TO_TOP_KEY = "sortUnreadToTop";
 const COMMENT_SORT_NEWEST_FIRST_KEY = "commentSortNewestFirst";
 const AUTO_REFRESH_INTERVAL_SECONDS_KEY = "assignmentAutoRefreshSeconds";
+const SHOW_ALL_ASSIGNMENTS_KEY = "showAllAssignments";
 
 function App() {
   const [assignments, setAssignments] = useState([]);
@@ -52,6 +53,14 @@ function App() {
   const [workingOn, setWorkingOn] = useState(new Set()); // assignmentIds that are marked as "working on"
   const [allAssignmentsCollapsed, setAllAssignmentsCollapsed] = useState(false);
   const [assignmentSearch, setAssignmentSearch] = useState("");
+  const [showAllAssignments, setShowAllAssignments] = useState(() => {
+    try {
+      return localStorage.getItem(SHOW_ALL_ASSIGNMENTS_KEY) === "true";
+    } catch {
+      return false;
+    }
+  });
+  const [assigneeFilter, setAssigneeFilter] = useState("");
   const [showOnlyUnreadAssignments, setShowOnlyUnreadAssignments] = useState(
     () => {
       try {
@@ -93,11 +102,14 @@ function App() {
 
   const refreshData = useCallback(async (isInitialLoad = false) => {
     try {
+      const assignmentScopeQuery = showAllAssignments ? "?all=true" : "";
       const [userRes, assignmentsRes, countsRes, workingOnRes] =
         await Promise.all([
           fetch("http://localhost:5000/api/user/current"),
-          fetch(ASSIGNMENTS_API_URL),
-          fetch("http://localhost:5000/api/assignments/comments/counts"),
+          fetch(`${ASSIGNMENTS_API_URL}${assignmentScopeQuery}`),
+          fetch(
+            `http://localhost:5000/api/assignments/comments/counts${assignmentScopeQuery}`
+          ),
           fetch("http://localhost:5000/api/assignments/working-on")
         ]);
 
@@ -163,7 +175,22 @@ function App() {
         setLoading(false);
       }
     }
-  }, []);
+  }, [showAllAssignments]);
+
+  useEffect(() => {
+    setAssigneeFilter("");
+  }, [showAllAssignments]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        SHOW_ALL_ASSIGNMENTS_KEY,
+        String(showAllAssignments)
+      );
+    } catch {
+      // ignore storage write failures
+    }
+  }, [showAllAssignments]);
 
   useEffect(() => {
     refreshData(true);
@@ -1262,6 +1289,41 @@ function App() {
             </div>
             <div className="assignment-filter-controls">
               <button
+                className={`assignment-filter-toggle ${showAllAssignments ? "active" : ""}`}
+                onClick={() => setShowAllAssignments(!showAllAssignments)}
+                title={
+                  showAllAssignments
+                    ? "Showing all assignments across the team"
+                    : "Showing only your assignments"
+                }
+              >
+                {showAllAssignments ? "View: Team" : "View: Mine"}
+              </button>
+              {showAllAssignments && (
+                <select
+                  className="assignment-assignee-filter"
+                  value={assigneeFilter}
+                  onChange={(e) => setAssigneeFilter(e.target.value)}
+                  title="Filter assignments by assignee"
+                >
+                  <option value="">Assignee: All</option>
+                  {[
+                    ...new Set(
+                      assignments.map((a) => {
+                        const name = a.assignedTo?.trim();
+                        return name && name.length > 0 ? name : "Unknown";
+                      })
+                    )
+                  ]
+                    .sort((a, b) => a.localeCompare(b))
+                    .map((assignee) => (
+                      <option key={assignee} value={assignee}>
+                        {assignee}
+                      </option>
+                    ))}
+                </select>
+              )}
+              <button
                 className={`assignment-filter-toggle ${showOnlyUnreadAssignments ? "active" : ""}`}
                 onClick={() =>
                   setShowOnlyUnreadAssignments(!showOnlyUnreadAssignments)
@@ -1313,13 +1375,17 @@ function App() {
             </div>
           ) : (
             (() => {
+              const getAssigneeLabel = (assignment) => {
+                const name = assignment?.assignedTo?.trim();
+                return name && name.length > 0 ? name : "Unknown";
+              };
               const normalizedSearch = assignmentSearch.trim().toLowerCase();
               const filteredAssignments = normalizedSearch
                 ? assignments.filter((assignment) =>
                     [
                       assignment.title,
                       assignment.description,
-                      assignment.assignedTo,
+                      getAssigneeLabel(assignment),
                       assignment.assigneeName
                     ]
                       .filter(Boolean)
@@ -1328,18 +1394,32 @@ function App() {
                       )
                   )
                 : assignments;
+              const assigneeFilteredAssignments =
+                showAllAssignments && assigneeFilter
+                  ? filteredAssignments.filter(
+                      (assignment) => getAssigneeLabel(assignment) === assigneeFilter
+                    )
+                  : filteredAssignments;
 
-              if (filteredAssignments.length === 0) {
+              if (assigneeFilteredAssignments.length === 0) {
                 return (
                   <div className="empty-state">
-                    <p>No assignments match "{assignmentSearch}"</p>
+                    <p>
+                      No assignments match the current filters.
+                      {assignmentSearch
+                        ? ` Search term: "${assignmentSearch}".`
+                        : ""}
+                      {assigneeFilter ? ` Assignee: ${assigneeFilter}.` : ""}
+                    </p>
                   </div>
                 );
               }
 
               const unreadFilteredAssignments = showOnlyUnreadAssignments
-                ? filteredAssignments.filter((a) => hasUnreadComments(a.id))
-                : filteredAssignments;
+                ? assigneeFilteredAssignments.filter((a) =>
+                    hasUnreadComments(a.id)
+                  )
+                : assigneeFilteredAssignments;
 
               if (unreadFilteredAssignments.length === 0) {
                 return (

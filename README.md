@@ -1,15 +1,17 @@
 # Taskify
 
-Taskify is a personal productivity tool that extends M-Files assignment management. It pulls assignments from M-Files and layers on subtasks, personal notes, comment management, and a focused "Hot Zone" view — features M-Files doesn't provide natively.
+Taskify is a productivity tool that extends M-Files assignment management. It pulls assignments from M-Files and layers on subtasks, personal notes, comment management, and a focused "Hot Zone" view, while also supporting a team oversight mode when broader visibility is needed.
 
 ## Overview
 
-- **Purpose:** Enhance task management for M-Files assignments by adding subtasks, personal notes, and streamlined comment interaction.
+- **Purpose:** Enhance task management for M-Files assignments by adding subtasks, personal notes, streamlined comment interaction, and optional team-level visibility.
 - **Key features:**
   - Pull assignments and comments from M-Files
   - Add, manage, reorder, and delete subtasks per assignment
   - Add vault comments (synced to M-Files) and personal notes (local only)
   - Pin assignments to a "Hot Zone" section for focused work
+  - Toggle between "My assignments" and "Team assignments"
+  - Filter team view by assignee
   - Mark assignments as complete directly from the app
   - Collapse/expand assignment cards for a clean overview
 

@@ -54,19 +54,6 @@ public class MFilesConnector : ITaskDataSource, IDisposable
             (int)MFBuiltInObjectType.MFBuiltInObjectTypeAssignment);
         searchConditions.Add(-1, objectTypeCondition);
 
-        // Assigned to current user
-        var assignedToCondition = new SearchCondition
-        {
-            ConditionType = MFConditionType.MFConditionTypeEqual
-        };
-        assignedToCondition.Expression.SetPropertyValueExpression(
-            (int)MFBuiltInPropertyDef.MFBuiltInPropertyDefAssignedTo,
-            MFParentChildBehavior.MFParentChildBehaviorNone);
-        assignedToCondition.TypedValue.SetValue(
-            MFDataType.MFDatatypeLookup,
-            vault.CurrentLoggedInUserID);
-        searchConditions.Add(-1, assignedToCondition);
-
         var searchResults = vault.ObjectSearchOperations.SearchForObjectsByConditions(
             searchConditions,
             MFSearchFlags.MFSearchFlagNone,
@@ -96,8 +83,49 @@ public class MFilesConnector : ITaskDataSource, IDisposable
 
     public Task<IReadOnlyList<TaskDTO>> GetTasksByAssigneeAsync(string assigneeId)
     {
-        // M-Files connector returns tasks for the current logged-in user only
-        return GetAllTasksAsync();
+        if (!int.TryParse(assigneeId, out var userId))
+            return Task.FromResult<IReadOnlyList<TaskDTO>>(new List<TaskDTO>());
+
+        var vault = GetVault();
+        var searchConditions = new SearchConditions();
+
+        var deletedCondition = new SearchCondition
+        {
+            ConditionType = MFConditionType.MFConditionTypeEqual
+        };
+        deletedCondition.Expression.SetStatusValueExpression(MFStatusType.MFStatusTypeDeleted);
+        deletedCondition.TypedValue.SetValue(MFDataType.MFDatatypeBoolean, false);
+        searchConditions.Add(-1, deletedCondition);
+
+        var objectTypeCondition = new SearchCondition
+        {
+            ConditionType = MFConditionType.MFConditionTypeEqual
+        };
+        objectTypeCondition.Expression.SetStatusValueExpression(MFStatusType.MFStatusTypeObjectTypeID);
+        objectTypeCondition.TypedValue.SetValue(
+            MFDataType.MFDatatypeLookup,
+            (int)MFBuiltInObjectType.MFBuiltInObjectTypeAssignment);
+        searchConditions.Add(-1, objectTypeCondition);
+
+        var assignedToCondition = new SearchCondition
+        {
+            ConditionType = MFConditionType.MFConditionTypeEqual
+        };
+        assignedToCondition.Expression.SetPropertyValueExpression(
+            (int)MFBuiltInPropertyDef.MFBuiltInPropertyDefAssignedTo,
+            MFParentChildBehavior.MFParentChildBehaviorNone);
+        assignedToCondition.TypedValue.SetValue(
+            MFDataType.MFDatatypeLookup,
+            userId);
+        searchConditions.Add(-1, assignedToCondition);
+
+        var searchResults = vault.ObjectSearchOperations.SearchForObjectsByConditions(
+            searchConditions,
+            MFSearchFlags.MFSearchFlagNone,
+            SortResults: false);
+
+        var tasks = MFilesTaskMapper.MapAll(vault, searchResults);
+        return Task.FromResult<IReadOnlyList<TaskDTO>>(tasks);
     }
 
     public Task<bool> UpdateTaskStatusAsync(string taskId, TaskItemStatus newStatus)

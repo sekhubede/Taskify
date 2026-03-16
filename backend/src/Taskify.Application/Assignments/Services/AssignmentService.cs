@@ -19,18 +19,37 @@ public class AssignmentService
         try
         {
             var tasks = _dataSource.GetAllTasksAsync().GetAwaiter().GetResult();
-            var assignments = tasks.Select(t => MapToAssignment(t)).ToList();
+            var currentUserName = _dataSource.GetCurrentUserNameAsync().GetAwaiter().GetResult();
 
-            return assignments
-                .OrderByDescending(a => a.IsOverdue())
-                .ThenBy(a => a.IsOverdue()
-                    ? -(a.DueDate?.Ticks ?? long.MinValue)
-                    : (a.DueDate?.Ticks ?? long.MaxValue))
+            var filtered = tasks
+                .Where(t => string.Equals(
+                    t.AssigneeName?.Trim(),
+                    currentUserName?.Trim(),
+                    StringComparison.OrdinalIgnoreCase))
                 .ToList();
+
+            // Fall back to all tasks if the source cannot provide a matching assignee name.
+            // This keeps existing behavior for sources where user naming conventions differ.
+            var tasksForView = filtered.Count > 0 ? filtered : tasks.ToList();
+            return MapAndSortAssignments(tasksForView);
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error retrieving assignments: {ex.Message}");
+            throw;
+        }
+    }
+
+    public List<Assignment> GetAllAssignments()
+    {
+        try
+        {
+            var tasks = _dataSource.GetAllTasksAsync().GetAwaiter().GetResult();
+            return MapAndSortAssignments(tasks);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error retrieving all assignments: {ex.Message}");
             throw;
         }
     }
@@ -93,6 +112,18 @@ public class AssignmentService
             completedDate: task.CompletedAt,
             subtasks: subtasks
         );
+    }
+
+    private List<Assignment> MapAndSortAssignments(IEnumerable<TaskDTO> tasks)
+    {
+        var assignments = tasks.Select(MapToAssignment).ToList();
+
+        return assignments
+            .OrderByDescending(a => a.IsOverdue())
+            .ThenBy(a => a.IsOverdue()
+                ? -(a.DueDate?.Ticks ?? long.MinValue)
+                : (a.DueDate?.Ticks ?? long.MaxValue))
+            .ToList();
     }
 
     private static AssignmentStatus MapStatus(TaskItemStatus status)

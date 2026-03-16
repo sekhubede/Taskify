@@ -59,7 +59,7 @@ public class MockConnector : ITaskDataSource
 
     public Task<string> GetCurrentUserNameAsync()
     {
-        return Task.FromResult("Mock User");
+        return Task.FromResult("Sarah");
     }
 
     public async Task<IReadOnlyList<CommentDTO>> GetCommentsForTaskAsync(string taskId)
