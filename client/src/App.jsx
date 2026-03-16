@@ -14,6 +14,10 @@ function App() {
   const [openComments, setOpenComments] = useState({});
   const [comments, setComments] = useState({});
   const [loadingComments, setLoadingComments] = useState({});
+  const [openAttachments, setOpenAttachments] = useState({});
+  const [attachments, setAttachments] = useState({});
+  const [loadingAttachments, setLoadingAttachments] = useState({});
+  const [uploadingAttachment, setUploadingAttachment] = useState({});
   const [newCommentText, setNewCommentText] = useState({});
   const [currentUser, setCurrentUser] = useState(null);
   const [commentCounts, setCommentCounts] = useState({});
@@ -375,6 +379,88 @@ function App() {
         ...prev,
         [assignmentId]: nextCount
       }));
+    } catch (err) {
+      setError(err.toString());
+    }
+  };
+
+  const toggleAttachments = async (assignmentId) => {
+    const isOpen = openAttachments[assignmentId];
+    setOpenAttachments((prev) => ({
+      ...prev,
+      [assignmentId]: !isOpen
+    }));
+
+    if (!isOpen && !attachments[assignmentId]) {
+      setLoadingAttachments((prev) => ({ ...prev, [assignmentId]: true }));
+      try {
+        const response = await fetch(
+          `${ASSIGNMENTS_API_URL}/${assignmentId}/attachments`
+        );
+        if (!response.ok) throw new Error("Failed to fetch attachments");
+        const data = await response.json();
+        setAttachments((prev) => ({ ...prev, [assignmentId]: data }));
+      } catch (err) {
+        setError(err.toString());
+      } finally {
+        setLoadingAttachments((prev) => ({ ...prev, [assignmentId]: false }));
+      }
+    }
+  };
+
+  const handleUploadAttachment = async (assignmentId, file) => {
+    if (!file) return;
+
+    setUploadingAttachment((prev) => ({ ...prev, [assignmentId]: true }));
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch(
+        `${ASSIGNMENTS_API_URL}/${assignmentId}/attachments`,
+        {
+          method: "POST",
+          body: formData
+        }
+      );
+
+      if (!response.ok) {
+        const message = await response.text();
+        throw new Error(message || "Failed to upload attachment");
+      }
+
+      const uploaded = await response.json();
+      setAttachments((prev) => ({
+        ...prev,
+        [assignmentId]: [...(prev[assignmentId] || []), uploaded]
+      }));
+    } catch (err) {
+      setError(err.toString());
+    } finally {
+      setUploadingAttachment((prev) => ({ ...prev, [assignmentId]: false }));
+    }
+  };
+
+  const handleDownloadAttachment = async (assignmentId, attachment) => {
+    try {
+      const response = await fetch(
+        `${ASSIGNMENTS_API_URL}/${assignmentId}/attachments/${attachment.id}/download`
+      );
+
+      if (!response.ok) {
+        const message = await response.text();
+        throw new Error(message || "Failed to download attachment");
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = attachment.fileName || "attachment";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
     } catch (err) {
       setError(err.toString());
     }
@@ -1191,6 +1277,15 @@ function App() {
                                   ? "Hide"
                                   : "Subtasks"}
                               </button>
+                              <button
+                                className="attachments-button"
+                                onClick={() => toggleAttachments(assignment.id)}
+                              >
+                                📎 {attachments[assignment.id]?.length || 0}{" "}
+                                {openAttachments[assignment.id]
+                                  ? "Hide"
+                                  : "Attachments"}
+                              </button>
                               {assignment.status !== 2 && (
                                 <button
                                   className="complete-button"
@@ -1661,6 +1756,77 @@ function App() {
                                   >
                                     Post
                                   </button>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Attachments Section */}
+                            {openAttachments[assignment.id] && (
+                              <div className="attachments-section">
+                                <div className="attachments-list">
+                                  {loadingAttachments[assignment.id] ? (
+                                    <div className="attachments-loading">
+                                      Loading attachments...
+                                    </div>
+                                  ) : (attachments[assignment.id] || []).length >
+                                    0 ? (
+                                    (attachments[assignment.id] || []).map(
+                                      (attachment) => (
+                                        <div
+                                          key={attachment.id}
+                                          className="attachment-item"
+                                        >
+                                          <button
+                                            className="attachment-link"
+                                            onClick={() =>
+                                              handleDownloadAttachment(
+                                                assignment.id,
+                                                attachment
+                                              )
+                                            }
+                                            title={`Download ${attachment.fileName}`}
+                                          >
+                                            {attachment.fileName}
+                                          </button>
+                                          <span className="attachment-size">
+                                            {Math.max(
+                                              1,
+                                              Math.round(
+                                                attachment.sizeBytes / 1024
+                                              )
+                                            )}{" "}
+                                            KB
+                                          </span>
+                                        </div>
+                                      )
+                                    )
+                                  ) : (
+                                    <div className="attachments-empty">
+                                      No attachments yet.
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="attachment-upload-container">
+                                  <input
+                                    type="file"
+                                    className="attachment-upload-input"
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      if (file) {
+                                        handleUploadAttachment(
+                                          assignment.id,
+                                          file
+                                        );
+                                        e.target.value = "";
+                                      }
+                                    }}
+                                    disabled={uploadingAttachment[assignment.id]}
+                                  />
+                                  {uploadingAttachment[assignment.id] && (
+                                    <span className="attachment-uploading">
+                                      Uploading...
+                                    </span>
+                                  )}
                                 </div>
                               </div>
                             )}
@@ -2163,6 +2329,15 @@ function App() {
                               0}{" "}
                             {openSubtasks[assignment.id] ? "Hide" : "Subtasks"}
                           </button>
+                          <button
+                            className="attachments-button"
+                            onClick={() => toggleAttachments(assignment.id)}
+                          >
+                            📎 {attachments[assignment.id]?.length || 0}{" "}
+                            {openAttachments[assignment.id]
+                              ? "Hide"
+                              : "Attachments"}
+                          </button>
                           {assignment.status !== 2 && (
                             <button
                               className="complete-button"
@@ -2607,6 +2782,73 @@ function App() {
                               >
                                 Post
                               </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {openAttachments[assignment.id] && (
+                          <div className="attachments-section">
+                            <div className="attachments-list">
+                              {loadingAttachments[assignment.id] ? (
+                                <div className="attachments-loading">
+                                  Loading attachments...
+                                </div>
+                              ) : (attachments[assignment.id] || []).length >
+                                0 ? (
+                                (attachments[assignment.id] || []).map(
+                                  (attachment) => (
+                                    <div
+                                      key={attachment.id}
+                                      className="attachment-item"
+                                    >
+                                      <button
+                                        className="attachment-link"
+                                        onClick={() =>
+                                          handleDownloadAttachment(
+                                            assignment.id,
+                                            attachment
+                                          )
+                                        }
+                                        title={`Download ${attachment.fileName}`}
+                                      >
+                                        {attachment.fileName}
+                                      </button>
+                                      <span className="attachment-size">
+                                        {Math.max(
+                                          1,
+                                          Math.round(
+                                            attachment.sizeBytes / 1024
+                                          )
+                                        )}{" "}
+                                        KB
+                                      </span>
+                                    </div>
+                                  )
+                                )
+                              ) : (
+                                <div className="attachments-empty">
+                                  No attachments yet.
+                                </div>
+                              )}
+                            </div>
+                            <div className="attachment-upload-container">
+                              <input
+                                type="file"
+                                className="attachment-upload-input"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    handleUploadAttachment(assignment.id, file);
+                                    e.target.value = "";
+                                  }
+                                }}
+                                disabled={uploadingAttachment[assignment.id]}
+                              />
+                              {uploadingAttachment[assignment.id] && (
+                                <span className="attachment-uploading">
+                                  Uploading...
+                                </span>
+                              )}
                             </div>
                           </div>
                         )}

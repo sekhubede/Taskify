@@ -57,4 +57,25 @@ public interface ITaskDataSource
     /// Gets the count of comments for a task/assignment.
     /// </summary>
     Task<int> GetCommentCountAsync(string taskId);
+
+    // ── Attachments ──
+
+    /// <summary>
+    /// Retrieves attachment metadata for a specific task/assignment.
+    /// </summary>
+    Task<IReadOnlyList<AttachmentDTO>> GetAttachmentsForTaskAsync(string taskId);
+
+    /// <summary>
+    /// Adds an attachment to a specific task/assignment in the source system.
+    /// </summary>
+    Task<AttachmentDTO> AddAttachmentAsync(
+        string taskId,
+        string fileName,
+        string contentType,
+        byte[] content);
+
+    /// <summary>
+    /// Downloads an attachment payload for a specific task/assignment.
+    /// </summary>
+    Task<AttachmentFileDTO?> GetAttachmentFileAsync(string taskId, string attachmentId);
 }

@@ -437,6 +437,23 @@
   border-color: rgba(255, 255, 255, 0.3);
 }
 
+.attachments-button {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.attachments-button:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
 .comments-new-indicator {
   background: rgba(239, 68, 68, 0.2);
   color: #fca5a5;
@@ -453,6 +470,74 @@
   margin-top: 1rem;
   padding-top: 1rem;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.attachments-section {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.attachments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.attachments-loading,
+.attachments-empty {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.85rem;
+}
+
+.attachment-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  padding: 0.45rem 0.65rem;
+}
+
+.attachment-link {
+  background: transparent;
+  border: none;
+  color: #93c5fd;
+  font-size: 0.86rem;
+  text-align: left;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.attachment-link:hover {
+  color: #bfdbfe;
+}
+
+.attachment-size {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.attachment-upload-container {
+  margin-top: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.attachment-upload-input {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.82rem;
+}
+
+.attachment-uploading {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.8rem;
 }
 
 .comments-filters {

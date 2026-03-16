@@ -138,6 +138,63 @@ app.MapGet("api/assignments/working-on", (WorkingOnService svc) =>
     return Results.Ok(workingOnIds.ToList());
 });
 
+// ─── Attachments ───
+app.MapGet("api/assignments/{id:int}/attachments", async (int id, ITaskDataSource ds) =>
+{
+    try
+    {
+        var attachments = await ds.GetAttachmentsForTaskAsync(id.ToString());
+        return Results.Ok(attachments);
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest($"Error getting attachments: {ex.Message}");
+    }
+});
+app.MapPost("api/assignments/{id:int}/attachments", async (int id, ITaskDataSource ds, HttpRequest req) =>
+{
+    if (!req.HasFormContentType)
+        return Results.BadRequest("multipart/form-data required");
+
+    var form = await req.ReadFormAsync();
+    var file = form.Files.FirstOrDefault();
+    if (file == null || file.Length == 0)
+        return Results.BadRequest("file is required");
+
+    await using var stream = file.OpenReadStream();
+    using var ms = new MemoryStream();
+    await stream.CopyToAsync(ms);
+
+    try
+    {
+        var attachment = await ds.AddAttachmentAsync(
+            id.ToString(),
+            file.FileName,
+            file.ContentType ?? "application/octet-stream",
+            ms.ToArray());
+        return Results.Ok(attachment);
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest($"Error adding attachment: {ex.Message}");
+    }
+});
+app.MapGet("api/assignments/{id:int}/attachments/{attachmentId}/download", async (int id, string attachmentId, ITaskDataSource ds) =>
+{
+    try
+    {
+        var file = await ds.GetAttachmentFileAsync(id.ToString(), attachmentId);
+        if (file == null)
+            return Results.NotFound();
+
+        return Results.File(file.Content, file.ContentType, file.FileName);
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest($"Error downloading attachment: {ex.Message}");
+    }
+});
+
 // ─── Comments ───
 app.MapGet("api/assignments/{id:int}/comments", (int id, CommentService svc) =>
     Results.Ok(svc.GetAssignmentComments(id)));

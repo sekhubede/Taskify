@@ -344,6 +344,32 @@ public class MFilesConnector : ITaskDataSource, IDisposable
         }
     }
 
+    public Task<IReadOnlyList<AttachmentDTO>> GetAttachmentsForTaskAsync(string taskId)
+    {
+        // TODO(#37): Implement native M-Files attachment listing.
+        // For now we return an empty list to keep API shape stable and
+        // enable frontend work with the Mock connector.
+        return Task.FromResult<IReadOnlyList<AttachmentDTO>>(new List<AttachmentDTO>());
+    }
+
+    public Task<AttachmentDTO> AddAttachmentAsync(
+        string taskId,
+        string fileName,
+        string contentType,
+        byte[] content)
+    {
+        throw new NotSupportedException(
+            "Attachment upload is not yet implemented for MFilesConnector. " +
+            "Use Mock connector for attachment workflow testing.");
+    }
+
+    public Task<AttachmentFileDTO?> GetAttachmentFileAsync(string taskId, string attachmentId)
+    {
+        throw new NotSupportedException(
+            "Attachment download is not yet implemented for MFilesConnector. " +
+            "Use Mock connector for attachment workflow testing.");
+    }
+
     // ── Comment Helpers ──
 
     private static CommentDTO? ParseCommentLine(string line, int assignmentId, int commentId)

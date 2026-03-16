@@ -9,12 +9,15 @@ public class MockConnector : ITaskDataSource
 {
     private readonly List<TaskDTO> _tasks;
     private readonly Dictionary<string, List<CommentDTO>> _comments;
+    private readonly Dictionary<string, List<AttachmentFileDTO>> _attachments;
     private int _nextCommentId = 100;
+    private int _nextAttachmentId = 1000;
 
     public MockConnector()
     {
         _tasks = GenerateMockTasks();
         _comments = GenerateMockComments();
+        _attachments = GenerateMockAttachments();
     }
 
     public async Task<IReadOnlyList<TaskDTO>> GetAllTasksAsync()
@@ -93,6 +96,65 @@ public class MockConnector : ITaskDataSource
     {
         await Task.Delay(50);
         return _comments.TryGetValue(taskId, out var comments) ? comments.Count : 0;
+    }
+
+    public async Task<IReadOnlyList<AttachmentDTO>> GetAttachmentsForTaskAsync(string taskId)
+    {
+        await Task.Delay(80);
+        if (!_attachments.TryGetValue(taskId, out var files))
+            return new List<AttachmentDTO>().AsReadOnly();
+
+        return files
+            .Select(f => new AttachmentDTO
+            {
+                Id = f.Id,
+                FileName = f.FileName,
+                ContentType = f.ContentType,
+                SizeBytes = f.Content.LongLength
+            })
+            .ToList()
+            .AsReadOnly();
+    }
+
+    public Task<AttachmentDTO> AddAttachmentAsync(
+        string taskId,
+        string fileName,
+        string contentType,
+        byte[] content)
+    {
+        if (!_attachments.ContainsKey(taskId))
+            _attachments[taskId] = new List<AttachmentFileDTO>();
+
+        var file = new AttachmentFileDTO
+        {
+            Id = (_nextAttachmentId++).ToString(),
+            FileName = fileName,
+            ContentType = string.IsNullOrWhiteSpace(contentType)
+                ? "application/octet-stream"
+                : contentType,
+            Content = content ?? Array.Empty<byte>()
+        };
+
+        _attachments[taskId].Add(file);
+
+        var dto = new AttachmentDTO
+        {
+            Id = file.Id,
+            FileName = file.FileName,
+            ContentType = file.ContentType,
+            SizeBytes = file.Content.LongLength
+        };
+
+        return Task.FromResult(dto);
+    }
+
+    public Task<AttachmentFileDTO?> GetAttachmentFileAsync(string taskId, string attachmentId)
+    {
+        if (!_attachments.TryGetValue(taskId, out var files))
+            return Task.FromResult<AttachmentFileDTO?>(null);
+
+        var file = files.FirstOrDefault(f => f.Id == attachmentId);
+        return Task.FromResult(file);
     }
 
     /// <summary>
@@ -269,6 +331,33 @@ public class MockConnector : ITaskDataSource
             {
                 new CommentDTO { Id = 7, Content = "Pipeline is live on staging. All tests green.", AuthorName = "Lebo", CreatedDate = now.AddHours(-2), AssignmentId = 1007 },
                 new CommentDTO { Id = 8, Content = "Great work! Verified deployment works end to end.", AuthorName = "Sarah", CreatedDate = now.AddHours(-1), AssignmentId = 1007 }
+            }
+        };
+    }
+
+    private static Dictionary<string, List<AttachmentFileDTO>> GenerateMockAttachments()
+    {
+        return new Dictionary<string, List<AttachmentFileDTO>>
+        {
+            ["1001"] = new List<AttachmentFileDTO>
+            {
+                new AttachmentFileDTO
+                {
+                    Id = "501",
+                    FileName = "api-auth-flow-notes.txt",
+                    ContentType = "text/plain",
+                    Content = System.Text.Encoding.UTF8.GetBytes("Auth flow implementation notes")
+                }
+            },
+            ["1003"] = new List<AttachmentFileDTO>
+            {
+                new AttachmentFileDTO
+                {
+                    Id = "502",
+                    FileName = "shipping-api-contract.pdf",
+                    ContentType = "application/pdf",
+                    Content = System.Text.Encoding.UTF8.GetBytes("%PDF-1.4 mock content")
+                }
             }
         };
     }
