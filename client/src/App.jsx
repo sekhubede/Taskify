@@ -39,6 +39,9 @@ function App() {
   const [workingOn, setWorkingOn] = useState(new Set()); // assignmentIds that are marked as "working on"
   const [allAssignmentsCollapsed, setAllAssignmentsCollapsed] = useState(false);
   const [assignmentSearch, setAssignmentSearch] = useState("");
+  const [showOnlyUnreadAssignments, setShowOnlyUnreadAssignments] =
+    useState(false);
+  const [sortUnreadToTop, setSortUnreadToTop] = useState(false);
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -879,14 +882,36 @@ function App() {
 
       {!loading && !error && (
         <div className="assignments-container">
-          <div className="assignment-search-container">
-            <input
-              type="text"
-              className="assignment-search-input"
-              placeholder="Search assignments..."
-              value={assignmentSearch}
-              onChange={(e) => setAssignmentSearch(e.target.value)}
-            />
+          <div className="assignment-controls">
+            <div className="assignment-search-container">
+              <input
+                type="text"
+                className="assignment-search-input"
+                placeholder="Search assignments..."
+                value={assignmentSearch}
+                onChange={(e) => setAssignmentSearch(e.target.value)}
+              />
+            </div>
+            <div className="assignment-filter-controls">
+              <button
+                className={`assignment-filter-toggle ${showOnlyUnreadAssignments ? "active" : ""}`}
+                onClick={() =>
+                  setShowOnlyUnreadAssignments(!showOnlyUnreadAssignments)
+                }
+                title="Show only assignments with unread comments"
+              >
+                {showOnlyUnreadAssignments
+                  ? "Showing: Unread only"
+                  : "Filter: Unread only"}
+              </button>
+              <button
+                className={`assignment-filter-toggle ${sortUnreadToTop ? "active" : ""}`}
+                onClick={() => setSortUnreadToTop(!sortUnreadToTop)}
+                title="Sort assignments with unread comments to the top"
+              >
+                {sortUnreadToTop ? "Sort: Unread first" : "Sort: Default"}
+              </button>
+            </div>
           </div>
           {assignments.length === 0 ? (
             <div className="empty-state">
@@ -918,13 +943,41 @@ function App() {
                 );
               }
 
+              const unreadFilteredAssignments = showOnlyUnreadAssignments
+                ? filteredAssignments.filter((a) => hasUnreadComments(a.id))
+                : filteredAssignments;
+
+              if (unreadFilteredAssignments.length === 0) {
+                return (
+                  <div className="empty-state">
+                    <p>
+                      No assignments match the current filters.
+                      {showOnlyUnreadAssignments
+                        ? " Try turning off \"Unread only\"."
+                        : ""}
+                    </p>
+                  </div>
+                );
+              }
+
+              const orderedAssignments = sortUnreadToTop
+                ? [...unreadFilteredAssignments].sort(
+                    (a, b) =>
+                      Number(hasUnreadComments(b.id)) -
+                      Number(hasUnreadComments(a.id))
+                  )
+                : unreadFilteredAssignments;
+
               // Separate working on and other assignments
-              const workingOnAssignments = filteredAssignments.filter((a) =>
+              const workingOnAssignments = orderedAssignments.filter((a) =>
                 workingOn.has(a.id)
               );
-              const otherAssignments = filteredAssignments.filter(
+              const otherAssignments = orderedAssignments.filter(
                 (a) => !workingOn.has(a.id)
               );
+              const unreadInAllAssignments = otherAssignments.filter((a) =>
+                hasUnreadComments(a.id)
+              ).length;
 
               return (
                 <div className="assignments-list">
@@ -1911,6 +1964,11 @@ function App() {
                           <span className="section-count">
                             ({otherAssignments.length})
                           </span>
+                          {unreadInAllAssignments > 0 && (
+                            <span className="all-assignments-unread-summary">
+                              {unreadInAllAssignments} new
+                            </span>
+                          )}
                         </button>
                       </div>
                     )}
