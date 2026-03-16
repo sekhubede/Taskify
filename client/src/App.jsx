@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import "./App.css";
 
 const ASSIGNMENTS_API_URL = "http://localhost:5000/api/assignments";
 const LAST_SEEN_COMMENT_COUNTS_KEY = "lastSeenCommentCounts";
 const SHOW_ONLY_UNREAD_ASSIGNMENTS_KEY = "showOnlyUnreadAssignments";
 const SORT_UNREAD_TO_TOP_KEY = "sortUnreadToTop";
+const AUTO_REFRESH_INTERVAL_SECONDS_KEY = "assignmentAutoRefreshSeconds";
 
 function App() {
   const [assignments, setAssignments] = useState([]);
@@ -59,63 +60,66 @@ function App() {
       return false;
     }
   });
-
-  useEffect(() => {
-    const loadInitialData = async () => {
+  const [autoRefreshIntervalSeconds, setAutoRefreshIntervalSeconds] = useState(
+    () => {
       try {
-        // Fetch current user and assignments in parallel, but wait for both
-        // before clearing the loading state. This guarantees currentUser is
-        // available before the UI becomes interactive.
-        const [userRes, assignmentsRes] = await Promise.all([
+        const raw = localStorage.getItem(AUTO_REFRESH_INTERVAL_SECONDS_KEY);
+        const parsed = Number(raw);
+        return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+      } catch {
+        return 0;
+      }
+    }
+  );
+  const [lastRefreshedAt, setLastRefreshedAt] = useState(null);
+
+  const refreshData = useCallback(async (isInitialLoad = false) => {
+    try {
+      const [userRes, assignmentsRes, countsRes, workingOnRes] =
+        await Promise.all([
           fetch("http://localhost:5000/api/user/current"),
-          fetch(ASSIGNMENTS_API_URL)
+          fetch(ASSIGNMENTS_API_URL),
+          fetch("http://localhost:5000/api/assignments/comments/counts"),
+          fetch("http://localhost:5000/api/assignments/working-on")
         ]);
 
-        if (userRes.ok) {
-          const userData = await userRes.json();
-          setCurrentUser(userData.userName);
-        } else {
-          console.error("Failed to fetch current user:", userRes.status);
-        }
+      if (userRes.ok) {
+        const userData = await userRes.json();
+        setCurrentUser(userData.userName);
+      }
 
-        if (!assignmentsRes.ok) throw new Error("Failed to fetch assignments");
-        const assignmentsData = await assignmentsRes.json();
-        setAssignments(assignmentsData);
-        setLoading(false);
+      if (!assignmentsRes.ok) throw new Error("Failed to fetch assignments");
+      const assignmentsData = await assignmentsRes.json();
+      setAssignments(assignmentsData);
 
-        // Fetch secondary data (comment counts, working-on flags) after core data is ready
-        fetch("http://localhost:5000/api/assignments/comments/counts")
-          .then((res) => {
-            if (!res.ok) throw new Error("Failed to fetch comment counts");
-            return res.json();
-          })
-          .then((counts) => {
-            setCommentCounts(counts);
-          })
-          .catch((err) => {
-            console.error("Error fetching comment counts:", err);
-          });
-      } catch (err) {
+      if (countsRes.ok) {
+        const counts = await countsRes.json();
+        setCommentCounts(counts);
+      }
+
+      if (workingOnRes.ok) {
+        const workingOnData = await workingOnRes.json();
+        setWorkingOn(new Set(workingOnData));
+      }
+
+      setLastRefreshedAt(new Date().toISOString());
+      setError(null);
+    } catch (err) {
+      if (isInitialLoad) {
         setError(err.toString());
+      } else {
+        console.error("Error refreshing assignment data:", err);
+      }
+    } finally {
+      if (isInitialLoad) {
         setLoading(false);
       }
-    };
-
-    loadInitialData();
-
-    // Fetch working on flags (independent, non-blocking)
-    fetch("http://localhost:5000/api/assignments/working-on")
-      .then((res) => {
-        if (res.ok) return res.json();
-        return [];
-      })
-      .then((data) => {
-        setWorkingOn(new Set(data));
-      })
-      .catch((err) => {
-        console.error("Error loading working on flags:", err);
-      });
+    }
   }, []);
+
+  useEffect(() => {
+    refreshData(true);
+  }, [refreshData]);
 
   useEffect(() => {
     try {
@@ -146,6 +150,27 @@ function App() {
       // ignore storage write failures
     }
   }, [sortUnreadToTop]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        AUTO_REFRESH_INTERVAL_SECONDS_KEY,
+        String(autoRefreshIntervalSeconds)
+      );
+    } catch {
+      // ignore storage write failures
+    }
+  }, [autoRefreshIntervalSeconds]);
+
+  useEffect(() => {
+    if (!autoRefreshIntervalSeconds) return undefined;
+
+    const intervalId = setInterval(() => {
+      refreshData(false);
+    }, autoRefreshIntervalSeconds * 1000);
+
+    return () => clearInterval(intervalId);
+  }, [autoRefreshIntervalSeconds, refreshData]);
 
   useEffect(() => {
     // Initialize unseen assignments so badges only represent comments
@@ -957,6 +982,32 @@ function App() {
               >
                 {sortUnreadToTop ? "Sort: Unread first" : "Sort: Default"}
               </button>
+              <button
+                className="assignment-refresh-button"
+                onClick={() => refreshData(false)}
+                title="Refresh assignments"
+              >
+                Refresh
+              </button>
+              <select
+                className="assignment-refresh-interval"
+                value={autoRefreshIntervalSeconds}
+                onChange={(e) =>
+                  setAutoRefreshIntervalSeconds(Number(e.target.value))
+                }
+                title="Auto-refresh interval"
+              >
+                <option value={0}>Auto-refresh: Off</option>
+                <option value={30}>Auto-refresh: 30s</option>
+                <option value={60}>Auto-refresh: 60s</option>
+                <option value={120}>Auto-refresh: 120s</option>
+              </select>
+            </div>
+            <div className="assignment-refresh-meta">
+              Last refreshed:{" "}
+              {lastRefreshedAt
+                ? new Date(lastRefreshedAt).toLocaleTimeString()
+                : "Not yet"}
             </div>
           </div>
           {assignments.length === 0 ? (
