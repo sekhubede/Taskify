@@ -5,6 +5,7 @@ const ASSIGNMENTS_API_URL = "http://localhost:5000/api/assignments";
 const LAST_SEEN_COMMENT_COUNTS_KEY = "lastSeenCommentCounts";
 const SHOW_ONLY_UNREAD_ASSIGNMENTS_KEY = "showOnlyUnreadAssignments";
 const SORT_UNREAD_TO_TOP_KEY = "sortUnreadToTop";
+const COMMENT_SORT_NEWEST_FIRST_KEY = "commentSortNewestFirst";
 const AUTO_REFRESH_INTERVAL_SECONDS_KEY = "assignmentAutoRefreshSeconds";
 
 function App() {
@@ -65,6 +66,14 @@ function App() {
       return localStorage.getItem(SORT_UNREAD_TO_TOP_KEY) === "true";
     } catch {
       return false;
+    }
+  });
+  const [commentSortNewestFirst, setCommentSortNewestFirst] = useState(() => {
+    try {
+      const raw = localStorage.getItem(COMMENT_SORT_NEWEST_FIRST_KEY);
+      return raw === null ? true : raw === "true";
+    } catch {
+      return true;
     }
   });
   const [autoRefreshIntervalSeconds, setAutoRefreshIntervalSeconds] = useState(
@@ -187,6 +196,17 @@ function App() {
       // ignore storage write failures
     }
   }, [sortUnreadToTop]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        COMMENT_SORT_NEWEST_FIRST_KEY,
+        String(commentSortNewestFirst)
+      );
+    } catch {
+      // ignore storage write failures
+    }
+  }, [commentSortNewestFirst]);
 
   useEffect(() => {
     try {
@@ -1154,6 +1174,16 @@ function App() {
     return currentCount > seenCount;
   };
 
+  const sortCommentsByDate = (items) => {
+    const sorted = [...items].sort((a, b) => {
+      const dateA = new Date(a.createdDate).getTime();
+      const dateB = new Date(b.createdDate).getTime();
+      if (Number.isNaN(dateA) || Number.isNaN(dateB)) return 0;
+      return dateB - dateA;
+    });
+    return commentSortNewestFirst ? sorted : sorted.reverse();
+  };
+
   const formatCommentDate = (dateString) => {
     if (!dateString) return "";
     const date = new Date(dateString);
@@ -1592,6 +1622,23 @@ function App() {
                                       No Personal Note
                                     </option>
                                   </select>
+                                  <button
+                                    className="comment-sort-toggle"
+                                    onClick={() =>
+                                      setCommentSortNewestFirst(
+                                        !commentSortNewestFirst
+                                      )
+                                    }
+                                    title={
+                                      commentSortNewestFirst
+                                        ? "Switch to oldest comments first"
+                                        : "Switch to newest comments first"
+                                    }
+                                  >
+                                    {commentSortNewestFirst
+                                      ? "Sort: Newest first"
+                                      : "Sort: Oldest first"}
+                                  </button>
                                   {(commentFilters[assignment.id]?.user ||
                                     commentFilters[assignment.id]?.date ||
                                     commentFilters[assignment.id]?.flag ||
@@ -1716,6 +1763,9 @@ function App() {
                                             );
                                         }
                                       }
+
+                                      filteredComments =
+                                        sortCommentsByDate(filteredComments);
 
                                       return filteredComments.length > 0 ? (
                                         filteredComments.map((comment) => {
@@ -2658,6 +2708,23 @@ function App() {
                                   No Personal Note
                                 </option>
                               </select>
+                              <button
+                                className="comment-sort-toggle"
+                                onClick={() =>
+                                  setCommentSortNewestFirst(
+                                    !commentSortNewestFirst
+                                  )
+                                }
+                                title={
+                                  commentSortNewestFirst
+                                    ? "Switch to oldest comments first"
+                                    : "Switch to newest comments first"
+                                }
+                              >
+                                {commentSortNewestFirst
+                                  ? "Sort: Newest first"
+                                  : "Sort: Oldest first"}
+                              </button>
                               {(commentFilters[assignment.id]?.user ||
                                 commentFilters[assignment.id]?.date ||
                                 commentFilters[assignment.id]?.flag ||
@@ -2778,6 +2845,9 @@ function App() {
                                         );
                                     }
                                   }
+
+                                  filteredComments =
+                                    sortCommentsByDate(filteredComments);
 
                                   return filteredComments.length > 0 ? (
                                     filteredComments.map((comment) => {
