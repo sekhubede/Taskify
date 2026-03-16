@@ -29,6 +29,7 @@ function App() {
   const [dragOverSubtaskId, setDragOverSubtaskId] = useState(null);
   const [workingOn, setWorkingOn] = useState(new Set()); // assignmentIds that are marked as "working on"
   const [allAssignmentsCollapsed, setAllAssignmentsCollapsed] = useState(false);
+  const [assignmentSearch, setAssignmentSearch] = useState("");
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -821,17 +822,50 @@ function App() {
 
       {!loading && !error && (
         <div className="assignments-container">
+          <div className="assignment-search-container">
+            <input
+              type="text"
+              className="assignment-search-input"
+              placeholder="Search assignments..."
+              value={assignmentSearch}
+              onChange={(e) => setAssignmentSearch(e.target.value)}
+            />
+          </div>
           {assignments.length === 0 ? (
             <div className="empty-state">
               <p>No assignments found</p>
             </div>
           ) : (
             (() => {
+              const normalizedSearch = assignmentSearch.trim().toLowerCase();
+              const filteredAssignments = normalizedSearch
+                ? assignments.filter((assignment) =>
+                    [
+                      assignment.title,
+                      assignment.description,
+                      assignment.assignedTo,
+                      assignment.assigneeName
+                    ]
+                      .filter(Boolean)
+                      .some((value) =>
+                        value.toLowerCase().includes(normalizedSearch)
+                      )
+                  )
+                : assignments;
+
+              if (filteredAssignments.length === 0) {
+                return (
+                  <div className="empty-state">
+                    <p>No assignments match "{assignmentSearch}"</p>
+                  </div>
+                );
+              }
+
               // Separate working on and other assignments
-              const workingOnAssignments = assignments.filter((a) =>
+              const workingOnAssignments = filteredAssignments.filter((a) =>
                 workingOn.has(a.id)
               );
-              const otherAssignments = assignments.filter(
+              const otherAssignments = filteredAssignments.filter(
                 (a) => !workingOn.has(a.id)
               );
 
