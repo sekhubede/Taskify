@@ -2,6 +2,9 @@ import React, { useEffect, useState } from "react";
 import "./App.css";
 
 const ASSIGNMENTS_API_URL = "http://localhost:5000/api/assignments";
+const LAST_SEEN_COMMENT_COUNTS_KEY = "lastSeenCommentCounts";
+const SHOW_ONLY_UNREAD_ASSIGNMENTS_KEY = "showOnlyUnreadAssignments";
+const SORT_UNREAD_TO_TOP_KEY = "sortUnreadToTop";
 
 function App() {
   const [assignments, setAssignments] = useState([]);
@@ -14,6 +17,14 @@ function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [commentCounts, setCommentCounts] = useState({});
   const [commentFilters, setCommentFilters] = useState({});
+  const [lastSeenCommentCounts, setLastSeenCommentCounts] = useState(() => {
+    try {
+      const raw = localStorage.getItem(LAST_SEEN_COMMENT_COUNTS_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
   const [openSubtasks, setOpenSubtasks] = useState({});
   const [subtasks, setSubtasks] = useState({});
   const [loadingSubtasks, setLoadingSubtasks] = useState({});
@@ -30,6 +41,24 @@ function App() {
   const [workingOn, setWorkingOn] = useState(new Set()); // assignmentIds that are marked as "working on"
   const [allAssignmentsCollapsed, setAllAssignmentsCollapsed] = useState(false);
   const [assignmentSearch, setAssignmentSearch] = useState("");
+  const [showOnlyUnreadAssignments, setShowOnlyUnreadAssignments] = useState(
+    () => {
+      try {
+        return (
+          localStorage.getItem(SHOW_ONLY_UNREAD_ASSIGNMENTS_KEY) === "true"
+        );
+      } catch {
+        return false;
+      }
+    }
+  );
+  const [sortUnreadToTop, setSortUnreadToTop] = useState(() => {
+    try {
+      return localStorage.getItem(SORT_UNREAD_TO_TOP_KEY) === "true";
+    } catch {
+      return false;
+    }
+  });
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -87,6 +116,54 @@ function App() {
         console.error("Error loading working on flags:", err);
       });
   }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        LAST_SEEN_COMMENT_COUNTS_KEY,
+        JSON.stringify(lastSeenCommentCounts)
+      );
+    } catch {
+      // ignore storage write failures
+    }
+  }, [lastSeenCommentCounts]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        SHOW_ONLY_UNREAD_ASSIGNMENTS_KEY,
+        String(showOnlyUnreadAssignments)
+      );
+    } catch {
+      // ignore storage write failures
+    }
+  }, [showOnlyUnreadAssignments]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SORT_UNREAD_TO_TOP_KEY, String(sortUnreadToTop));
+    } catch {
+      // ignore storage write failures
+    }
+  }, [sortUnreadToTop]);
+
+  useEffect(() => {
+    // Initialize unseen assignments so badges only represent comments
+    // that arrived after the user has a baseline.
+    setLastSeenCommentCounts((prev) => {
+      const updated = { ...prev };
+      let changed = false;
+
+      Object.entries(commentCounts).forEach(([assignmentId, count]) => {
+        if (updated[assignmentId] === undefined) {
+          updated[assignmentId] = count;
+          changed = true;
+        }
+      });
+
+      return changed ? updated : prev;
+    });
+  }, [commentCounts]);
 
   const formatDate = (dateString) => {
     if (!dateString) return null;
@@ -158,6 +235,19 @@ function App() {
 
   const toggleComments = async (assignmentId) => {
     const isOpen = openComments[assignmentId];
+
+    if (isOpen) {
+      // Closing the thread marks current comments as seen.
+      // This avoids jarring resort/filter jumps immediately after opening.
+      setLastSeenCommentCounts((prev) => ({
+        ...prev,
+        [assignmentId]:
+          commentCounts[assignmentId] ??
+          comments[assignmentId]?.length ??
+          0
+      }));
+    }
+
     setOpenComments((prev) => ({
       ...prev,
       [assignmentId]: !isOpen
@@ -748,6 +838,13 @@ function App() {
     }
   };
 
+  const hasUnreadComments = (assignmentId) => {
+    const currentCount = commentCounts[assignmentId] || 0;
+    const seenCount = lastSeenCommentCounts[assignmentId];
+    if (seenCount === undefined || seenCount === null) return false;
+    return currentCount > seenCount;
+  };
+
   const formatCommentDate = (dateString) => {
     if (!dateString) return "";
     const date = new Date(dateString);
@@ -822,14 +919,36 @@ function App() {
 
       {!loading && !error && (
         <div className="assignments-container">
-          <div className="assignment-search-container">
-            <input
-              type="text"
-              className="assignment-search-input"
-              placeholder="Search assignments..."
-              value={assignmentSearch}
-              onChange={(e) => setAssignmentSearch(e.target.value)}
-            />
+          <div className="assignment-controls">
+            <div className="assignment-search-container">
+              <input
+                type="text"
+                className="assignment-search-input"
+                placeholder="Search assignments..."
+                value={assignmentSearch}
+                onChange={(e) => setAssignmentSearch(e.target.value)}
+              />
+            </div>
+            <div className="assignment-filter-controls">
+              <button
+                className={`assignment-filter-toggle ${showOnlyUnreadAssignments ? "active" : ""}`}
+                onClick={() =>
+                  setShowOnlyUnreadAssignments(!showOnlyUnreadAssignments)
+                }
+                title="Show only assignments with unread comments"
+              >
+                {showOnlyUnreadAssignments
+                  ? "Showing: Unread only"
+                  : "Filter: Unread only"}
+              </button>
+              <button
+                className={`assignment-filter-toggle ${sortUnreadToTop ? "active" : ""}`}
+                onClick={() => setSortUnreadToTop(!sortUnreadToTop)}
+                title="Sort assignments with unread comments to the top"
+              >
+                {sortUnreadToTop ? "Sort: Unread first" : "Sort: Default"}
+              </button>
+            </div>
           </div>
           {assignments.length === 0 ? (
             <div className="empty-state">
@@ -861,13 +980,41 @@ function App() {
                 );
               }
 
+              const unreadFilteredAssignments = showOnlyUnreadAssignments
+                ? filteredAssignments.filter((a) => hasUnreadComments(a.id))
+                : filteredAssignments;
+
+              if (unreadFilteredAssignments.length === 0) {
+                return (
+                  <div className="empty-state">
+                    <p>
+                      No assignments match the current filters.
+                      {showOnlyUnreadAssignments
+                        ? " Try turning off \"Unread only\"."
+                        : ""}
+                    </p>
+                  </div>
+                );
+              }
+
+              const orderedAssignments = sortUnreadToTop
+                ? [...unreadFilteredAssignments].sort(
+                    (a, b) =>
+                      Number(hasUnreadComments(b.id)) -
+                      Number(hasUnreadComments(a.id))
+                  )
+                : unreadFilteredAssignments;
+
               // Separate working on and other assignments
-              const workingOnAssignments = filteredAssignments.filter((a) =>
+              const workingOnAssignments = orderedAssignments.filter((a) =>
                 workingOn.has(a.id)
               );
-              const otherAssignments = filteredAssignments.filter(
+              const otherAssignments = orderedAssignments.filter(
                 (a) => !workingOn.has(a.id)
               );
+              const unreadInAllAssignments = otherAssignments.filter((a) =>
+                hasUnreadComments(a.id)
+              ).length;
 
               return (
                 <div className="assignments-list">
@@ -884,7 +1031,7 @@ function App() {
                         return (
                           <div
                             key={assignment.id}
-                            className={`assignment-card working-on`}
+                            className={`assignment-card working-on ${hasUnreadComments(assignment.id) ? "has-unread-comments" : ""}`}
                           >
                             <div className="assignment-header">
                               <div className="assignment-title-row">
@@ -900,6 +1047,11 @@ function App() {
                                 <h2 className="assignment-title">
                                   {assignment.title}
                                 </h2>
+                                {hasUnreadComments(assignment.id) && (
+                                  <span className="assignment-unread-comments-badge">
+                                    New comments
+                                  </span>
+                                )}
                               </div>
                               <span
                                 className="status-badge"
@@ -960,6 +1112,12 @@ function App() {
                                 {openComments[assignment.id]
                                   ? "Hide"
                                   : "Comments"}
+                                {!openComments[assignment.id] &&
+                                  hasUnreadComments(assignment.id) && (
+                                    <span className="comments-new-indicator">
+                                      New
+                                    </span>
+                                  )}
                               </button>
                               <button
                                 className="subtasks-button"
@@ -1843,12 +2001,20 @@ function App() {
                           <span className="section-count">
                             ({otherAssignments.length})
                           </span>
+                          {unreadInAllAssignments > 0 && (
+                            <span className="all-assignments-unread-summary">
+                              {unreadInAllAssignments} new
+                            </span>
+                          )}
                         </button>
                       </div>
                     )}
                   {!allAssignmentsCollapsed &&
                     otherAssignments.map((assignment) => (
-                      <div key={assignment.id} className="assignment-card">
+                      <div
+                        key={assignment.id}
+                        className={`assignment-card ${hasUnreadComments(assignment.id) ? "has-unread-comments" : ""}`}
+                      >
                         <div className="assignment-header">
                           <div className="assignment-title-row">
                             <button
@@ -1863,6 +2029,11 @@ function App() {
                             <h2 className="assignment-title">
                               {assignment.title}
                             </h2>
+                            {hasUnreadComments(assignment.id) && (
+                              <span className="assignment-unread-comments-badge">
+                                New comments
+                              </span>
+                            )}
                           </div>
                           <span
                             className="status-badge"
@@ -1915,6 +2086,12 @@ function App() {
                           >
                             💬 {commentCounts[assignment.id] || 0}{" "}
                             {openComments[assignment.id] ? "Hide" : "Comments"}
+                            {!openComments[assignment.id] &&
+                              hasUnreadComments(assignment.id) && (
+                                <span className="comments-new-indicator">
+                                  New
+                                </span>
+                              )}
                           </button>
                           <button
                             className="subtasks-button"
