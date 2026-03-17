@@ -1584,6 +1584,11 @@ function App() {
   const hotZoneCountInCurrentView = assignmentsInCurrentView.filter((a) =>
     workingOn.has(a.id)
   ).length;
+  const handleClearAssignmentSearch = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setAssignmentSearch("");
+  };
 
   return (
     <div className="app">
@@ -1623,7 +1628,8 @@ function App() {
                 <button
                   type="button"
                   className="assignment-search-clear"
-                  onClick={() => setAssignmentSearch("")}
+                  onMouseDown={handleClearAssignmentSearch}
+                  onClick={handleClearAssignmentSearch}
                   aria-label="Clear assignment search"
                   title="Clear search"
                 >
