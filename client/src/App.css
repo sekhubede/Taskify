@@ -190,6 +190,177 @@
   margin-left: 0.2rem;
 }
 
+.quick-tasks-panel {
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 12px;
+  padding: 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.quick-tasks-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.quick-tasks-header h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.quick-tasks-count {
+  background: rgba(56, 189, 248, 0.2);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: #7dd3fc;
+  font-size: 0.75rem;
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+}
+
+.quick-task-add-row,
+.quick-task-add-inline {
+  display: flex;
+  gap: 0.45rem;
+}
+
+.quick-task-input,
+.quick-task-add-inline input,
+.quick-task-checklist-edit-input {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.92);
+  padding: 0.45rem 0.6rem;
+  font-size: 0.82rem;
+}
+
+.quick-task-add-btn,
+.quick-task-add-inline button,
+.quick-task-checklist-item button,
+.quick-task-expand-btn,
+.quick-task-delete-btn {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.86);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.77rem;
+  padding: 0.35rem 0.6rem;
+}
+
+.quick-task-delete-btn {
+  border-color: rgba(248, 113, 113, 0.35);
+  color: #fca5a5;
+}
+
+.quick-task-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.quick-task-card {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  padding: 0.55rem;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.quick-task-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.quick-task-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.quick-task-title {
+  font-size: 0.86rem;
+  word-break: break-word;
+}
+
+.quick-task-title.done,
+.quick-task-checklist-item span.done {
+  text-decoration: line-through;
+  opacity: 0.66;
+}
+
+.quick-task-meta {
+  display: flex;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.quick-task-summary {
+  margin-top: 0.35rem;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.75rem;
+}
+
+.quick-task-details {
+  margin-top: 0.6rem;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.6rem;
+}
+
+.quick-task-comments h4,
+.quick-task-checklist h4 {
+  margin: 0 0 0.4rem;
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.quick-task-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-bottom: 0.5rem;
+}
+
+.quick-task-comment-item {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 0.36rem 0.5rem;
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.86);
+  white-space: pre-wrap;
+}
+
+.quick-task-checklist-item {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 0.3rem 0.38rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.quick-task-checklist-item span {
+  flex: 1;
+  font-size: 0.78rem;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.quick-tasks-empty,
+.quick-tasks-loading {
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.8rem;
+}
+
 .assignments-list {
   display: flex;
   flex-direction: column;

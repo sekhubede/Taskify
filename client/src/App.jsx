@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import "./App.css";
 import AssignmentCard from "./components/AssignmentCard";
 import WorkingOnSection from "./components/WorkingOnSection";
+import QuickTasksSection from "./components/QuickTasksSection";
 
 const ASSIGNMENTS_API_URL = "http://localhost:5000/api/assignments";
 const LAST_SEEN_COMMENT_COUNTS_KEY = "lastSeenCommentCounts";
@@ -1325,6 +1326,7 @@ function App() {
 
       {!loading && !error && (
         <div className="assignments-container">
+          <QuickTasksSection />
           <div className="assignment-controls">
             <div className="assignment-search-container">
               <input
