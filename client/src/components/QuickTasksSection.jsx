@@ -16,6 +16,23 @@ function QuickTasksSection() {
   const [editingCommentContent, setEditingCommentContent] = useState({});
   const [commentDrafts, setCommentDrafts] = useState({});
   const [draggedChecklistItem, setDraggedChecklistItem] = useState(null);
+  const formatLocalTimestamp = (value) => {
+    if (!value) return "";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    return date.toLocaleString();
+  };
+
+  const formatAuditLabel = (createdDate, updatedDate) => {
+    const created = formatLocalTimestamp(createdDate);
+    const updated = formatLocalTimestamp(updatedDate);
+    if (updated && created && updated !== created) {
+      return `Added ${created} • Updated ${updated}`;
+    }
+    if (updated) return `Added ${updated}`;
+    if (created) return `Added ${created}`;
+    return "";
+  };
 
   const sortedTasks = useMemo(
     () =>
@@ -77,7 +94,11 @@ function QuickTasksSection() {
       if (!response.ok) throw new Error("Failed to toggle quick task");
 
       setTasks((prev) =>
-        prev.map((t) => (t.id === task.id ? { ...t, isCompleted } : t))
+        prev.map((t) =>
+          t.id === task.id
+            ? { ...t, isCompleted, updatedDate: new Date().toISOString() }
+            : t
+        )
       );
     } catch (err) {
       console.error(err);
@@ -123,7 +144,11 @@ function QuickTasksSection() {
       if (!response.ok) throw new Error("Failed to update quick task title");
 
       setTasks((prev) =>
-        prev.map((task) => (task.id === taskId ? { ...task, title } : task))
+        prev.map((task) =>
+          task.id === taskId
+            ? { ...task, title, updatedDate: new Date().toISOString() }
+            : task
+        )
       );
       cancelTaskTitleEdit(taskId);
     } catch (err) {
@@ -195,7 +220,13 @@ function QuickTasksSection() {
             ? {
                 ...task,
                 comments: (task.comments || []).map((comment) =>
-                  comment.id === commentId ? { ...comment, content } : comment
+                  comment.id === commentId
+                    ? {
+                        ...comment,
+                        content,
+                        updatedDate: new Date().toISOString()
+                      }
+                    : comment
                 )
               }
             : task
@@ -281,7 +312,13 @@ function QuickTasksSection() {
             ? {
                 ...task,
                 checklist: (task.checklist || []).map((item) =>
-                  item.id === itemId ? { ...item, isCompleted } : item
+                  item.id === itemId
+                    ? {
+                        ...item,
+                        isCompleted,
+                        updatedDate: new Date().toISOString()
+                      }
+                    : item
                 )
               }
             : task
@@ -350,7 +387,13 @@ function QuickTasksSection() {
             ? {
                 ...task,
                 checklist: (task.checklist || []).map((item) =>
-                  item.id === itemId ? { ...item, title } : item
+                  item.id === itemId
+                    ? {
+                        ...item,
+                        title,
+                        updatedDate: new Date().toISOString()
+                      }
+                    : item
                 )
               }
             : task
@@ -480,13 +523,20 @@ function QuickTasksSection() {
                       autoFocus
                     />
                   ) : (
-                    <span
-                      className={
-                        task.isCompleted ? "quick-task-title done" : "quick-task-title"
-                      }
-                    >
-                      {task.title}
-                    </span>
+                    <div className="quick-task-item-content">
+                      <span
+                        className={
+                          task.isCompleted
+                            ? "quick-task-title done"
+                            : "quick-task-title"
+                        }
+                      >
+                        {task.title}
+                      </span>
+                      <span className="item-audit-stamp">
+                        {formatAuditLabel(task.createdDate, task.updatedDate)}
+                      </span>
+                    </div>
                   )}
                 </label>
 
@@ -570,7 +620,15 @@ function QuickTasksSection() {
                               autoFocus
                             />
                           ) : (
-                            <span>{comment.content}</span>
+                            <div className="quick-task-item-content">
+                              <span>{comment.content}</span>
+                              <span className="item-audit-stamp">
+                                {formatAuditLabel(
+                                  comment.createdDate,
+                                  comment.updatedDate
+                                )}
+                              </span>
+                            </div>
                           )}
                           {editingCommentContent[comment.id] ? (
                             <>
@@ -678,7 +736,17 @@ function QuickTasksSection() {
                               autoFocus
                             />
                           ) : (
-                            <span className={item.isCompleted ? "done" : ""}>{item.title}</span>
+                            <div className="quick-task-item-content">
+                              <span className={item.isCompleted ? "done" : ""}>
+                                {item.title}
+                              </span>
+                              <span className="item-audit-stamp">
+                                {formatAuditLabel(
+                                  item.createdDate,
+                                  item.updatedDate
+                                )}
+                              </span>
+                            </div>
                           )}
                           {editingChecklistTitles[item.id] ? (
                             <>

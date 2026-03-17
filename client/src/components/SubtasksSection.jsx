@@ -10,6 +10,7 @@ function SubtasksSection({
   subtaskTitleDrafts,
   editingNotes,
   subtaskNotes,
+  subtaskNoteTimestamps,
   handleDragStart,
   handleDragOver,
   handleDragLeave,
@@ -30,6 +31,23 @@ function SubtasksSection({
   handleAddSubtask
 }) {
   const assignmentSubtasks = subtasksForAssignment || [];
+  const formatLocalTimestamp = (value) => {
+    if (!value) return "";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    return date.toLocaleString();
+  };
+
+  const formatAuditLabel = (createdDate, updatedDate) => {
+    const created = formatLocalTimestamp(createdDate);
+    const updated = formatLocalTimestamp(updatedDate);
+    if (updated && created && updated !== created) {
+      return `Added ${created} • Updated ${updated}`;
+    }
+    if (updated) return `Added ${updated}`;
+    if (created) return `Added ${created}`;
+    return "";
+  };
 
   return (
     <div className="subtasks-section">
@@ -88,11 +106,19 @@ function SubtasksSection({
                           autoFocus
                         />
                       ) : (
-                        <span
-                          className={`subtask-title ${subtask.isCompleted ? "completed" : ""}`}
-                        >
-                          {subtask.title}
-                        </span>
+                        <div className="subtask-title-block">
+                          <span
+                            className={`subtask-title ${subtask.isCompleted ? "completed" : ""}`}
+                          >
+                            {subtask.title}
+                          </span>
+                          <span className="item-audit-stamp">
+                            {formatAuditLabel(
+                              subtask.createdDate,
+                              subtask.updatedDate
+                            )}
+                          </span>
+                        </div>
                       )}
                     </label>
                     {editingSubtasks[subtask.id] ? (
@@ -233,6 +259,14 @@ function SubtasksSection({
                         <span className="subtask-note-text">
                           {subtaskNotes[subtask.id] || subtask.personalNote}
                         </span>
+                        {subtaskNoteTimestamps?.[subtask.id] && (
+                          <span className="item-audit-stamp">
+                            {formatAuditLabel(
+                              subtaskNoteTimestamps[subtask.id].createdDate,
+                              subtaskNoteTimestamps[subtask.id].updatedDate
+                            )}
+                          </span>
+                        )}
                       </div>
                     )}
                 </div>

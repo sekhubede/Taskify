@@ -44,6 +44,7 @@ public class SubtaskStore
                     order: i.Order,
                     createdDate: i.CreatedDate,
                     completedDate: i.CompletedDate,
+                    updatedDate: i.UpdatedDate,
                     personalNote: getNote(i.Id)))
                 .ToList();
         }
@@ -66,7 +67,8 @@ public class SubtaskStore
                 IsCompleted = false,
                 Order = newOrder,
                 CreatedDate = now,
-                CompletedDate = null
+                CompletedDate = null,
+                UpdatedDate = now
             };
 
             if (!_model.AssignmentIdToSubtasks.ContainsKey(assignmentId))
@@ -83,6 +85,7 @@ public class SubtaskStore
                 order: newOrder,
                 createdDate: now,
                 completedDate: null,
+                updatedDate: now,
                 personalNote: getNote(id));
         }
     }
@@ -98,6 +101,7 @@ public class SubtaskStore
                 {
                     item.IsCompleted = isCompleted;
                     item.CompletedDate = isCompleted ? DateTime.UtcNow : null;
+                    item.UpdatedDate = DateTime.UtcNow;
                     Persist();
                     return true;
                 }
@@ -116,6 +120,7 @@ public class SubtaskStore
                 if (item != null)
                 {
                     item.Title = title;
+                    item.UpdatedDate = DateTime.UtcNow;
                     Persist();
                     return true;
                 }
@@ -135,6 +140,7 @@ public class SubtaskStore
                 if (item != null)
                 {
                     item.Order = newOrder;
+                    item.UpdatedDate = DateTime.UtcNow;
                     Persist();
                     return true;
                 }
@@ -156,6 +162,7 @@ public class SubtaskStore
                 if (item != null)
                 {
                     item.Order = kvp.Value;
+                    item.UpdatedDate = DateTime.UtcNow;
                 }
             }
 
@@ -194,6 +201,16 @@ public class SubtaskStore
                 {
                     // Ensure non-null collections
                     loaded.AssignmentIdToSubtasks ??= new Dictionary<int, List<SubtaskItem>>();
+                    foreach (var items in loaded.AssignmentIdToSubtasks.Values)
+                    {
+                        foreach (var item in items)
+                        {
+                            if (item.CreatedDate == default)
+                                item.CreatedDate = DateTime.UtcNow;
+                            if (item.UpdatedDate == default)
+                                item.UpdatedDate = item.CreatedDate;
+                        }
+                    }
                     return loaded;
                 }
             }
@@ -237,6 +254,7 @@ public class SubtaskStore
         public int Order { get; set; }
         public DateTime CreatedDate { get; set; }
         public DateTime? CompletedDate { get; set; }
+        public DateTime UpdatedDate { get; set; }
     }
 }
 
