@@ -5,6 +5,7 @@ using Taskify.Application.Subtasks.Services;
 using Taskify.Domain.Interfaces;
 using Taskify.Infrastructure.Storage;
 using Taskify.Api.Infrastructure;
+using Microsoft.Extensions.Caching.Memory;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -65,8 +66,11 @@ builder.Services.AddScoped<WorkingOnService>();
 
 // Verify connector on startup
 builder.Services.AddHostedService<ConnectorHostedService>();
+builder.Services.AddMemoryCache();
 
 var app = builder.Build();
+const string CommentCountsMineCacheKey = "comment-counts:mine";
+const string CommentCountsAllCacheKey = "comment-counts:all";
 
 app.UseCors();
 
@@ -201,16 +205,15 @@ app.MapGet("api/assignments/{id:int}/attachments/{attachmentId}/download", async
 // ─── Comments ───
 app.MapGet("api/assignments/{id:int}/comments", (int id, CommentService svc) =>
     Results.Ok(svc.GetAssignmentComments(id)));
-app.MapGet("api/assignments/comments/counts", (bool? all, AssignmentService assignmentSvc, CommentService commentSvc) =>
+app.MapGet("api/assignments/comments/counts", async (bool? all, AssignmentService assignmentSvc, CommentService commentSvc, IMemoryCache cache) =>
 {
+    var cacheKey = all == true ? CommentCountsAllCacheKey : CommentCountsMineCacheKey;
     try
     {
-        var assignments = all == true
-            ? assignmentSvc.GetAllAssignments()
-            : assignmentSvc.GetUserAssignments();
-        var counts = assignments.ToDictionary(
-            a => a.Id,
-            a => commentSvc.GetCommentCount(a.Id)
+        var counts = await GetOrCreateCommentCountsAsync(
+            cache,
+            cacheKey,
+            () => BuildCommentCounts(all == true, assignmentSvc, commentSvc)
         );
         return Results.Ok(counts);
     }
@@ -219,13 +222,37 @@ app.MapGet("api/assignments/comments/counts", (bool? all, AssignmentService assi
         return Results.BadRequest($"Error getting comment counts: {ex.Message}");
     }
 });
-app.MapPost("api/assignments/{id:int}/comments", async (int id, CommentService svc, HttpRequest req) =>
+app.MapGet("api/assignments/attachments/counts", async (bool? all, AssignmentService assignmentSvc, ITaskDataSource ds) =>
+{
+    try
+    {
+        var assignments = all == true
+            ? assignmentSvc.GetAllAssignments()
+            : assignmentSvc.GetUserAssignments();
+
+        var counts = new Dictionary<int, int>();
+        foreach (var assignment in assignments)
+        {
+            var attachments = await ds.GetAttachmentsForTaskAsync(assignment.Id.ToString());
+            counts[assignment.Id] = attachments.Count;
+        }
+
+        return Results.Ok(counts);
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest($"Error getting attachment counts: {ex.Message}");
+    }
+});
+app.MapPost("api/assignments/{id:int}/comments", async (int id, CommentService svc, IMemoryCache cache, HttpRequest req) =>
 {
     var body = await req.ReadFromJsonAsync<AddCommentRequest>();
     if (body == null || string.IsNullOrWhiteSpace(body.Content))
         return Results.BadRequest("content is required");
 
     var c = svc.AddComment(id, body.Content.Trim());
+    cache.Remove(CommentCountsMineCacheKey);
+    cache.Remove(CommentCountsAllCacheKey);
     return Results.Ok(c);
 });
 app.MapGet("api/comments/{id:int}/note", (int id, CommentNoteService svc) =>
@@ -424,7 +451,69 @@ app.MapDelete("api/subtasks/{id:int}", (int id, SubtaskService svc) =>
     }
 });
 
+// Warm slow comment counts in the background so initial UI badges appear faster
+// after startup and auto-refresh has warm cache to read from.
+_ = Task.Run(async () =>
+{
+    await Task.Delay(TimeSpan.FromSeconds(1));
+    using var scope = app.Services.CreateScope();
+    var assignmentSvc = scope.ServiceProvider.GetRequiredService<AssignmentService>();
+    var commentSvc = scope.ServiceProvider.GetRequiredService<CommentService>();
+    var cache = scope.ServiceProvider.GetRequiredService<IMemoryCache>();
+    var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("CommentCountsWarmup");
+
+    try
+    {
+        await GetOrCreateCommentCountsAsync(
+            cache,
+            CommentCountsMineCacheKey,
+            () => BuildCommentCounts(includeAll: false, assignmentSvc, commentSvc)
+        );
+    }
+    catch (Exception ex)
+    {
+        logger.LogWarning(ex, "Failed to warm mine comment counts cache");
+    }
+
+    try
+    {
+        await GetOrCreateCommentCountsAsync(
+            cache,
+            CommentCountsAllCacheKey,
+            () => BuildCommentCounts(includeAll: true, assignmentSvc, commentSvc)
+        );
+    }
+    catch (Exception ex)
+    {
+        logger.LogWarning(ex, "Failed to warm all comment counts cache");
+    }
+});
+
 app.Run();
+
+static Dictionary<int, int> BuildCommentCounts(bool includeAll, AssignmentService assignmentSvc, CommentService commentSvc)
+{
+    var assignments = includeAll
+        ? assignmentSvc.GetAllAssignments()
+        : assignmentSvc.GetUserAssignments();
+    return assignments.ToDictionary(
+        a => a.Id,
+        a => commentSvc.GetCommentCount(a.Id)
+    );
+}
+
+static async Task<Dictionary<int, int>> GetOrCreateCommentCountsAsync(
+    IMemoryCache cache,
+    string cacheKey,
+    Func<Dictionary<int, int>> factory)
+{
+    var counts = await cache.GetOrCreateAsync(cacheKey, entry =>
+    {
+        entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(30);
+        return Task.FromResult(factory());
+    });
+    return counts ?? new Dictionary<int, int>();
+}
 
 public record AddCommentRequest(string Content);
 public record AddSubtaskRequest(string Title, int? Order);

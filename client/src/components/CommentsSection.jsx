@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 
 function CommentsSection({
   assignmentId,
@@ -20,6 +20,7 @@ function CommentsSection({
   handleToggleCommentFlag,
   handleUpdateCommentNote,
   handleDeleteCommentNote,
+  onChecklistSummaryChange,
   newCommentText,
   setNewCommentText,
   handleAddComment
@@ -38,6 +39,18 @@ function CommentsSection({
   const [commentSubtasks, setCommentSubtasks] = useState({});
   const [loadingCommentSubtasks, setLoadingCommentSubtasks] = useState({});
   const [newCommentSubtaskText, setNewCommentSubtaskText] = useState({});
+  const [editingChecklistTitles, setEditingChecklistTitles] = useState({});
+  const [checklistTitleDrafts, setChecklistTitleDrafts] = useState({});
+  const [draggedChecklistItem, setDraggedChecklistItem] = useState(null);
+  const [dragOverChecklistItem, setDragOverChecklistItem] = useState(null);
+
+  const summarizeChecklist = (subtaskMap) => {
+    const all = allComments.flatMap((comment) => subtaskMap[comment.id] || []);
+    return {
+      total: all.length,
+      completed: all.filter((item) => item.isCompleted).length
+    };
+  };
 
   const loadCommentNoteIfNeeded = (commentId) => {
     if (commentNotes[commentId]) return;
@@ -70,6 +83,49 @@ function CommentsSection({
       });
   };
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadAllChecklistData = async () => {
+      if (!allComments.length) {
+        setCommentSubtasks({});
+        onChecklistSummaryChange?.({ total: 0, completed: 0 });
+        return;
+      }
+
+      try {
+        const entries = await Promise.all(
+          allComments.map(async (comment) => {
+            const res = await fetch(
+              `http://localhost:5000/api/comments/${comment.id}/subtasks`
+            );
+            if (!res.ok) return [comment.id, []];
+            const items = await res.json();
+            return [comment.id, items || []];
+          })
+        );
+
+        if (cancelled) return;
+
+        const next = {};
+        entries.forEach(([commentId, items]) => {
+          next[commentId] = items;
+        });
+        setCommentSubtasks(next);
+        onChecklistSummaryChange?.(summarizeChecklist(next));
+      } catch (err) {
+        if (!cancelled) {
+          console.error("Error loading comment checklist data:", err);
+        }
+      }
+    };
+
+    loadAllChecklistData();
+    return () => {
+      cancelled = true;
+    };
+  }, [assignmentId, commentsForAssignment]);
+
   const handleAddCommentSubtask = async (commentId) => {
     const title = (newCommentSubtaskText[commentId] || "").trim();
     if (!title) return;
@@ -87,10 +143,14 @@ function CommentsSection({
       if (!response.ok) throw new Error("Failed to add comment subtask");
 
       const created = await response.json();
-      setCommentSubtasks((prev) => ({
-        ...prev,
-        [commentId]: [...(prev[commentId] || []), created]
-      }));
+      setCommentSubtasks((prev) => {
+        const next = {
+          ...prev,
+          [commentId]: [...(prev[commentId] || []), created]
+        };
+        onChecklistSummaryChange?.(summarizeChecklist(next));
+        return next;
+      });
       setNewCommentSubtaskText((prev) => ({ ...prev, [commentId]: "" }));
     } catch (err) {
       console.error(err);
@@ -109,12 +169,16 @@ function CommentsSection({
       );
       if (!response.ok) throw new Error("Failed to toggle comment subtask");
 
-      setCommentSubtasks((prev) => ({
-        ...prev,
-        [commentId]: (prev[commentId] || []).map((item) =>
-          item.id === subtaskId ? { ...item, isCompleted } : item
-        )
-      }));
+      setCommentSubtasks((prev) => {
+        const next = {
+          ...prev,
+          [commentId]: (prev[commentId] || []).map((item) =>
+            item.id === subtaskId ? { ...item, isCompleted } : item
+          )
+        };
+        onChecklistSummaryChange?.(summarizeChecklist(next));
+        return next;
+      });
     } catch (err) {
       console.error(err);
     }
@@ -128,12 +192,119 @@ function CommentsSection({
       );
       if (!response.ok) throw new Error("Failed to delete comment subtask");
 
-      setCommentSubtasks((prev) => ({
-        ...prev,
-        [commentId]: (prev[commentId] || []).filter((item) => item.id !== subtaskId)
-      }));
+      setCommentSubtasks((prev) => {
+        const next = {
+          ...prev,
+          [commentId]: (prev[commentId] || []).filter(
+            (item) => item.id !== subtaskId
+          )
+        };
+        onChecklistSummaryChange?.(summarizeChecklist(next));
+        return next;
+      });
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleStartChecklistEdit = (subtaskId, currentTitle) => {
+    setEditingChecklistTitles((prev) => ({ ...prev, [subtaskId]: true }));
+    setChecklistTitleDrafts((prev) => ({
+      ...prev,
+      [subtaskId]: currentTitle || ""
+    }));
+  };
+
+  const handleCancelChecklistEdit = (subtaskId) => {
+    setEditingChecklistTitles((prev) => ({ ...prev, [subtaskId]: false }));
+    setChecklistTitleDrafts((prev) => {
+      const next = { ...prev };
+      delete next[subtaskId];
+      return next;
+    });
+  };
+
+  const handleSaveChecklistEdit = async (commentId, subtaskId) => {
+    const title = (checklistTitleDrafts[subtaskId] || "").trim();
+    if (!title) return;
+
+    try {
+      const response = await fetch(
+        `http://localhost:5000/api/comments/subtasks/${subtaskId}/title`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title })
+        }
+      );
+      if (!response.ok) throw new Error("Failed to update checklist item");
+
+      setCommentSubtasks((prev) => {
+        const next = {
+          ...prev,
+          [commentId]: (prev[commentId] || []).map((item) =>
+            item.id === subtaskId ? { ...item, title } : item
+          )
+        };
+        onChecklistSummaryChange?.(summarizeChecklist(next));
+        return next;
+      });
+      handleCancelChecklistEdit(subtaskId);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleChecklistDragStart = (commentId, subtaskId) => {
+    setDraggedChecklistItem({ commentId, subtaskId });
+  };
+
+  const handleChecklistDragOver = (commentId, subtaskId) => {
+    if (!draggedChecklistItem) return;
+    if (draggedChecklistItem.commentId !== commentId) return;
+    if (draggedChecklistItem.subtaskId === subtaskId) return;
+    setDragOverChecklistItem({ commentId, subtaskId });
+  };
+
+  const handleChecklistDrop = async (commentId, targetSubtaskId) => {
+    if (!draggedChecklistItem) return;
+    if (draggedChecklistItem.commentId !== commentId) return;
+
+    const sourceSubtaskId = draggedChecklistItem.subtaskId;
+    const items = [...(commentSubtasks[commentId] || [])].sort(
+      (a, b) => a.order - b.order
+    );
+    const sourceIndex = items.findIndex((i) => i.id === sourceSubtaskId);
+    const targetIndex = items.findIndex((i) => i.id === targetSubtaskId);
+    if (sourceIndex < 0 || targetIndex < 0) return;
+
+    const reordered = [...items];
+    const [moved] = reordered.splice(sourceIndex, 1);
+    reordered.splice(targetIndex, 0, moved);
+
+    const normalized = reordered.map((item, index) => ({ ...item, order: index }));
+    const orderPayload = {};
+    normalized.forEach((item, index) => {
+      orderPayload[item.id] = index;
+    });
+
+    setCommentSubtasks((prev) => {
+      const next = { ...prev, [commentId]: normalized };
+      onChecklistSummaryChange?.(summarizeChecklist(next));
+      return next;
+    });
+
+    try {
+      await fetch(`http://localhost:5000/api/comments/${commentId}/subtasks/reorder`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subtaskOrders: orderPayload })
+      });
+    } catch (err) {
+      console.error("Error reordering checklist items:", err);
+    } finally {
+      setDraggedChecklistItem(null);
+      setDragOverChecklistItem(null);
     }
   };
 
@@ -191,6 +362,18 @@ function CommentsSection({
       filteredComments = filteredComments.filter((c) => commentNotes[c.id]);
     } else if (activeFilter.note === "no-note") {
       filteredComments = filteredComments.filter((c) => !commentNotes[c.id]);
+    }
+  }
+
+  if (activeFilter.checklist) {
+    if (activeFilter.checklist === "has-checklist") {
+      filteredComments = filteredComments.filter(
+        (c) => (commentSubtasks[c.id] || []).length > 0
+      );
+    } else if (activeFilter.checklist === "no-checklist") {
+      filteredComments = filteredComments.filter(
+        (c) => (commentSubtasks[c.id] || []).length === 0
+      );
     }
   }
 
@@ -273,6 +456,23 @@ function CommentsSection({
           <option value="has-note">Has Personal Note</option>
           <option value="no-note">No Personal Note</option>
         </select>
+        <select
+          className="comment-filter-select"
+          value={activeFilter.checklist || ""}
+          onChange={(e) =>
+            setCommentFilters((prev) => ({
+              ...prev,
+              [assignmentId]: {
+                ...prev[assignmentId],
+                checklist: e.target.value || null
+              }
+            }))
+          }
+        >
+          <option value="">All Checklists</option>
+          <option value="has-checklist">Has Checklist</option>
+          <option value="no-checklist">No Checklist</option>
+        </select>
         <button
           className="comment-sort-toggle"
           onClick={() => setCommentSortNewestFirst(!commentSortNewestFirst)}
@@ -287,7 +487,8 @@ function CommentsSection({
         {(activeFilter.user ||
           activeFilter.date ||
           activeFilter.flag ||
-          activeFilter.note) && (
+          activeFilter.note ||
+          activeFilter.checklist) && (
           <button
             className="comment-filter-clear"
             onClick={() =>
@@ -297,7 +498,8 @@ function CommentsSection({
                   user: null,
                   date: null,
                   flag: null,
-                  note: null
+                  note: null,
+                  checklist: null
                 }
               }))
             }
@@ -444,7 +646,21 @@ function CommentsSection({
                             .sort((a, b) => a.order - b.order)
                             .map((item) => (
                               <div key={item.id} className="comment-subtask-item">
-                                <label className="comment-subtask-checkbox-label">
+                                <label
+                                  className="comment-subtask-checkbox-label"
+                                  draggable
+                                  onDragStart={() =>
+                                    handleChecklistDragStart(comment.id, item.id)
+                                  }
+                                  onDragOver={(e) => {
+                                    e.preventDefault();
+                                    handleChecklistDragOver(comment.id, item.id);
+                                  }}
+                                  onDrop={(e) => {
+                                    e.preventDefault();
+                                    handleChecklistDrop(comment.id, item.id);
+                                  }}
+                                >
                                   <input
                                     type="checkbox"
                                     checked={item.isCompleted}
@@ -456,16 +672,70 @@ function CommentsSection({
                                       )
                                     }
                                   />
-                                  <span
-                                    className={
-                                      item.isCompleted
-                                        ? "comment-subtask-title completed"
-                                        : "comment-subtask-title"
-                                    }
-                                  >
-                                    {item.title}
-                                  </span>
+                                  {editingChecklistTitles[item.id] ? (
+                                    <input
+                                      className="comment-subtask-title-input"
+                                      type="text"
+                                      value={checklistTitleDrafts[item.id] || ""}
+                                      onChange={(e) =>
+                                        setChecklistTitleDrafts((prev) => ({
+                                          ...prev,
+                                          [item.id]: e.target.value
+                                        }))
+                                      }
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                          e.preventDefault();
+                                          handleSaveChecklistEdit(comment.id, item.id);
+                                        } else if (e.key === "Escape") {
+                                          e.preventDefault();
+                                          handleCancelChecklistEdit(item.id);
+                                        }
+                                      }}
+                                      autoFocus
+                                    />
+                                  ) : (
+                                    <span
+                                      className={
+                                        item.isCompleted
+                                          ? "comment-subtask-title completed"
+                                          : "comment-subtask-title"
+                                      }
+                                    >
+                                      {item.title}
+                                    </span>
+                                  )}
                                 </label>
+                                {editingChecklistTitles[item.id] ? (
+                                  <>
+                                    <button
+                                      className="comment-subtask-edit"
+                                      onClick={() =>
+                                        handleSaveChecklistEdit(comment.id, item.id)
+                                      }
+                                      title="Save checklist item"
+                                    >
+                                      ✓
+                                    </button>
+                                    <button
+                                      className="comment-subtask-edit"
+                                      onClick={() => handleCancelChecklistEdit(item.id)}
+                                      title="Cancel edit"
+                                    >
+                                      ↺
+                                    </button>
+                                  </>
+                                ) : (
+                                  <button
+                                    className="comment-subtask-edit"
+                                    onClick={() =>
+                                      handleStartChecklistEdit(item.id, item.title)
+                                    }
+                                    title="Edit checklist item"
+                                  >
+                                    ✎
+                                  </button>
+                                )}
                                 <button
                                   className="comment-subtask-delete"
                                   onClick={() =>

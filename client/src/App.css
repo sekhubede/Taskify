@@ -184,6 +184,12 @@
   margin-left: 0.2rem;
 }
 
+.assignment-view-meta {
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 0.76rem;
+  margin-left: 0.2rem;
+}
+
 .assignments-list {
   display: flex;
   flex-direction: column;
@@ -500,6 +506,12 @@
   font-weight: 700;
   line-height: 1.2;
   text-transform: uppercase;
+}
+
+.comments-checklist-summary {
+  color: rgba(134, 239, 172, 0.95);
+  font-weight: 600;
+  font-size: 0.72rem;
 }
 
 .comments-section {
@@ -1059,6 +1071,34 @@
 .comment-subtask-title.completed {
   text-decoration: line-through;
   color: rgba(255, 255, 255, 0.5);
+}
+
+.comment-subtask-title-input {
+  flex: 1;
+  min-width: 0;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  color: rgba(255, 255, 255, 0.92);
+  border-radius: 6px;
+  padding: 0.2rem 0.45rem;
+  font-size: 0.82rem;
+}
+
+.comment-subtask-edit {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.78);
+  border-radius: 6px;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  font-size: 0.8rem;
+  flex-shrink: 0;
 }
 
 .comment-subtask-delete {
