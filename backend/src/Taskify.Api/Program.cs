@@ -73,6 +73,8 @@ builder.Services.AddMemoryCache();
 var app = builder.Build();
 const string CommentCountsMineCacheKey = "comment-counts:mine";
 const string CommentCountsAllCacheKey = "comment-counts:all";
+const string AttachmentCountsMineCacheKey = "attachment-counts:mine";
+const string AttachmentCountsAllCacheKey = "attachment-counts:all";
 
 app.UseCors();
 
@@ -160,7 +162,7 @@ app.MapGet("api/assignments/{id:int}/attachments", async (int id, ITaskDataSourc
         return Results.BadRequest($"Error getting attachments: {ex.Message}");
     }
 });
-app.MapPost("api/assignments/{id:int}/attachments", async (int id, ITaskDataSource ds, HttpRequest req) =>
+app.MapPost("api/assignments/{id:int}/attachments", async (int id, ITaskDataSource ds, IMemoryCache cache, HttpRequest req) =>
 {
     if (!req.HasFormContentType)
         return Results.BadRequest("multipart/form-data required");
@@ -181,6 +183,8 @@ app.MapPost("api/assignments/{id:int}/attachments", async (int id, ITaskDataSour
             file.FileName,
             file.ContentType ?? "application/octet-stream",
             ms.ToArray());
+        cache.Remove(AttachmentCountsMineCacheKey);
+        cache.Remove(AttachmentCountsAllCacheKey);
         return Results.Ok(attachment);
     }
     catch (Exception ex)
@@ -224,21 +228,16 @@ app.MapGet("api/assignments/comments/counts", async (bool? all, AssignmentServic
         return Results.BadRequest($"Error getting comment counts: {ex.Message}");
     }
 });
-app.MapGet("api/assignments/attachments/counts", async (bool? all, AssignmentService assignmentSvc, ITaskDataSource ds) =>
+app.MapGet("api/assignments/attachments/counts", async (bool? all, AssignmentService assignmentSvc, ITaskDataSource ds, IMemoryCache cache) =>
 {
+    var cacheKey = all == true ? AttachmentCountsAllCacheKey : AttachmentCountsMineCacheKey;
     try
     {
-        var assignments = all == true
-            ? assignmentSvc.GetAllAssignments()
-            : assignmentSvc.GetUserAssignments();
-
-        var counts = new Dictionary<int, int>();
-        foreach (var assignment in assignments)
-        {
-            var attachments = await ds.GetAttachmentsForTaskAsync(assignment.Id.ToString());
-            counts[assignment.Id] = attachments.Count;
-        }
-
+        var counts = await GetOrCreateAttachmentCountsAsync(
+            cache,
+            cacheKey,
+            async () => await BuildAttachmentCountsAsync(all == true, assignmentSvc, ds)
+        );
         return Results.Ok(counts);
     }
     catch (Exception ex)
@@ -720,6 +719,39 @@ static async Task<Dictionary<int, int>> GetOrCreateCommentCountsAsync(
         entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(30);
         return Task.FromResult(factory());
     });
+    return counts ?? new Dictionary<int, int>();
+}
+
+static async Task<Dictionary<int, int>> BuildAttachmentCountsAsync(
+    bool includeAll,
+    AssignmentService assignmentSvc,
+    ITaskDataSource ds)
+{
+    var assignments = includeAll
+        ? assignmentSvc.GetAllAssignments()
+        : assignmentSvc.GetUserAssignments();
+
+    var counts = new Dictionary<int, int>();
+    foreach (var assignment in assignments)
+    {
+        var attachments = await ds.GetAttachmentsForTaskAsync(assignment.Id.ToString());
+        counts[assignment.Id] = attachments.Count;
+    }
+
+    return counts;
+}
+
+static async Task<Dictionary<int, int>> GetOrCreateAttachmentCountsAsync(
+    IMemoryCache cache,
+    string cacheKey,
+    Func<Task<Dictionary<int, int>>> factory)
+{
+    var counts = await cache.GetOrCreateAsync(cacheKey, async entry =>
+    {
+        entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(30);
+        return await factory();
+    });
+
     return counts ?? new Dictionary<int, int>();
 }
 

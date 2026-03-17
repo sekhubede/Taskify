@@ -11,6 +11,8 @@ const SORT_UNREAD_TO_TOP_KEY = "sortUnreadToTop";
 const COMMENT_SORT_NEWEST_FIRST_KEY = "commentSortNewestFirst";
 const AUTO_REFRESH_INTERVAL_SECONDS_KEY = "assignmentAutoRefreshSeconds";
 const SHOW_ALL_ASSIGNMENTS_KEY = "showAllAssignments";
+const SCOPE_MINE = "mine";
+const SCOPE_ALL = "all";
 
 function App() {
   const [assignments, setAssignments] = useState([]);
@@ -21,14 +23,20 @@ function App() {
   const [loadingComments, setLoadingComments] = useState({});
   const [openAttachments, setOpenAttachments] = useState({});
   const [attachments, setAttachments] = useState({});
-  const [attachmentCounts, setAttachmentCounts] = useState({});
+  const [attachmentCountsByScope, setAttachmentCountsByScope] = useState({
+    [SCOPE_MINE]: {},
+    [SCOPE_ALL]: {}
+  });
   const [loadingAttachments, setLoadingAttachments] = useState({});
   const [uploadingAttachment, setUploadingAttachment] = useState({});
   const [previewingAttachment, setPreviewingAttachment] = useState(false);
   const [attachmentPreview, setAttachmentPreview] = useState(null);
   const [newCommentText, setNewCommentText] = useState({});
   const [currentUser, setCurrentUser] = useState(null);
-  const [commentCounts, setCommentCounts] = useState({});
+  const [commentCountsByScope, setCommentCountsByScope] = useState({
+    [SCOPE_MINE]: {},
+    [SCOPE_ALL]: {}
+  });
   const [commentFilters, setCommentFilters] = useState({});
   const [lastSeenCommentCounts, setLastSeenCommentCounts] = useState(() => {
     try {
@@ -103,12 +111,22 @@ function App() {
   const [lastRefreshedAt, setLastRefreshedAt] = useState(null);
   const [assignmentControlsOffset, setAssignmentControlsOffset] = useState(96);
   const assignmentControlsRef = useRef(null);
-  const commentCountsRequestInFlightRef = useRef(false);
-  const attachmentCountsRequestInFlightRef = useRef(false);
+  const commentCountsRequestInFlightRef = useRef({
+    [SCOPE_MINE]: false,
+    [SCOPE_ALL]: false
+  });
+  const attachmentCountsRequestInFlightRef = useRef({
+    [SCOPE_MINE]: false,
+    [SCOPE_ALL]: false
+  });
+  const currentScopeKey = showAllAssignments ? SCOPE_ALL : SCOPE_MINE;
+  const commentCounts = commentCountsByScope[currentScopeKey] || {};
+  const attachmentCounts = attachmentCountsByScope[currentScopeKey] || {};
 
   const refreshData = useCallback(async (isInitialLoad = false) => {
     try {
       const assignmentScopeQuery = showAllAssignments ? "?all=true" : "";
+      const scopeKey = showAllAssignments ? SCOPE_ALL : SCOPE_MINE;
       const assignmentsRes = await fetch(
         `${ASSIGNMENTS_API_URL}${assignmentScopeQuery}`
       );
@@ -130,43 +148,49 @@ function App() {
         );
 
       // Keep assignment loading fast; hydrate comment counts asynchronously.
-      if (!commentCountsRequestInFlightRef.current) {
-        commentCountsRequestInFlightRef.current = true;
+      if (!commentCountsRequestInFlightRef.current[scopeKey]) {
+        commentCountsRequestInFlightRef.current[scopeKey] = true;
         fetch(
           `http://localhost:5000/api/assignments/comments/counts${assignmentScopeQuery}`
         )
           .then((res) => (res.ok ? res.json() : null))
           .then((counts) => {
             if (counts) {
-              setCommentCounts(counts);
+              setCommentCountsByScope((prev) => ({
+                ...prev,
+                [scopeKey]: counts
+              }));
             }
           })
           .catch((err) =>
             console.error("Error refreshing assignment comment counts:", err)
           )
           .finally(() => {
-            commentCountsRequestInFlightRef.current = false;
+            commentCountsRequestInFlightRef.current[scopeKey] = false;
           });
       }
 
       // Load attachment counts in the background so badges are visible
       // without opening every attachment panel.
-      if (!attachmentCountsRequestInFlightRef.current) {
-        attachmentCountsRequestInFlightRef.current = true;
+      if (!attachmentCountsRequestInFlightRef.current[scopeKey]) {
+        attachmentCountsRequestInFlightRef.current[scopeKey] = true;
         fetch(
           `http://localhost:5000/api/assignments/attachments/counts${assignmentScopeQuery}`
         )
           .then((res) => (res.ok ? res.json() : null))
           .then((counts) => {
             if (counts) {
-              setAttachmentCounts(counts);
+              setAttachmentCountsByScope((prev) => ({
+                ...prev,
+                [scopeKey]: counts
+              }));
             }
           })
           .catch((err) =>
             console.error("Error refreshing attachment counts:", err)
           )
           .finally(() => {
-            attachmentCountsRequestInFlightRef.current = false;
+            attachmentCountsRequestInFlightRef.current[scopeKey] = false;
           });
       }
 
@@ -444,9 +468,12 @@ function App() {
         const data = await response.json();
         setComments((prev) => ({ ...prev, [assignmentId]: data }));
         // Update comment count if it's different
-        setCommentCounts((prev) => ({
+        setCommentCountsByScope((prev) => ({
           ...prev,
-          [assignmentId]: data.length
+          [currentScopeKey]: {
+            ...(prev[currentScopeKey] || {}),
+            [assignmentId]: data.length
+          }
         }));
         // Load comment notes and flags for all comments
         const notesPromises = data.map((comment) =>
@@ -521,9 +548,12 @@ function App() {
       }));
       setNewCommentText((prev) => ({ ...prev, [assignmentId]: "" }));
       // Update comment count
-      setCommentCounts((prev) => ({
+      setCommentCountsByScope((prev) => ({
         ...prev,
-        [assignmentId]: nextCount
+        [currentScopeKey]: {
+          ...(prev[currentScopeKey] || {}),
+          [assignmentId]: nextCount
+        }
       }));
       // Comments authored in-app are considered seen immediately.
       setLastSeenCommentCounts((prev) => ({
@@ -551,7 +581,13 @@ function App() {
         if (!response.ok) throw new Error("Failed to fetch attachments");
         const data = await response.json();
         setAttachments((prev) => ({ ...prev, [assignmentId]: data }));
-        setAttachmentCounts((prev) => ({ ...prev, [assignmentId]: data.length }));
+        setAttachmentCountsByScope((prev) => ({
+          ...prev,
+          [currentScopeKey]: {
+            ...(prev[currentScopeKey] || {}),
+            [assignmentId]: data.length
+          }
+        }));
       } catch (err) {
         setError(err.toString());
       } finally {
@@ -586,9 +622,13 @@ function App() {
         ...prev,
         [assignmentId]: [...(prev[assignmentId] || []), uploaded]
       }));
-      setAttachmentCounts((prev) => ({
+      setAttachmentCountsByScope((prev) => ({
         ...prev,
-        [assignmentId]: (prev[assignmentId] ?? 0) + 1
+        [currentScopeKey]: {
+          ...(prev[currentScopeKey] || {}),
+          [assignmentId]:
+            ((prev[currentScopeKey] || {})[assignmentId] ?? 0) + 1
+        }
       }));
     } catch (err) {
       setError(err.toString());
