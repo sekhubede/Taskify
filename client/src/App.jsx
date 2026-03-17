@@ -101,27 +101,33 @@ function App() {
     }
   );
   const [lastRefreshedAt, setLastRefreshedAt] = useState(null);
+  const [assignmentControlsOffset, setAssignmentControlsOffset] = useState(96);
+  const assignmentControlsRef = useRef(null);
   const commentCountsRequestInFlightRef = useRef(false);
   const attachmentCountsRequestInFlightRef = useRef(false);
 
   const refreshData = useCallback(async (isInitialLoad = false) => {
     try {
       const assignmentScopeQuery = showAllAssignments ? "?all=true" : "";
-      const [userRes, assignmentsRes, workingOnRes] =
-        await Promise.all([
-          fetch("http://localhost:5000/api/user/current"),
-          fetch(`${ASSIGNMENTS_API_URL}${assignmentScopeQuery}`),
-          fetch("http://localhost:5000/api/assignments/working-on")
-        ]);
-
-      if (userRes.ok) {
-        const userData = await userRes.json();
-        setCurrentUser(userData.userName);
-      }
+      const assignmentsRes = await fetch(
+        `${ASSIGNMENTS_API_URL}${assignmentScopeQuery}`
+      );
 
       if (!assignmentsRes.ok) throw new Error("Failed to fetch assignments");
       const assignmentsData = await assignmentsRes.json();
       setAssignments(assignmentsData);
+
+      // Do not block assignment render on user/working-on lookups.
+      fetch("http://localhost:5000/api/user/current")
+        .then((res) => (res.ok ? res.json() : null))
+        .then((userData) => {
+          if (userData?.userName) {
+            setCurrentUser(userData.userName);
+          }
+        })
+        .catch((err) =>
+          console.error("Error refreshing current user:", err)
+        );
 
       // Keep assignment loading fast; hydrate comment counts asynchronously.
       if (!commentCountsRequestInFlightRef.current) {
@@ -164,10 +170,16 @@ function App() {
           });
       }
 
-      if (workingOnRes.ok) {
-        const workingOnData = await workingOnRes.json();
-        setWorkingOn(new Set(workingOnData));
-      }
+      fetch("http://localhost:5000/api/assignments/working-on")
+        .then((res) => (res.ok ? res.json() : null))
+        .then((workingOnData) => {
+          if (Array.isArray(workingOnData)) {
+            setWorkingOn(new Set(workingOnData));
+          }
+        })
+        .catch((err) =>
+          console.error("Error refreshing working-on assignments:", err)
+        );
 
       setLastRefreshedAt(new Date().toISOString());
       setError(null);
@@ -264,6 +276,48 @@ function App() {
 
     return () => clearInterval(intervalId);
   }, [autoRefreshIntervalSeconds, refreshData]);
+
+  useEffect(() => {
+    const controlsEl = assignmentControlsRef.current;
+    if (!controlsEl) return undefined;
+
+    const cssLengthToPx = (rawValue) => {
+      const value = (rawValue || "").trim();
+      if (!value) return 0;
+      if (value.endsWith("px")) return Number.parseFloat(value) || 0;
+      if (value.endsWith("rem")) {
+        const rootFontSize =
+          Number.parseFloat(
+            window.getComputedStyle(document.documentElement).fontSize || "16"
+          ) || 16;
+        return (Number.parseFloat(value) || 0) * rootFontSize;
+      }
+      return Number.parseFloat(value) || 0;
+    };
+
+    const updateOffset = () => {
+      const styles = window.getComputedStyle(controlsEl);
+      const stickyTop = cssLengthToPx(styles.top);
+      const marginBottom = cssLengthToPx(styles.marginBottom);
+      const measured = Math.ceil(
+        controlsEl.getBoundingClientRect().height + stickyTop + marginBottom + 20
+      );
+      setAssignmentControlsOffset(Math.max(measured, 70));
+    };
+
+    updateOffset();
+
+    const observer = new ResizeObserver(() => {
+      updateOffset();
+    });
+    observer.observe(controlsEl);
+    window.addEventListener("resize", updateOffset);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", updateOffset);
+    };
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -1325,9 +1379,12 @@ function App() {
       )}
 
       {!loading && !error && (
-        <div className="assignments-container">
+        <div
+          className="assignments-container"
+          style={{ "--assignment-controls-offset": `${assignmentControlsOffset}px` }}
+        >
           <QuickTasksSection />
-          <div className="assignment-controls">
+          <div className="assignment-controls" ref={assignmentControlsRef}>
             <div className="assignment-search-container">
               <input
                 type="text"
