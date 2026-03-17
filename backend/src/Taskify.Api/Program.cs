@@ -47,6 +47,7 @@ builder.Services.AddSingleton<SubtaskNoteStore>();
 builder.Services.AddSingleton<CommentNoteStore>();
 builder.Services.AddSingleton<CommentFlagStore>();
 builder.Services.AddSingleton<CommentSubtaskStore>();
+builder.Services.AddSingleton<QuickTaskStore>();
 builder.Services.AddSingleton<AssignmentBoardStore>();
 builder.Services.AddSingleton<WorkingOnStore>();
 
@@ -61,6 +62,7 @@ builder.Services.AddScoped<SubtaskService>();
 builder.Services.AddScoped<CommentNoteService>();
 builder.Services.AddScoped<CommentFlagService>();
 builder.Services.AddScoped<CommentSubtaskService>();
+builder.Services.AddScoped<QuickTaskService>();
 builder.Services.AddScoped<AssignmentBoardService>();
 builder.Services.AddScoped<WorkingOnService>();
 
@@ -451,6 +453,212 @@ app.MapDelete("api/subtasks/{id:int}", (int id, SubtaskService svc) =>
     }
 });
 
+// ─── Quick Tasks (local-only) ───
+app.MapGet("api/quick-tasks", (QuickTaskService svc) =>
+    Results.Ok(svc.GetTasks()));
+app.MapPost("api/quick-tasks", async (QuickTaskService svc, HttpRequest req) =>
+{
+    var body = await req.ReadFromJsonAsync<AddQuickTaskRequest>();
+    if (body == null || string.IsNullOrWhiteSpace(body.Title))
+        return Results.BadRequest("title is required");
+
+    try
+    {
+        var task = svc.AddTask(body.Title);
+        return Results.Ok(task);
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(ex.Message);
+    }
+});
+app.MapPut("api/quick-tasks/{id:int}/title", async (int id, QuickTaskService svc, HttpRequest req) =>
+{
+    var body = await req.ReadFromJsonAsync<UpdateQuickTaskTitleRequest>();
+    if (body == null)
+        return Results.BadRequest("body required");
+
+    try
+    {
+        var ok = svc.UpdateTaskTitle(id, body.Title);
+        return ok ? Results.Ok() : Results.NotFound();
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(ex.Message);
+    }
+});
+app.MapPost("api/quick-tasks/{id:int}/toggle", async (int id, QuickTaskService svc, HttpRequest req) =>
+{
+    var body = await req.ReadFromJsonAsync<ToggleQuickTaskRequest>();
+    if (body == null)
+        return Results.BadRequest("body required");
+
+    try
+    {
+        var ok = svc.ToggleTaskCompletion(id, body.IsCompleted);
+        return ok ? Results.Ok() : Results.NotFound();
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(ex.Message);
+    }
+});
+app.MapDelete("api/quick-tasks/{id:int}", (int id, QuickTaskService svc) =>
+{
+    try
+    {
+        var ok = svc.DeleteTask(id);
+        return ok ? Results.Ok() : Results.NotFound();
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(ex.Message);
+    }
+});
+app.MapGet("api/quick-tasks/{id:int}/comments", (int id, QuickTaskService svc) =>
+{
+    try
+    {
+        return Results.Ok(svc.GetTaskComments(id));
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(ex.Message);
+    }
+});
+app.MapPost("api/quick-tasks/{id:int}/comments", async (int id, QuickTaskService svc, HttpRequest req) =>
+{
+    var body = await req.ReadFromJsonAsync<AddQuickTaskCommentRequest>();
+    if (body == null || string.IsNullOrWhiteSpace(body.Content))
+        return Results.BadRequest("content is required");
+
+    try
+    {
+        var comment = svc.AddTaskComment(id, body.Content);
+        return Results.Ok(comment);
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(ex.Message);
+    }
+});
+app.MapPut("api/quick-task-comments/{id:int}/content", async (int id, QuickTaskService svc, HttpRequest req) =>
+{
+    var body = await req.ReadFromJsonAsync<UpdateQuickTaskCommentContentRequest>();
+    if (body == null)
+        return Results.BadRequest("body required");
+
+    try
+    {
+        var ok = svc.UpdateTaskComment(id, body.Content);
+        return ok ? Results.Ok() : Results.NotFound();
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(ex.Message);
+    }
+});
+app.MapDelete("api/quick-task-comments/{id:int}", (int id, QuickTaskService svc) =>
+{
+    try
+    {
+        var ok = svc.DeleteTaskComment(id);
+        return ok ? Results.Ok() : Results.NotFound();
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(ex.Message);
+    }
+});
+app.MapGet("api/quick-tasks/{id:int}/checklist", (int id, QuickTaskService svc) =>
+{
+    try
+    {
+        return Results.Ok(svc.GetTaskChecklist(id));
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(ex.Message);
+    }
+});
+app.MapPost("api/quick-tasks/{id:int}/checklist", async (int id, QuickTaskService svc, HttpRequest req) =>
+{
+    var body = await req.ReadFromJsonAsync<AddQuickTaskChecklistItemRequest>();
+    if (body == null || string.IsNullOrWhiteSpace(body.Title))
+        return Results.BadRequest("title is required");
+
+    try
+    {
+        var item = svc.AddChecklistItem(id, body.Title, body.Order);
+        return Results.Ok(item);
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(ex.Message);
+    }
+});
+app.MapPost("api/quick-task-checklist/{id:int}/toggle", async (int id, QuickTaskService svc, HttpRequest req) =>
+{
+    var body = await req.ReadFromJsonAsync<ToggleQuickTaskChecklistItemRequest>();
+    if (body == null)
+        return Results.BadRequest("body required");
+
+    try
+    {
+        var ok = svc.ToggleChecklistItem(id, body.IsCompleted);
+        return ok ? Results.Ok() : Results.NotFound();
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(ex.Message);
+    }
+});
+app.MapPut("api/quick-task-checklist/{id:int}/title", async (int id, QuickTaskService svc, HttpRequest req) =>
+{
+    var body = await req.ReadFromJsonAsync<UpdateQuickTaskChecklistItemTitleRequest>();
+    if (body == null)
+        return Results.BadRequest("body required");
+
+    try
+    {
+        var ok = svc.UpdateChecklistItemTitle(id, body.Title);
+        return ok ? Results.Ok() : Results.NotFound();
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(ex.Message);
+    }
+});
+app.MapPut("api/quick-tasks/{id:int}/checklist/reorder", async (int id, QuickTaskService svc, HttpRequest req) =>
+{
+    var body = await req.ReadFromJsonAsync<ReorderQuickTaskChecklistRequest>();
+    if (body == null || body.ChecklistOrders == null || body.ChecklistOrders.Count == 0)
+        return Results.BadRequest("checklistOrders required");
+
+    try
+    {
+        svc.ReorderChecklist(id, body.ChecklistOrders);
+        return Results.Ok();
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(ex.Message);
+    }
+});
+app.MapDelete("api/quick-task-checklist/{id:int}", (int id, QuickTaskService svc) =>
+{
+    try
+    {
+        var ok = svc.DeleteChecklistItem(id);
+        return ok ? Results.Ok() : Results.NotFound();
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(ex.Message);
+    }
+});
+
 // Warm slow comment counts in the background so initial UI badges appear faster
 // after startup and auto-refresh has warm cache to read from.
 _ = Task.Run(async () =>
@@ -529,3 +737,12 @@ public record ReorderSubtasksRequest(Dictionary<int, int> SubtaskOrders);
 public record ReorderCommentSubtasksRequest(Dictionary<int, int> SubtaskOrders);
 public record UpdateBoardColumnRequest(string? Column);
 public record UpdateWorkingOnRequest(bool IsWorkingOn);
+public record AddQuickTaskRequest(string Title);
+public record UpdateQuickTaskTitleRequest(string Title);
+public record ToggleQuickTaskRequest(bool IsCompleted);
+public record AddQuickTaskCommentRequest(string Content);
+public record UpdateQuickTaskCommentContentRequest(string Content);
+public record AddQuickTaskChecklistItemRequest(string Title, int? Order);
+public record ToggleQuickTaskChecklistItemRequest(bool IsCompleted);
+public record UpdateQuickTaskChecklistItemTitleRequest(string Title);
+public record ReorderQuickTaskChecklistRequest(Dictionary<int, int> ChecklistOrders);
