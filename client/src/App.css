@@ -1014,6 +1014,45 @@
   margin: 0 0 0.8rem 0;
 }
 
+.attachment-preview-xlsx {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.attachment-preview-note {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.78rem;
+}
+
+.attachment-preview-xlsx-table {
+  background: #ffffff;
+  color: #111827;
+  border-radius: 8px;
+  padding: 0.75rem;
+  overflow: auto;
+  max-height: calc(90vh - 230px);
+}
+
+.attachment-preview-xlsx-table table {
+  border-collapse: collapse;
+  width: max-content;
+  min-width: 100%;
+}
+
+.attachment-preview-xlsx-table td,
+.attachment-preview-xlsx-table th {
+  border: 1px solid #d1d5db;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.attachment-preview-xlsx-table th {
+  background: #f3f4f6;
+  font-weight: 600;
+}
+
 .attachment-preview-unsupported {
   color: rgba(255, 255, 255, 0.78);
   font-size: 0.9rem;
