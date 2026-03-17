@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import "./App.css";
 import AssignmentCard from "./components/AssignmentCard";
 import WorkingOnSection from "./components/WorkingOnSection";
@@ -48,6 +48,7 @@ function App() {
   const [editingCommentNotes, setEditingCommentNotes] = useState({});
   const [commentNotes, setCommentNotes] = useState({});
   const [commentFlags, setCommentFlags] = useState({});
+  const [commentChecklistSummaries, setCommentChecklistSummaries] = useState({});
   const [draggedSubtaskId, setDraggedSubtaskId] = useState(null);
   const [dragOverSubtaskId, setDragOverSubtaskId] = useState(null);
   const [workingOn, setWorkingOn] = useState(new Set()); // assignmentIds that are marked as "working on"
@@ -99,17 +100,16 @@ function App() {
     }
   );
   const [lastRefreshedAt, setLastRefreshedAt] = useState(null);
+  const commentCountsRequestInFlightRef = useRef(false);
+  const attachmentCountsRequestInFlightRef = useRef(false);
 
   const refreshData = useCallback(async (isInitialLoad = false) => {
     try {
       const assignmentScopeQuery = showAllAssignments ? "?all=true" : "";
-      const [userRes, assignmentsRes, countsRes, workingOnRes] =
+      const [userRes, assignmentsRes, workingOnRes] =
         await Promise.all([
           fetch("http://localhost:5000/api/user/current"),
           fetch(`${ASSIGNMENTS_API_URL}${assignmentScopeQuery}`),
-          fetch(
-            `http://localhost:5000/api/assignments/comments/counts${assignmentScopeQuery}`
-          ),
           fetch("http://localhost:5000/api/assignments/working-on")
         ]);
 
@@ -122,39 +122,45 @@ function App() {
       const assignmentsData = await assignmentsRes.json();
       setAssignments(assignmentsData);
 
-      // Preload attachment counts so badges are correct without opening panels.
-      const attachmentSettled = await Promise.allSettled(
-        assignmentsData.map(async (assignment) => {
-          const response = await fetch(
-            `${ASSIGNMENTS_API_URL}/${assignment.id}/attachments`
-          );
-          if (!response.ok) {
-            throw new Error(`Failed to fetch attachments for ${assignment.id}`);
-          }
-          const list = await response.json();
-          return {
-            assignmentId: assignment.id,
-            list
-          };
-        })
-      );
+      // Keep assignment loading fast; hydrate comment counts asynchronously.
+      if (!commentCountsRequestInFlightRef.current) {
+        commentCountsRequestInFlightRef.current = true;
+        fetch(
+          `http://localhost:5000/api/assignments/comments/counts${assignmentScopeQuery}`
+        )
+          .then((res) => (res.ok ? res.json() : null))
+          .then((counts) => {
+            if (counts) {
+              setCommentCounts(counts);
+            }
+          })
+          .catch((err) =>
+            console.error("Error refreshing assignment comment counts:", err)
+          )
+          .finally(() => {
+            commentCountsRequestInFlightRef.current = false;
+          });
+      }
 
-      const nextAttachmentCounts = {};
-      const nextAttachmentLists = {};
-      attachmentSettled.forEach((result) => {
-        if (result.status === "fulfilled") {
-          const { assignmentId, list } = result.value;
-          nextAttachmentCounts[assignmentId] = list.length;
-          nextAttachmentLists[assignmentId] = list;
-        }
-      });
-
-      setAttachmentCounts(nextAttachmentCounts);
-      setAttachments((prev) => ({ ...prev, ...nextAttachmentLists }));
-
-      if (countsRes.ok) {
-        const counts = await countsRes.json();
-        setCommentCounts(counts);
+      // Load attachment counts in the background so badges are visible
+      // without opening every attachment panel.
+      if (!attachmentCountsRequestInFlightRef.current) {
+        attachmentCountsRequestInFlightRef.current = true;
+        fetch(
+          `http://localhost:5000/api/assignments/attachments/counts${assignmentScopeQuery}`
+        )
+          .then((res) => (res.ok ? res.json() : null))
+          .then((counts) => {
+            if (counts) {
+              setAttachmentCounts(counts);
+            }
+          })
+          .catch((err) =>
+            console.error("Error refreshing attachment counts:", err)
+          )
+          .finally(() => {
+            attachmentCountsRequestInFlightRef.current = false;
+          });
       }
 
       if (workingOnRes.ok) {
@@ -1256,6 +1262,48 @@ function App() {
     return colors[Math.abs(hash) % colors.length];
   };
 
+  const getAssigneeNames = (assignment) => {
+    const raw = assignment?.assignedTo?.trim();
+    if (!raw) return ["Unknown"];
+
+    const names = raw
+      .split(/[;,|]/)
+      .map((name) => name.trim())
+      .filter(Boolean);
+
+    return names.length > 0 ? names : ["Unknown"];
+  };
+
+  const availableAssignees = [
+    ...new Set(assignments.flatMap((assignment) => getAssigneeNames(assignment)))
+  ].sort((a, b) => a.localeCompare(b));
+
+  const normalizedSearchForMeta = assignmentSearch.trim().toLowerCase();
+  const assignmentsAfterSearch = normalizedSearchForMeta
+    ? assignments.filter((assignment) =>
+        [
+          assignment.title,
+          assignment.description,
+          getAssigneeNames(assignment).join(", "),
+          assignment.assigneeName
+        ]
+          .filter(Boolean)
+          .some((value) => value.toLowerCase().includes(normalizedSearchForMeta))
+      )
+    : assignments;
+  const assignmentsAfterAssignee =
+    showAllAssignments && assigneeFilter
+      ? assignmentsAfterSearch.filter((assignment) =>
+          getAssigneeNames(assignment).some((name) => name === assigneeFilter)
+        )
+      : assignmentsAfterSearch;
+  const assignmentsInCurrentView = showOnlyUnreadAssignments
+    ? assignmentsAfterAssignee.filter((assignment) => hasUnreadComments(assignment.id))
+    : assignmentsAfterAssignee;
+  const hotZoneCountInCurrentView = assignmentsInCurrentView.filter((a) =>
+    workingOn.has(a.id)
+  ).length;
+
   return (
     <div className="app">
       <header className="app-header">
@@ -1307,20 +1355,11 @@ function App() {
                   title="Filter assignments by assignee"
                 >
                   <option value="">Assignee: All</option>
-                  {[
-                    ...new Set(
-                      assignments.map((a) => {
-                        const name = a.assignedTo?.trim();
-                        return name && name.length > 0 ? name : "Unknown";
-                      })
-                    )
-                  ]
-                    .sort((a, b) => a.localeCompare(b))
-                    .map((assignee) => (
-                      <option key={assignee} value={assignee}>
-                        {assignee}
-                      </option>
-                    ))}
+                  {availableAssignees.map((assignee) => (
+                    <option key={assignee} value={assignee}>
+                      {assignee}
+                    </option>
+                  ))}
                 </select>
               )}
               <button
@@ -1368,6 +1407,11 @@ function App() {
                 ? new Date(lastRefreshedAt).toLocaleTimeString()
                 : "Not yet"}
             </div>
+            <div className="assignment-view-meta">
+              {showAllAssignments ? "Team" : "Mine"} assignments:{" "}
+              {assignmentsInCurrentView.length} total ({hotZoneCountInCurrentView}{" "}
+              in Hot Zone)
+            </div>
           </div>
           {assignments.length === 0 ? (
             <div className="empty-state">
@@ -1375,10 +1419,8 @@ function App() {
             </div>
           ) : (
             (() => {
-              const getAssigneeLabel = (assignment) => {
-                const name = assignment?.assignedTo?.trim();
-                return name && name.length > 0 ? name : "Unknown";
-              };
+              const getAssigneeLabel = (assignment) =>
+                getAssigneeNames(assignment).join(", ");
               const normalizedSearch = assignmentSearch.trim().toLowerCase();
               const filteredAssignments = normalizedSearch
                 ? assignments.filter((assignment) =>
@@ -1397,7 +1439,10 @@ function App() {
               const assigneeFilteredAssignments =
                 showAllAssignments && assigneeFilter
                   ? filteredAssignments.filter(
-                      (assignment) => getAssigneeLabel(assignment) === assigneeFilter
+                      (assignment) =>
+                        getAssigneeNames(assignment).some(
+                          (name) => name === assigneeFilter
+                        )
                     )
                   : filteredAssignments;
 
@@ -1489,6 +1534,8 @@ function App() {
                 handleToggleCommentFlag,
                 handleUpdateCommentNote,
                 handleDeleteCommentNote,
+                commentChecklistSummaries,
+                setCommentChecklistSummaries,
                 newCommentText,
                 setNewCommentText,
                 handleAddComment,

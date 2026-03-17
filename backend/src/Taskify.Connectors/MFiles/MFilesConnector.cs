@@ -54,6 +54,17 @@ public class MFilesConnector : ITaskDataSource, IDisposable
             (int)MFBuiltInObjectType.MFBuiltInObjectTypeAssignment);
         searchConditions.Add(-1, objectTypeCondition);
 
+        // Active-only list by default to avoid pulling large historical completed datasets.
+        var completedCondition = new SearchCondition
+        {
+            ConditionType = MFConditionType.MFConditionTypeEqual
+        };
+        completedCondition.Expression.SetPropertyValueExpression(
+            (int)MFBuiltInPropertyDef.MFBuiltInPropertyDefCompleted,
+            MFParentChildBehavior.MFParentChildBehaviorNone);
+        completedCondition.TypedValue.SetValue(MFDataType.MFDatatypeBoolean, false);
+        searchConditions.Add(-1, completedCondition);
+
         var searchResults = vault.ObjectSearchOperations.SearchForObjectsByConditions(
             searchConditions,
             MFSearchFlags.MFSearchFlagNone,
@@ -83,10 +94,21 @@ public class MFilesConnector : ITaskDataSource, IDisposable
 
     public Task<IReadOnlyList<TaskDTO>> GetTasksByAssigneeAsync(string assigneeId)
     {
-        if (!int.TryParse(assigneeId, out var userId))
-            return Task.FromResult<IReadOnlyList<TaskDTO>>(new List<TaskDTO>());
-
         var vault = GetVault();
+        int userId;
+
+        if (!int.TryParse(assigneeId, out userId))
+        {
+            var currentName = GetCurrentUserNameAsync().GetAwaiter().GetResult();
+            if (string.IsNullOrWhiteSpace(currentName) ||
+                !string.Equals(currentName.Trim(), assigneeId?.Trim(), StringComparison.OrdinalIgnoreCase))
+            {
+                return Task.FromResult<IReadOnlyList<TaskDTO>>(new List<TaskDTO>());
+            }
+
+            userId = vault.CurrentLoggedInUserID;
+        }
+
         var searchConditions = new SearchConditions();
 
         var deletedCondition = new SearchCondition
@@ -106,6 +128,16 @@ public class MFilesConnector : ITaskDataSource, IDisposable
             MFDataType.MFDatatypeLookup,
             (int)MFBuiltInObjectType.MFBuiltInObjectTypeAssignment);
         searchConditions.Add(-1, objectTypeCondition);
+
+        var completedCondition = new SearchCondition
+        {
+            ConditionType = MFConditionType.MFConditionTypeEqual
+        };
+        completedCondition.Expression.SetPropertyValueExpression(
+            (int)MFBuiltInPropertyDef.MFBuiltInPropertyDefCompleted,
+            MFParentChildBehavior.MFParentChildBehaviorNone);
+        completedCondition.TypedValue.SetValue(MFDataType.MFDatatypeBoolean, false);
+        searchConditions.Add(-1, completedCondition);
 
         var assignedToCondition = new SearchCondition
         {

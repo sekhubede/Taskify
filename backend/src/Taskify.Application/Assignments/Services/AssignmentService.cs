@@ -18,20 +18,22 @@ public class AssignmentService
     {
         try
         {
-            var tasks = _dataSource.GetAllTasksAsync().GetAwaiter().GetResult();
             var currentUserName = _dataSource.GetCurrentUserNameAsync().GetAwaiter().GetResult();
+            var userTasks = _dataSource.GetTasksByAssigneeAsync(currentUserName).GetAwaiter().GetResult();
+
+            if (userTasks.Count > 0)
+                return MapAndSortAssignments(userTasks.Where(IsActiveTask));
+
+            var tasks = _dataSource.GetAllTasksAsync().GetAwaiter().GetResult();
 
             var filtered = tasks
-                .Where(t => string.Equals(
-                    t.AssigneeName?.Trim(),
-                    currentUserName?.Trim(),
-                    StringComparison.OrdinalIgnoreCase))
+                .Where(t => IsCurrentUserAssignee(t.AssigneeName, currentUserName))
                 .ToList();
 
             // Fall back to all tasks if the source cannot provide a matching assignee name.
             // This keeps existing behavior for sources where user naming conventions differ.
             var tasksForView = filtered.Count > 0 ? filtered : tasks.ToList();
-            return MapAndSortAssignments(tasksForView);
+            return MapAndSortAssignments(tasksForView.Where(IsActiveTask));
         }
         catch (Exception ex)
         {
@@ -45,7 +47,7 @@ public class AssignmentService
         try
         {
             var tasks = _dataSource.GetAllTasksAsync().GetAwaiter().GetResult();
-            return MapAndSortAssignments(tasks);
+            return MapAndSortAssignments(tasks.Where(IsActiveTask));
         }
         catch (Exception ex)
         {
@@ -126,6 +128,21 @@ public class AssignmentService
             .ToList();
     }
 
+    private static bool IsCurrentUserAssignee(string? assigneeName, string? currentUserName)
+    {
+        if (string.IsNullOrWhiteSpace(currentUserName))
+            return false;
+
+        if (string.IsNullOrWhiteSpace(assigneeName))
+            return false;
+
+        var current = currentUserName.Trim();
+        return assigneeName
+            .Split(new[] { ',', ';', '|' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(name => name.Trim())
+            .Any(name => string.Equals(name, current, StringComparison.OrdinalIgnoreCase));
+    }
+
     private static AssignmentStatus MapStatus(TaskItemStatus status)
     {
         return status switch
@@ -137,6 +154,11 @@ public class AssignmentService
             TaskItemStatus.Overdue => AssignmentStatus.InProgress,
             _ => AssignmentStatus.NotStarted
         };
+    }
+
+    private static bool IsActiveTask(TaskDTO task)
+    {
+        return task.Status != TaskItemStatus.Completed;
     }
 }
 

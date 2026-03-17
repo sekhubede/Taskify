@@ -35,7 +35,13 @@ public class MockConnector : ITaskDataSource
     public async Task<IReadOnlyList<TaskDTO>> GetTasksByAssigneeAsync(string assigneeId)
     {
         await Task.Delay(200);
-        return _tasks.Where(t => t.AssigneeId == assigneeId).ToList().AsReadOnly();
+        var filtered = _tasks
+            .Where(t =>
+                string.Equals(t.AssigneeId, assigneeId, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(t.AssigneeName, assigneeId, StringComparison.OrdinalIgnoreCase))
+            .ToList()
+            .AsReadOnly();
+        return filtered;
     }
 
     public Task<bool> UpdateTaskStatusAsync(string taskId, TaskItemStatus newStatus)

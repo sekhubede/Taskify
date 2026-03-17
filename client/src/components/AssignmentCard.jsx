@@ -41,6 +41,8 @@ function AssignmentCard({
   handleToggleCommentFlag,
   handleUpdateCommentNote,
   handleDeleteCommentNote,
+  commentChecklistSummaries,
+  setCommentChecklistSummaries,
   newCommentText,
   setNewCommentText,
   handleAddComment,
@@ -79,6 +81,10 @@ function AssignmentCard({
   const unread = hasUnreadComments(assignment.id);
   const assignmentSubtasks = subtasks[assignment.id] || assignment.subtasks || [];
   const completedCount = assignmentSubtasks.filter((s) => s.isCompleted).length;
+  const checklistSummary = commentChecklistSummaries?.[assignment.id] || {
+    total: 0,
+    completed: 0
+  };
   const assignedToLabel =
     assignment.assignedTo && assignment.assignedTo.trim().length > 0
       ? assignment.assignedTo
@@ -138,6 +144,12 @@ function AssignmentCard({
         >
           💬 {commentCounts[assignment.id] || 0}{" "}
           {openComments[assignment.id] ? "Hide" : "Comments"}
+          {checklistSummary.total > 0 && (
+            <span className="comments-checklist-summary">
+              {" "}
+              ☑ {checklistSummary.completed}/{checklistSummary.total}
+            </span>
+          )}
           {!openComments[assignment.id] && unread && (
             <span className="comments-new-indicator">New</span>
           )}
@@ -190,6 +202,12 @@ function AssignmentCard({
           handleToggleCommentFlag={handleToggleCommentFlag}
           handleUpdateCommentNote={handleUpdateCommentNote}
           handleDeleteCommentNote={handleDeleteCommentNote}
+          onChecklistSummaryChange={(summary) =>
+            setCommentChecklistSummaries((prev) => ({
+              ...prev,
+              [assignment.id]: summary
+            }))
+          }
           newCommentText={newCommentText[assignment.id]}
           setNewCommentText={setNewCommentText}
           handleAddComment={handleAddComment}
