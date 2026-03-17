@@ -56,6 +56,8 @@ function App() {
   const [subtaskTitleDrafts, setSubtaskTitleDrafts] = useState({});
   const [editingCommentNotes, setEditingCommentNotes] = useState({});
   const [commentNotes, setCommentNotes] = useState({});
+  const [commentNoteTimestamps, setCommentNoteTimestamps] = useState({});
+  const [subtaskNoteTimestamps, setSubtaskNoteTimestamps] = useState({});
   const [commentFlags, setCommentFlags] = useState({});
   const [commentChecklistSummaries, setCommentChecklistSummaries] = useState({});
   const [draggedSubtaskId, setDraggedSubtaskId] = useState(null);
@@ -479,9 +481,7 @@ function App() {
         const notesPromises = data.map((comment) =>
           fetch(`http://localhost:5000/api/comments/${comment.id}/note`)
             .then((res) => (res.ok ? res.json() : null))
-            .then((noteData) =>
-              noteData?.note ? { id: comment.id, note: noteData.note } : null
-            )
+            .then((noteData) => ({ id: comment.id, noteData }))
             .catch(() => null)
         );
         const flagsPromises = data.map((comment) =>
@@ -496,17 +496,30 @@ function App() {
         );
         Promise.all([...notesPromises, ...flagsPromises]).then((results) => {
           const notesState = {};
+          const noteTimestampState = {};
           const flagsState = {};
           results.forEach((result) => {
             if (result) {
-              if ("note" in result) {
-                notesState[result.id] = result.note;
+              if ("noteData" in result) {
+                if (result.noteData?.note) {
+                  notesState[result.id] = result.noteData.note;
+                }
+                if (result.noteData?.createdDate || result.noteData?.updatedDate) {
+                  noteTimestampState[result.id] = {
+                    createdDate: result.noteData.createdDate || null,
+                    updatedDate: result.noteData.updatedDate || null
+                  };
+                }
               } else if ("isFlagged" in result) {
                 flagsState[result.id] = result.isFlagged;
               }
             }
           });
           setCommentNotes((prev) => ({ ...prev, ...notesState }));
+          setCommentNoteTimestamps((prev) => ({
+            ...prev,
+            ...noteTimestampState
+          }));
           setCommentFlags((prev) => ({ ...prev, ...flagsState }));
         });
       } catch (err) {
@@ -836,6 +849,36 @@ function App() {
           });
           return updated;
         });
+        const noteSubtasks = data.filter((subtask) => subtask.personalNote);
+        if (noteSubtasks.length > 0) {
+          Promise.all(
+            noteSubtasks.map((subtask) =>
+              fetch(`http://localhost:5000/api/subtasks/${subtask.id}/note`)
+                .then((res) => (res.ok ? res.json() : null))
+                .then((noteData) => ({ subtaskId: subtask.id, noteData }))
+                .catch(() => null)
+            )
+          ).then((noteResults) => {
+            const nextTimestamps = {};
+            noteResults.forEach((result) => {
+              if (
+                result?.noteData?.createdDate ||
+                result?.noteData?.updatedDate
+              ) {
+                nextTimestamps[result.subtaskId] = {
+                  createdDate: result.noteData.createdDate || null,
+                  updatedDate: result.noteData.updatedDate || null
+                };
+              }
+            });
+            if (Object.keys(nextTimestamps).length > 0) {
+              setSubtaskNoteTimestamps((prev) => ({
+                ...prev,
+                ...nextTimestamps
+              }));
+            }
+          });
+        }
       } catch (err) {
         setError(err.toString());
       } finally {
@@ -904,6 +947,36 @@ function App() {
               });
               return updated;
             });
+            const noteSubtasks = data.filter((subtask) => subtask.personalNote);
+            if (noteSubtasks.length > 0) {
+              Promise.all(
+                noteSubtasks.map((subtask) =>
+                  fetch(`http://localhost:5000/api/subtasks/${subtask.id}/note`)
+                    .then((res) => (res.ok ? res.json() : null))
+                    .then((noteData) => ({ subtaskId: subtask.id, noteData }))
+                    .catch(() => null)
+                )
+              ).then((noteResults) => {
+                const nextTimestamps = {};
+                noteResults.forEach((result) => {
+                  if (
+                    result?.noteData?.createdDate ||
+                    result?.noteData?.updatedDate
+                  ) {
+                    nextTimestamps[result.subtaskId] = {
+                      createdDate: result.noteData.createdDate || null,
+                      updatedDate: result.noteData.updatedDate || null
+                    };
+                  }
+                });
+                if (Object.keys(nextTimestamps).length > 0) {
+                  setSubtaskNoteTimestamps((prev) => ({
+                    ...prev,
+                    ...nextTimestamps
+                  }));
+                }
+              });
+            }
           }
         } catch (fetchErr) {
           console.error("Error refetching subtasks:", fetchErr);
@@ -984,6 +1057,11 @@ function App() {
         delete updated[subtaskId];
         return updated;
       });
+      setSubtaskNoteTimestamps((prev) => {
+        const updated = { ...prev };
+        delete updated[subtaskId];
+        return updated;
+      });
     } catch (err) {
       setError(err.toString());
     }
@@ -1030,6 +1108,33 @@ function App() {
           });
           return updated;
         });
+        const noteSubtasks = data.filter((subtask) => subtask.personalNote);
+        if (noteSubtasks.length > 0) {
+          Promise.all(
+            noteSubtasks.map((subtask) =>
+              fetch(`http://localhost:5000/api/subtasks/${subtask.id}/note`)
+                .then((res) => (res.ok ? res.json() : null))
+                .then((noteData) => ({ subtaskId: subtask.id, noteData }))
+                .catch(() => null)
+            )
+          ).then((noteResults) => {
+            const nextTimestamps = {};
+            noteResults.forEach((result) => {
+              if (result?.noteData?.createdDate || result?.noteData?.updatedDate) {
+                nextTimestamps[result.subtaskId] = {
+                  createdDate: result.noteData.createdDate || null,
+                  updatedDate: result.noteData.updatedDate || null
+                };
+              }
+            });
+            if (Object.keys(nextTimestamps).length > 0) {
+              setSubtaskNoteTimestamps((prev) => ({
+                ...prev,
+                ...nextTimestamps
+              }));
+            }
+          });
+        }
       }
     } catch (err) {
       setError(err.toString());
@@ -1155,6 +1260,22 @@ function App() {
         ...prev,
         [subtaskId]: note || null
       }));
+      const noteResponse = await fetch(
+        `http://localhost:5000/api/subtasks/${subtaskId}/note`
+      );
+      if (noteResponse.ok) {
+        const noteData = await noteResponse.json();
+        setSubtaskNoteTimestamps((prev) => ({
+          ...prev,
+          [subtaskId]:
+            noteData?.createdDate || noteData?.updatedDate
+              ? {
+                  createdDate: noteData.createdDate || null,
+                  updatedDate: noteData.updatedDate || null
+                }
+              : null
+        }));
+      }
       setEditingNotes((prev) => ({
         ...prev,
         [subtaskId]: false
@@ -1252,9 +1373,20 @@ function App() {
         throw new Error("Failed to update comment note");
       }
 
+      const noteData = await response.json();
       setCommentNotes((prev) => ({
         ...prev,
-        [commentId]: note || null
+        [commentId]: noteData?.note || null
+      }));
+      setCommentNoteTimestamps((prev) => ({
+        ...prev,
+        [commentId]:
+          noteData?.createdDate || noteData?.updatedDate
+            ? {
+                createdDate: noteData.createdDate || null,
+                updatedDate: noteData.updatedDate || null
+              }
+            : null
       }));
       setEditingCommentNotes((prev) => ({
         ...prev,
@@ -1623,9 +1755,11 @@ function App() {
                 setCommentSortNewestFirst,
                 commentFlags,
                 commentNotes,
+                commentNoteTimestamps,
                 editingCommentNotes,
                 setEditingCommentNotes,
                 setCommentNotes,
+                setCommentNoteTimestamps,
                 sortCommentsByDate,
                 currentUser,
                 getUserColor,
@@ -1651,6 +1785,7 @@ function App() {
                 subtaskTitleDrafts,
                 editingNotes,
                 subtaskNotes,
+                subtaskNoteTimestamps,
                 handleDragStart,
                 handleDragOver,
                 handleDragLeave,

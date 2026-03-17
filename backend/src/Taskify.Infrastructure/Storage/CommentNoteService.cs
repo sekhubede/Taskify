@@ -16,18 +16,24 @@ public class CommentNoteService
         return _noteStore.GetNote(commentId);
     }
 
-    public void UpdateCommentNote(int commentId, string? note)
+    public CommentNoteItem? GetCommentNoteItem(int commentId)
+    {
+        return _noteStore.GetNoteItem(commentId);
+    }
+
+    public CommentNoteItem? UpdateCommentNote(int commentId, string? note)
     {
         if (string.IsNullOrWhiteSpace(note))
         {
             _noteStore.DeleteNote(commentId);
+            return null;
         }
         else
         {
             if (note.Length > 1000)
                 throw new ArgumentException("Comment note cannot exceed 1000 characters");
             
-            _noteStore.SaveNote(commentId, note);
+            return _noteStore.SaveNote(commentId, note);
         }
     }
 }

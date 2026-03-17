@@ -10,9 +10,11 @@ function CommentsSection({
   setCommentSortNewestFirst,
   commentFlags,
   commentNotes,
+  commentNoteTimestamps,
   editingCommentNotes,
   setEditingCommentNotes,
   setCommentNotes,
+  setCommentNoteTimestamps,
   sortCommentsByDate,
   currentUser,
   getUserColor,
@@ -25,6 +27,24 @@ function CommentsSection({
   setNewCommentText,
   handleAddComment
 }) {
+  const formatLocalTimestamp = (value) => {
+    if (!value) return "";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    return date.toLocaleString();
+  };
+
+  const formatAuditLabel = (createdDate, updatedDate) => {
+    const created = formatLocalTimestamp(createdDate);
+    const updated = formatLocalTimestamp(updatedDate);
+    if (updated && created && updated !== created) {
+      return `Added ${created} • Updated ${updated}`;
+    }
+    if (updated) return `Added ${updated}`;
+    if (created) return `Added ${created}`;
+    return "";
+  };
+
   const hexToRgba = (hex, opacity) => {
     const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
     if (!result) return hex;
@@ -64,6 +84,15 @@ function CommentsSection({
             [commentId]: data.note
           }));
         }
+        if (data?.createdDate || data?.updatedDate) {
+          setCommentNoteTimestamps((prev) => ({
+            ...prev,
+            [commentId]: {
+              createdDate: data.createdDate || null,
+              updatedDate: data.updatedDate || null
+            }
+          }));
+        }
       })
       .catch((err) => console.error("Error loading comment note:", err));
   };
@@ -72,7 +101,9 @@ function CommentsSection({
     if (commentSubtasks[commentId] || loadingCommentSubtasks[commentId]) return;
 
     setLoadingCommentSubtasks((prev) => ({ ...prev, [commentId]: true }));
-    fetch(`http://localhost:5000/api/comments/${commentId}/subtasks`)
+    fetch(
+      `http://localhost:5000/api/assignments/${assignmentId}/comments/${commentId}/subtasks`
+    )
       .then((res) => (res.ok ? res.json() : []))
       .then((data) => {
         setCommentSubtasks((prev) => ({ ...prev, [commentId]: data || [] }));
@@ -97,7 +128,7 @@ function CommentsSection({
         const entries = await Promise.all(
           allComments.map(async (comment) => {
             const res = await fetch(
-              `http://localhost:5000/api/comments/${comment.id}/subtasks`
+              `http://localhost:5000/api/assignments/${assignmentId}/comments/${comment.id}/subtasks`
             );
             if (!res.ok) return [comment.id, []];
             const items = await res.json();
@@ -132,7 +163,7 @@ function CommentsSection({
 
     try {
       const response = await fetch(
-        `http://localhost:5000/api/comments/${commentId}/subtasks`,
+        `http://localhost:5000/api/assignments/${assignmentId}/comments/${commentId}/subtasks`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -295,11 +326,14 @@ function CommentsSection({
     });
 
     try {
-      await fetch(`http://localhost:5000/api/comments/${commentId}/subtasks/reorder`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subtaskOrders: orderPayload })
-      });
+      await fetch(
+        `http://localhost:5000/api/assignments/${assignmentId}/comments/${commentId}/subtasks/reorder`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ subtaskOrders: orderPayload })
+        }
+      );
     } catch (err) {
       console.error("Error reordering checklist items:", err);
     } finally {
@@ -627,6 +661,14 @@ function CommentsSection({
                     <span className="comment-note-text">
                       {commentNotes[comment.id]}
                     </span>
+                    {commentNoteTimestamps?.[comment.id] && (
+                      <span className="item-audit-stamp">
+                        {formatAuditLabel(
+                          commentNoteTimestamps[comment.id].createdDate,
+                          commentNoteTimestamps[comment.id].updatedDate
+                        )}
+                      </span>
+                    )}
                   </div>
                 )}
 
@@ -706,6 +748,12 @@ function CommentsSection({
                                     </span>
                                   )}
                                 </label>
+                                <span className="item-audit-stamp">
+                                  {formatAuditLabel(
+                                    item.createdDate,
+                                    item.updatedDate
+                                  )}
+                                </span>
                                 {editingChecklistTitles[item.id] ? (
                                   <>
                                     <button

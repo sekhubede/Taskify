@@ -4,6 +4,7 @@ namespace Taskify.Infrastructure.Storage;
 
 public class CommentSubtaskStore
 {
+    private const string LegacyScopePrefix = "legacy:";
     private readonly string _storageFilePath;
     private readonly object _syncRoot = new();
     private CommentSubtaskStoreModel _model;
@@ -20,11 +21,18 @@ public class CommentSubtaskStore
         _model = Load();
     }
 
-    public List<CommentSubtaskItem> GetSubtasksForComment(int commentId)
+    public List<CommentSubtaskItem> GetSubtasksForComment(int assignmentId, int commentId)
     {
         lock (_syncRoot)
         {
-            if (!_model.CommentIdToSubtasks.TryGetValue(commentId, out var items))
+            var scopeKey = BuildScopeKey(assignmentId, commentId);
+            if (!_model.CommentScopeToSubtasks.TryGetValue(scopeKey, out var items))
+            {
+                var legacyScopeKey = BuildLegacyScopeKey(commentId);
+                _model.CommentScopeToSubtasks.TryGetValue(legacyScopeKey, out items);
+            }
+
+            if (items == null)
                 return new List<CommentSubtaskItem>();
 
             return items
@@ -32,24 +40,30 @@ public class CommentSubtaskStore
                 .Select(i => new CommentSubtaskItem
                 {
                     Id = i.Id,
+                    AssignmentId = assignmentId,
                     CommentId = commentId,
                     Title = i.Title,
                     IsCompleted = i.IsCompleted,
                     Order = i.Order,
                     CreatedDate = i.CreatedDate,
-                    CompletedDate = i.CompletedDate
+                    CompletedDate = i.CompletedDate,
+                    UpdatedDate = i.UpdatedDate
                 })
                 .ToList();
         }
     }
 
-    public CommentSubtaskItem AddSubtask(int commentId, string title, int? order = null)
+    public CommentSubtaskItem AddSubtask(int assignmentId, int commentId, string title, int? order = null)
     {
         lock (_syncRoot)
         {
             var id = _model.NextId++;
             var now = DateTime.UtcNow;
-            var list = _model.CommentIdToSubtasks.GetValueOrDefault(commentId) ?? new List<CommentSubtaskItemModel>();
+            var scopeKey = BuildScopeKey(assignmentId, commentId);
+            var legacyScopeKey = BuildLegacyScopeKey(commentId);
+            var list = _model.CommentScopeToSubtasks.GetValueOrDefault(scopeKey)
+                ?? _model.CommentScopeToSubtasks.GetValueOrDefault(legacyScopeKey)
+                ?? new List<CommentSubtaskItemModel>();
             var newOrder = order ?? (list.Count == 0 ? 0 : list.Max(i => i.Order) + 1);
 
             var item = new CommentSubtaskItemModel
@@ -58,11 +72,14 @@ public class CommentSubtaskStore
                 Title = title,
                 IsCompleted = false,
                 Order = newOrder,
-                CreatedDate = now
+                CreatedDate = now,
+                UpdatedDate = now
             };
 
-            if (!_model.CommentIdToSubtasks.ContainsKey(commentId))
-                _model.CommentIdToSubtasks[commentId] = list;
+            if (!_model.CommentScopeToSubtasks.ContainsKey(scopeKey))
+                _model.CommentScopeToSubtasks[scopeKey] = list;
+            if (_model.CommentScopeToSubtasks.ContainsKey(legacyScopeKey))
+                _model.CommentScopeToSubtasks.Remove(legacyScopeKey);
 
             list.Add(item);
             Persist();
@@ -70,11 +87,13 @@ public class CommentSubtaskStore
             return new CommentSubtaskItem
             {
                 Id = id,
+                AssignmentId = assignmentId,
                 CommentId = commentId,
                 Title = title,
                 IsCompleted = false,
                 Order = newOrder,
-                CreatedDate = now
+                CreatedDate = now,
+                UpdatedDate = now
             };
         }
     }
@@ -83,7 +102,7 @@ public class CommentSubtaskStore
     {
         lock (_syncRoot)
         {
-            foreach (var kvp in _model.CommentIdToSubtasks)
+            foreach (var kvp in _model.CommentScopeToSubtasks)
             {
                 var item = kvp.Value.FirstOrDefault(i => i.Id == subtaskId);
                 if (item == null)
@@ -91,6 +110,7 @@ public class CommentSubtaskStore
 
                 item.IsCompleted = isCompleted;
                 item.CompletedDate = isCompleted ? DateTime.UtcNow : null;
+                item.UpdatedDate = DateTime.UtcNow;
                 Persist();
                 return true;
             }
@@ -103,13 +123,14 @@ public class CommentSubtaskStore
     {
         lock (_syncRoot)
         {
-            foreach (var kvp in _model.CommentIdToSubtasks)
+            foreach (var kvp in _model.CommentScopeToSubtasks)
             {
                 var item = kvp.Value.FirstOrDefault(i => i.Id == subtaskId);
                 if (item == null)
                     continue;
 
                 item.Title = title;
+                item.UpdatedDate = DateTime.UtcNow;
                 Persist();
                 return true;
             }
@@ -118,18 +139,33 @@ public class CommentSubtaskStore
         }
     }
 
-    public bool ReorderSubtasks(int commentId, Dictionary<int, int> subtaskIdToOrder)
+    public bool ReorderSubtasks(int assignmentId, int commentId, Dictionary<int, int> subtaskIdToOrder)
     {
         lock (_syncRoot)
         {
-            if (!_model.CommentIdToSubtasks.TryGetValue(commentId, out var items))
+            var scopeKey = BuildScopeKey(assignmentId, commentId);
+            if (!_model.CommentScopeToSubtasks.TryGetValue(scopeKey, out var items))
+            {
+                var legacyScopeKey = BuildLegacyScopeKey(commentId);
+                if (_model.CommentScopeToSubtasks.TryGetValue(legacyScopeKey, out var legacyItems))
+                {
+                    items = legacyItems;
+                    _model.CommentScopeToSubtasks[scopeKey] = items;
+                    _model.CommentScopeToSubtasks.Remove(legacyScopeKey);
+                }
+            }
+
+            if (items == null)
                 return false;
 
             foreach (var kvp in subtaskIdToOrder)
             {
                 var item = items.FirstOrDefault(i => i.Id == kvp.Key);
                 if (item != null)
+                {
                     item.Order = kvp.Value;
+                    item.UpdatedDate = DateTime.UtcNow;
+                }
             }
 
             Persist();
@@ -141,7 +177,7 @@ public class CommentSubtaskStore
     {
         lock (_syncRoot)
         {
-            foreach (var kvp in _model.CommentIdToSubtasks)
+            foreach (var kvp in _model.CommentScopeToSubtasks)
             {
                 var item = kvp.Value.FirstOrDefault(i => i.Id == subtaskId);
                 if (item == null)
@@ -163,12 +199,38 @@ public class CommentSubtaskStore
             if (File.Exists(_storageFilePath))
             {
                 var json = File.ReadAllText(_storageFilePath);
-                var loaded = JsonSerializer.Deserialize<CommentSubtaskStoreModel>(json);
-                if (loaded != null)
+                using var document = JsonDocument.Parse(json);
+                var root = document.RootElement;
+                var loaded = new CommentSubtaskStoreModel();
+                if (root.TryGetProperty("NextId", out var nextIdElement) &&
+                    nextIdElement.ValueKind == JsonValueKind.Number)
                 {
-                    loaded.CommentIdToSubtasks ??= new Dictionary<int, List<CommentSubtaskItemModel>>();
-                    return loaded;
+                    loaded.NextId = nextIdElement.GetInt32();
                 }
+
+                if (root.TryGetProperty("CommentScopeToSubtasks", out var scopedElement) &&
+                    scopedElement.ValueKind == JsonValueKind.Object)
+                {
+                    loaded.CommentScopeToSubtasks = DeserializeScopedMap(scopedElement);
+                }
+                else if (root.TryGetProperty("CommentIdToSubtasks", out var legacyElement) &&
+                    legacyElement.ValueKind == JsonValueKind.Object)
+                {
+                    loaded.CommentScopeToSubtasks = DeserializeLegacyMap(legacyElement);
+                }
+
+                foreach (var items in loaded.CommentScopeToSubtasks.Values)
+                {
+                    foreach (var item in items)
+                    {
+                        if (item.CreatedDate == default)
+                            item.CreatedDate = DateTime.UtcNow;
+                        if (item.UpdatedDate == default)
+                            item.UpdatedDate = item.CreatedDate;
+                    }
+                }
+
+                return loaded;
             }
         }
         catch (Exception ex)
@@ -179,7 +241,7 @@ public class CommentSubtaskStore
         return new CommentSubtaskStoreModel
         {
             NextId = 1,
-            CommentIdToSubtasks = new Dictionary<int, List<CommentSubtaskItemModel>>()
+            CommentScopeToSubtasks = new Dictionary<string, List<CommentSubtaskItemModel>>()
         };
     }
 
@@ -199,7 +261,7 @@ public class CommentSubtaskStore
     private class CommentSubtaskStoreModel
     {
         public int NextId { get; set; }
-        public Dictionary<int, List<CommentSubtaskItemModel>> CommentIdToSubtasks { get; set; } = new();
+        public Dictionary<string, List<CommentSubtaskItemModel>> CommentScopeToSubtasks { get; set; } = new();
     }
 
     private class CommentSubtaskItemModel
@@ -210,16 +272,50 @@ public class CommentSubtaskStore
         public int Order { get; set; }
         public DateTime CreatedDate { get; set; }
         public DateTime? CompletedDate { get; set; }
+        public DateTime UpdatedDate { get; set; }
+    }
+
+    private static string BuildScopeKey(int assignmentId, int commentId) =>
+        $"{assignmentId}:{commentId}";
+
+    private static string BuildLegacyScopeKey(int commentId) =>
+        $"{LegacyScopePrefix}{commentId}";
+
+    private static Dictionary<string, List<CommentSubtaskItemModel>> DeserializeScopedMap(JsonElement scopedElement)
+    {
+        var result = new Dictionary<string, List<CommentSubtaskItemModel>>();
+        foreach (var property in scopedElement.EnumerateObject())
+        {
+            var list = property.Value.Deserialize<List<CommentSubtaskItemModel>>() ?? new List<CommentSubtaskItemModel>();
+            result[property.Name] = list;
+        }
+        return result;
+    }
+
+    private static Dictionary<string, List<CommentSubtaskItemModel>> DeserializeLegacyMap(JsonElement legacyElement)
+    {
+        var result = new Dictionary<string, List<CommentSubtaskItemModel>>();
+        foreach (var property in legacyElement.EnumerateObject())
+        {
+            if (!int.TryParse(property.Name, out var commentId))
+                continue;
+
+            var list = property.Value.Deserialize<List<CommentSubtaskItemModel>>() ?? new List<CommentSubtaskItemModel>();
+            result[BuildLegacyScopeKey(commentId)] = list;
+        }
+        return result;
     }
 }
 
 public class CommentSubtaskItem
 {
     public int Id { get; set; }
+    public int AssignmentId { get; set; }
     public int CommentId { get; set; }
     public string Title { get; set; } = string.Empty;
     public bool IsCompleted { get; set; }
     public int Order { get; set; }
     public DateTime CreatedDate { get; set; }
     public DateTime? CompletedDate { get; set; }
+    public DateTime UpdatedDate { get; set; }
 }

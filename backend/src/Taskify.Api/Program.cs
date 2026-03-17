@@ -9,6 +9,7 @@ using Microsoft.Extensions.Caching.Memory;
 
 
 var builder = WebApplication.CreateBuilder(args);
+var localStorageDirectory = ResolveLocalStorageDirectory(builder.Configuration, builder.Environment.ContentRootPath);
 
 // Logging
 builder.Services.AddLogging(logging =>
@@ -42,14 +43,14 @@ builder.Services.AddSingleton<ITaskDataSource>(sp =>
 });
 
 // ── Local Storage (Taskify-owned data: subtasks, notes, flags, board) ──
-builder.Services.AddSingleton<SubtaskStore>();
-builder.Services.AddSingleton<SubtaskNoteStore>();
-builder.Services.AddSingleton<CommentNoteStore>();
-builder.Services.AddSingleton<CommentFlagStore>();
-builder.Services.AddSingleton<CommentSubtaskStore>();
-builder.Services.AddSingleton<QuickTaskStore>();
-builder.Services.AddSingleton<AssignmentBoardStore>();
-builder.Services.AddSingleton<WorkingOnStore>();
+builder.Services.AddSingleton(new SubtaskStore(localStorageDirectory));
+builder.Services.AddSingleton(new SubtaskNoteStore(localStorageDirectory));
+builder.Services.AddSingleton(new CommentNoteStore(localStorageDirectory));
+builder.Services.AddSingleton(new CommentFlagStore(localStorageDirectory));
+builder.Services.AddSingleton(new CommentSubtaskStore(localStorageDirectory));
+builder.Services.AddSingleton(new QuickTaskStore(localStorageDirectory));
+builder.Services.AddSingleton(new AssignmentBoardStore(localStorageDirectory));
+builder.Services.AddSingleton(new WorkingOnStore(localStorageDirectory));
 
 // ── Repositories ──
 builder.Services.AddScoped<ISubtaskRepository, LocalSubtaskRepository>();
@@ -258,8 +259,13 @@ app.MapPost("api/assignments/{id:int}/comments", async (int id, CommentService s
 });
 app.MapGet("api/comments/{id:int}/note", (int id, CommentNoteService svc) =>
 {
-    var note = svc.GetCommentNote(id);
-    return Results.Ok(new { note });
+    var note = svc.GetCommentNoteItem(id);
+    return Results.Ok(new
+    {
+        note = note?.Note,
+        createdDate = note?.CreatedDate,
+        updatedDate = note?.UpdatedDate
+    });
 });
 app.MapPut("api/comments/{id:int}/note", async (int id, CommentNoteService svc, HttpRequest req) =>
 {
@@ -268,13 +274,28 @@ app.MapPut("api/comments/{id:int}/note", async (int id, CommentNoteService svc, 
         return Results.BadRequest("body required");
     try
     {
-        svc.UpdateCommentNote(id, body.Note);
-        return Results.Ok();
+        var updated = svc.UpdateCommentNote(id, body.Note);
+        return Results.Ok(new
+        {
+            note = updated?.Note,
+            createdDate = updated?.CreatedDate,
+            updatedDate = updated?.UpdatedDate
+        });
     }
     catch (ArgumentException ex)
     {
         return Results.BadRequest(ex.Message);
     }
+});
+app.MapGet("api/subtasks/{id:int}/note", (int id, SubtaskNoteStore store) =>
+{
+    var note = store.GetNoteItem(id);
+    return Results.Ok(new
+    {
+        note = note?.Note,
+        createdDate = note?.CreatedDate,
+        updatedDate = note?.UpdatedDate
+    });
 });
 app.MapGet("api/comments/{id:int}/flag", (int id, CommentFlagService svc) =>
 {
@@ -289,11 +310,11 @@ app.MapPut("api/comments/{id:int}/flag", async (int id, CommentFlagService svc, 
     svc.SetCommentFlag(id, body.IsFlagged);
     return Results.Ok();
 });
-app.MapGet("api/comments/{id:int}/subtasks", (int id, CommentSubtaskService svc) =>
+app.MapGet("api/assignments/{assignmentId:int}/comments/{id:int}/subtasks", (int assignmentId, int id, CommentSubtaskService svc) =>
 {
     try
     {
-        var subtasks = svc.GetCommentSubtasks(id);
+        var subtasks = svc.GetCommentSubtasks(assignmentId, id);
         return Results.Ok(subtasks);
     }
     catch (ArgumentException ex)
@@ -301,7 +322,7 @@ app.MapGet("api/comments/{id:int}/subtasks", (int id, CommentSubtaskService svc)
         return Results.BadRequest(ex.Message);
     }
 });
-app.MapPost("api/comments/{id:int}/subtasks", async (int id, CommentSubtaskService svc, HttpRequest req) =>
+app.MapPost("api/assignments/{assignmentId:int}/comments/{id:int}/subtasks", async (int assignmentId, int id, CommentSubtaskService svc, HttpRequest req) =>
 {
     var body = await req.ReadFromJsonAsync<AddCommentSubtaskRequest>();
     if (body == null || string.IsNullOrWhiteSpace(body.Title))
@@ -309,7 +330,7 @@ app.MapPost("api/comments/{id:int}/subtasks", async (int id, CommentSubtaskServi
 
     try
     {
-        var subtask = svc.AddCommentSubtask(id, body.Title, body.Order);
+        var subtask = svc.AddCommentSubtask(assignmentId, id, body.Title, body.Order);
         return Results.Ok(subtask);
     }
     catch (ArgumentException ex)
@@ -349,7 +370,7 @@ app.MapPut("api/comments/subtasks/{id:int}/title", async (int id, CommentSubtask
         return Results.BadRequest(ex.Message);
     }
 });
-app.MapPut("api/comments/{id:int}/subtasks/reorder", async (int id, CommentSubtaskService svc, HttpRequest req) =>
+app.MapPut("api/assignments/{assignmentId:int}/comments/{id:int}/subtasks/reorder", async (int assignmentId, int id, CommentSubtaskService svc, HttpRequest req) =>
 {
     var body = await req.ReadFromJsonAsync<ReorderCommentSubtasksRequest>();
     if (body == null || body.SubtaskOrders == null || body.SubtaskOrders.Count == 0)
@@ -357,7 +378,7 @@ app.MapPut("api/comments/{id:int}/subtasks/reorder", async (int id, CommentSubta
 
     try
     {
-        svc.ReorderCommentSubtasks(id, body.SubtaskOrders);
+        svc.ReorderCommentSubtasks(assignmentId, id, body.SubtaskOrders);
         return Results.Ok();
     }
     catch (ArgumentException ex)
@@ -753,6 +774,42 @@ static async Task<Dictionary<int, int>> GetOrCreateAttachmentCountsAsync(
     });
 
     return counts ?? new Dictionary<int, int>();
+}
+
+static string ResolveLocalStorageDirectory(IConfiguration configuration, string contentRootPath)
+{
+    // Optional override in appsettings: "Taskify:LocalStorageDirectory"
+    var configuredPath = configuration["Taskify:LocalStorageDirectory"];
+    if (!string.IsNullOrWhiteSpace(configuredPath))
+    {
+        return Path.IsPathRooted(configuredPath)
+            ? configuredPath
+            : Path.GetFullPath(Path.Combine(contentRootPath, configuredPath));
+    }
+
+    // Try known historical locations first to avoid switching datasets
+    // between dotnet run and published dll executions.
+    var candidateDirectories = new[]
+    {
+        Path.Combine(contentRootPath, "publish", "api", "storage"),
+        Path.GetFullPath(Path.Combine(contentRootPath, "..", "publish", "api", "storage")),
+        Path.GetFullPath(Path.Combine(contentRootPath, "..", "..", "publish", "api", "storage")),
+        Path.Combine(contentRootPath, "storage"),
+        Path.GetFullPath(Path.Combine(contentRootPath, "..", "storage")),
+        Path.GetFullPath(Path.Combine(contentRootPath, "..", "..", "storage"))
+    }
+    .Distinct(StringComparer.OrdinalIgnoreCase)
+    .ToList();
+
+    foreach (var candidate in candidateDirectories)
+    {
+        if (Directory.Exists(candidate))
+        {
+            return candidate;
+        }
+    }
+
+    return Path.Combine(contentRootPath, "storage");
 }
 
 public record AddCommentRequest(string Content);

@@ -42,7 +42,8 @@ public class QuickTaskStore
                 Id = _model.NextTaskId++,
                 Title = title,
                 IsCompleted = false,
-                CreatedDate = now
+                CreatedDate = now,
+                UpdatedDate = now
             };
             _model.Tasks.Add(task);
             Persist();
@@ -59,6 +60,7 @@ public class QuickTaskStore
                 return false;
 
             task.Title = title;
+            task.UpdatedDate = DateTime.UtcNow;
             Persist();
             return true;
         }
@@ -74,6 +76,7 @@ public class QuickTaskStore
 
             task.IsCompleted = isCompleted;
             task.CompletedDate = isCompleted ? DateTime.UtcNow : null;
+            task.UpdatedDate = DateTime.UtcNow;
             Persist();
             return true;
         }
@@ -108,7 +111,8 @@ public class QuickTaskStore
                     Id = c.Id,
                     TaskId = taskId,
                     Content = c.Content,
-                    CreatedDate = c.CreatedDate
+                    CreatedDate = c.CreatedDate,
+                    UpdatedDate = c.UpdatedDate
                 })
                 .ToList();
         }
@@ -126,9 +130,11 @@ public class QuickTaskStore
             {
                 Id = _model.NextCommentId++,
                 Content = content,
-                CreatedDate = DateTime.UtcNow
+                CreatedDate = DateTime.UtcNow,
+                UpdatedDate = DateTime.UtcNow
             };
             task.Comments.Add(comment);
+            task.UpdatedDate = DateTime.UtcNow;
             Persist();
 
             return new QuickTaskCommentItem
@@ -136,7 +142,8 @@ public class QuickTaskStore
                 Id = comment.Id,
                 TaskId = taskId,
                 Content = comment.Content,
-                CreatedDate = comment.CreatedDate
+                CreatedDate = comment.CreatedDate,
+                UpdatedDate = comment.UpdatedDate
             };
         }
     }
@@ -152,6 +159,8 @@ public class QuickTaskStore
                     continue;
 
                 comment.Content = content;
+                comment.UpdatedDate = DateTime.UtcNow;
+                task.UpdatedDate = DateTime.UtcNow;
                 Persist();
                 return true;
             }
@@ -171,6 +180,7 @@ public class QuickTaskStore
                     continue;
 
                 task.Comments.Remove(comment);
+                task.UpdatedDate = DateTime.UtcNow;
                 Persist();
                 return true;
             }
@@ -197,7 +207,8 @@ public class QuickTaskStore
                     IsCompleted = i.IsCompleted,
                     Order = i.Order,
                     CreatedDate = i.CreatedDate,
-                    CompletedDate = i.CompletedDate
+                    CompletedDate = i.CompletedDate,
+                    UpdatedDate = i.UpdatedDate
                 })
                 .ToList();
         }
@@ -218,10 +229,12 @@ public class QuickTaskStore
                 Title = title,
                 IsCompleted = false,
                 Order = newOrder,
-                CreatedDate = DateTime.UtcNow
+                CreatedDate = DateTime.UtcNow,
+                UpdatedDate = DateTime.UtcNow
             };
 
             task.Checklist.Add(item);
+            task.UpdatedDate = DateTime.UtcNow;
             Persist();
 
             return new QuickTaskChecklistItem
@@ -231,7 +244,8 @@ public class QuickTaskStore
                 Title = item.Title,
                 IsCompleted = item.IsCompleted,
                 Order = item.Order,
-                CreatedDate = item.CreatedDate
+                CreatedDate = item.CreatedDate,
+                UpdatedDate = item.UpdatedDate
             };
         }
     }
@@ -248,6 +262,8 @@ public class QuickTaskStore
 
                 item.IsCompleted = isCompleted;
                 item.CompletedDate = isCompleted ? DateTime.UtcNow : null;
+                item.UpdatedDate = DateTime.UtcNow;
+                task.UpdatedDate = DateTime.UtcNow;
                 Persist();
                 return true;
             }
@@ -267,6 +283,8 @@ public class QuickTaskStore
                     continue;
 
                 item.Title = title;
+                item.UpdatedDate = DateTime.UtcNow;
+                task.UpdatedDate = DateTime.UtcNow;
                 Persist();
                 return true;
             }
@@ -287,9 +305,13 @@ public class QuickTaskStore
             {
                 var item = task.Checklist.FirstOrDefault(i => i.Id == kvp.Key);
                 if (item != null)
+                {
                     item.Order = kvp.Value;
+                    item.UpdatedDate = DateTime.UtcNow;
+                }
             }
 
+            task.UpdatedDate = DateTime.UtcNow;
             Persist();
             return true;
         }
@@ -306,6 +328,7 @@ public class QuickTaskStore
                     continue;
 
                 task.Checklist.Remove(item);
+                task.UpdatedDate = DateTime.UtcNow;
                 Persist();
                 return true;
             }
@@ -323,6 +346,7 @@ public class QuickTaskStore
             IsCompleted = model.IsCompleted,
             CreatedDate = model.CreatedDate,
             CompletedDate = model.CompletedDate,
+            UpdatedDate = model.UpdatedDate,
             Comments = model.Comments
                 .OrderBy(c => c.CreatedDate)
                 .Select(c => new QuickTaskCommentItem
@@ -330,7 +354,8 @@ public class QuickTaskStore
                     Id = c.Id,
                     TaskId = model.Id,
                     Content = c.Content,
-                    CreatedDate = c.CreatedDate
+                    CreatedDate = c.CreatedDate,
+                    UpdatedDate = c.UpdatedDate
                 })
                 .ToList(),
             Checklist = model.Checklist
@@ -343,7 +368,8 @@ public class QuickTaskStore
                     IsCompleted = i.IsCompleted,
                     Order = i.Order,
                     CreatedDate = i.CreatedDate,
-                    CompletedDate = i.CompletedDate
+                    CompletedDate = i.CompletedDate,
+                    UpdatedDate = i.UpdatedDate
                 })
                 .ToList()
         };
@@ -362,8 +388,26 @@ public class QuickTaskStore
                     loaded.Tasks ??= new List<QuickTaskModel>();
                     foreach (var task in loaded.Tasks)
                     {
+                        if (task.CreatedDate == default)
+                            task.CreatedDate = DateTime.UtcNow;
+                        if (task.UpdatedDate == default)
+                            task.UpdatedDate = task.CreatedDate;
                         task.Comments ??= new List<QuickTaskCommentModel>();
+                        foreach (var comment in task.Comments)
+                        {
+                            if (comment.CreatedDate == default)
+                                comment.CreatedDate = task.CreatedDate;
+                            if (comment.UpdatedDate == default)
+                                comment.UpdatedDate = comment.CreatedDate;
+                        }
                         task.Checklist ??= new List<QuickTaskChecklistItemModel>();
+                        foreach (var checklistItem in task.Checklist)
+                        {
+                            if (checklistItem.CreatedDate == default)
+                                checklistItem.CreatedDate = task.CreatedDate;
+                            if (checklistItem.UpdatedDate == default)
+                                checklistItem.UpdatedDate = checklistItem.CreatedDate;
+                        }
                     }
                     return loaded;
                 }
@@ -411,6 +455,7 @@ public class QuickTaskStore
         public bool IsCompleted { get; set; }
         public DateTime CreatedDate { get; set; }
         public DateTime? CompletedDate { get; set; }
+        public DateTime UpdatedDate { get; set; }
         public List<QuickTaskCommentModel> Comments { get; set; } = new();
         public List<QuickTaskChecklistItemModel> Checklist { get; set; } = new();
     }
@@ -420,6 +465,7 @@ public class QuickTaskStore
         public int Id { get; set; }
         public string Content { get; set; } = string.Empty;
         public DateTime CreatedDate { get; set; }
+        public DateTime UpdatedDate { get; set; }
     }
 
     private class QuickTaskChecklistItemModel
@@ -430,6 +476,7 @@ public class QuickTaskStore
         public int Order { get; set; }
         public DateTime CreatedDate { get; set; }
         public DateTime? CompletedDate { get; set; }
+        public DateTime UpdatedDate { get; set; }
     }
 }
 
@@ -440,6 +487,7 @@ public class QuickTaskItem
     public bool IsCompleted { get; set; }
     public DateTime CreatedDate { get; set; }
     public DateTime? CompletedDate { get; set; }
+    public DateTime UpdatedDate { get; set; }
     public List<QuickTaskCommentItem> Comments { get; set; } = new();
     public List<QuickTaskChecklistItem> Checklist { get; set; } = new();
 }
@@ -450,6 +498,7 @@ public class QuickTaskCommentItem
     public int TaskId { get; set; }
     public string Content { get; set; } = string.Empty;
     public DateTime CreatedDate { get; set; }
+    public DateTime UpdatedDate { get; set; }
 }
 
 public class QuickTaskChecklistItem
@@ -461,4 +510,5 @@ public class QuickTaskChecklistItem
     public int Order { get; set; }
     public DateTime CreatedDate { get; set; }
     public DateTime? CompletedDate { get; set; }
+    public DateTime UpdatedDate { get; set; }
 }

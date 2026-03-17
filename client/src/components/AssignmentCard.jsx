@@ -31,9 +31,11 @@ function AssignmentCard({
   setCommentSortNewestFirst,
   commentFlags,
   commentNotes,
+  commentNoteTimestamps,
   editingCommentNotes,
   setEditingCommentNotes,
   setCommentNotes,
+  setCommentNoteTimestamps,
   sortCommentsByDate,
   currentUser,
   getUserColor,
@@ -59,6 +61,7 @@ function AssignmentCard({
   subtaskTitleDrafts,
   editingNotes,
   subtaskNotes,
+  subtaskNoteTimestamps,
   handleDragStart,
   handleDragOver,
   handleDragLeave,
@@ -208,9 +211,11 @@ function AssignmentCard({
           setCommentSortNewestFirst={setCommentSortNewestFirst}
           commentFlags={commentFlags}
           commentNotes={commentNotes}
+          commentNoteTimestamps={commentNoteTimestamps}
           editingCommentNotes={editingCommentNotes}
           setEditingCommentNotes={setEditingCommentNotes}
           setCommentNotes={setCommentNotes}
+          setCommentNoteTimestamps={setCommentNoteTimestamps}
           sortCommentsByDate={sortCommentsByDate}
           currentUser={currentUser}
           getUserColor={getUserColor}
@@ -254,6 +259,7 @@ function AssignmentCard({
           subtaskTitleDrafts={subtaskTitleDrafts}
           editingNotes={editingNotes}
           subtaskNotes={subtaskNotes}
+          subtaskNoteTimestamps={subtaskNoteTimestamps}
           handleDragStart={handleDragStart}
           handleDragOver={handleDragOver}
           handleDragLeave={handleDragLeave}

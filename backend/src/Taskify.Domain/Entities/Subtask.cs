@@ -9,6 +9,7 @@ public class Subtask
     public int Order { get; private set; }
     public DateTime CreatedDate { get; private set; }
     public DateTime? CompletedDate { get; private set; }
+    public DateTime UpdatedDate { get; private set; }
     public string? PersonalNote { get; private set; }
 
     public Subtask(
@@ -19,6 +20,7 @@ public class Subtask
         int order,
         DateTime createdDate,
         DateTime? completedDate = null,
+        DateTime? updatedDate = null,
         string? personalNote = null)
     {
         if (id <= 0)
@@ -43,6 +45,7 @@ public class Subtask
         Order = order;
         CreatedDate = createdDate;
         CompletedDate = completedDate;
+        UpdatedDate = updatedDate ?? createdDate;
         PersonalNote = personalNote;
     }
 
