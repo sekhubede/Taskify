@@ -577,6 +577,27 @@
   margin-bottom: 0.75rem;
 }
 
+.assignment-context-header.sticky {
+  position: sticky;
+  top: max(var(--assignment-controls-offset, 90px), 11.5rem);
+  z-index: 25;
+  margin: 0.35rem -0.45rem 0.65rem;
+  padding: 0.45rem 0.45rem 0.4rem;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.assignment-context-header.sticky .assignment-header {
+  margin-bottom: 0.4rem;
+}
+
+.assignment-context-header.sticky .assignment-assignee-line {
+  margin-bottom: 0;
+}
+
 .assignment-title {
   font-size: 1.1rem;
   font-weight: 500;
@@ -624,6 +645,19 @@
   font-size: 0.85rem;
   color: rgba(255, 255, 255, 0.6);
   flex-wrap: wrap;
+}
+
+.assignment-meta.sticky-actions {
+  position: sticky;
+  top: calc(max(var(--assignment-controls-offset, 90px), 11.5rem) + 4.8rem);
+  z-index: 24;
+  margin: 0.3rem -0.45rem 0.75rem;
+  padding: 0.4rem 0.45rem;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .assignment-assignee-line {

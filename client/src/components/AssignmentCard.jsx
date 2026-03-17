@@ -89,42 +89,55 @@ function AssignmentCard({
     assignment.assignedTo && assignment.assignedTo.trim().length > 0
       ? assignment.assignedTo
       : "Unknown";
+  const hasExpandedDetails = Boolean(
+    openComments[assignment.id] ||
+      openSubtasks[assignment.id] ||
+      openAttachments[assignment.id]
+  );
 
   return (
     <div
       className={`assignment-card ${isWorkingOnCard ? "working-on" : ""} ${unread ? "has-unread-comments" : ""}`}
     >
-      <div className="assignment-header">
-        <div className="assignment-title-row">
-          <button
-            className={`working-on-toggle ${isWorkingOnCard ? "active" : ""}`}
-            onClick={() => handleToggleWorkingOn(assignment.id, !isWorkingOnCard)}
-            title={isWorkingOnCard ? "Remove from Hot Zone" : "Add to Hot Zone"}
+      <div
+        className={`assignment-context-header ${hasExpandedDetails ? "sticky" : ""}`}
+      >
+        <div className="assignment-header">
+          <div className="assignment-title-row">
+            <button
+              className={`working-on-toggle ${isWorkingOnCard ? "active" : ""}`}
+              onClick={() => handleToggleWorkingOn(assignment.id, !isWorkingOnCard)}
+              title={isWorkingOnCard ? "Remove from Hot Zone" : "Add to Hot Zone"}
+            >
+              {isWorkingOnCard ? "🔥" : "⭐"}
+            </button>
+            <h2 className="assignment-title">{assignment.title}</h2>
+            {unread && (
+              <span className="assignment-unread-comments-badge">New comments</span>
+            )}
+          </div>
+          <span
+            className="status-badge"
+            style={{ backgroundColor: getStatusColor(assignment.status) }}
           >
-            {isWorkingOnCard ? "🔥" : "⭐"}
-          </button>
-          <h2 className="assignment-title">{assignment.title}</h2>
-          {unread && (
-            <span className="assignment-unread-comments-badge">New comments</span>
-          )}
+            {getStatusLabel(assignment.status)}
+          </span>
         </div>
-        <span
-          className="status-badge"
-          style={{ backgroundColor: getStatusColor(assignment.status) }}
+        <p
+          className="assignment-assignee-line"
+          title={`Assigned to: ${assignedToLabel}`}
         >
-          {getStatusLabel(assignment.status)}
-        </span>
+          Assigned to: {assignedToLabel}
+        </p>
       </div>
-
-      <p className="assignment-assignee-line" title={`Assigned to: ${assignedToLabel}`}>
-        Assigned to: {assignedToLabel}
-      </p>
 
       {assignment.description && (
         <p className="assignment-description">{assignment.description}</p>
       )}
 
-      <div className="assignment-meta">
+      <div
+        className={`assignment-meta ${hasExpandedDetails ? "sticky-actions" : ""}`}
+      >
         {assignment.dueDate && (
           <span
             className={`due-date ${isOverdue(assignment.dueDate, assignment.status) ? "overdue" : ""}`}
