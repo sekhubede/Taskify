@@ -200,7 +200,12 @@ Automated code quality and coverage checks via GitHub Actions. Requires `SONAR_T
 
 ## Deployment
 
-For local production-style deployment (M-Files connector, published backend, and frontend preview), see:
+For local production-style deployment (M-Files connector, published backend, and frontend preview), including:
+
+- temporary terminal-run mode (stops when terminal closes), and
+- persistent local hosting mode (auto-start after reboot),
+
+see:
 
 - [`docs/deployment/local-production.md`](docs/deployment/local-production.md)
 
