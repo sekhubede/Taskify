@@ -2,6 +2,8 @@
 
 Taskify is a productivity tool that extends M-Files assignment management. It pulls assignments from M-Files and layers on subtasks, personal notes, comment management, and a focused "Hot Zone" view, while also supporting a team oversight mode when broader visibility is needed.
 
+> MVP note: assignment lists currently focus on active work items (completed assignments are excluded from standard views for responsiveness).
+
 ## Overview
 
 - **Purpose:** Enhance task management for M-Files assignments by adding subtasks, personal notes, streamlined comment interaction, and optional team-level visibility.
@@ -79,7 +81,8 @@ Taskify
 │   ├── package.json                  # Node.js dependencies
 │   └── vite.config.js               # Vite configuration
 ├── docs
-│   └── adr/                          # Architecture Decision Records
+│   ├── adr/                          # Architecture Decision Records
+│   └── deployment/                   # Local production deployment guides
 └── .github/workflows/               # CI/CD workflows
 ```
 
@@ -193,6 +196,12 @@ ADRs are stored in [`docs/adr/`](docs/adr/) and document significant architectur
 
 Automated code quality and coverage checks via GitHub Actions. Requires `SONAR_TOKEN` and `GITHUB_TOKEN` secrets in repository settings.
 
+## Deployment
+
+For local production-style deployment (M-Files connector, published backend, and frontend preview), see:
+
+- [`docs/deployment/local-production.md`](docs/deployment/local-production.md)
+
 ## Roadmap
 
 - ✅ Pull assignments from M-Files and display in React frontend
@@ -203,11 +212,13 @@ Automated code quality and coverage checks via GitHub Actions. Requires `SONAR_T
 - ✅ Mark assignments as complete
 - ✅ "Hot Zone" pinning and assignment board
 - ✅ Connector abstraction (Mock + M-Files)
-- 🔜 Component refactoring (extract from monolithic App.jsx)
-- 🔜 New comment indicators
-- 🔜 Subtask editing and enhanced ordering
-- 🔜 Assignment attachments
-- 🔜 Team oversight view (all user assignments)
+- ✅ Component refactoring (extract from monolithic App.jsx)
+- ✅ New comment indicators and unread sorting/filtering
+- ✅ Subtask editing and enhanced ordering
+- ✅ Assignment attachments (list/upload/download/preview)
+- ✅ Team oversight view (all user assignments + assignee filter)
+- ✅ Local comment checklist subtasks (private, local-only)
+- 📋 Local quick tasks (not linked to assignments) with comments/checklists — planned ([#67](https://github.com/sekhubede/Taskify/issues/67))
 - 📋 Cloud-based subtasks, time tracking, AI features (future)
 
 ## License
