@@ -699,6 +699,13 @@ function App() {
     ) {
       return "docx";
     }
+    if (
+      ext === "xlsx" ||
+      normalizedType ===
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    ) {
+      return "xlsx";
+    }
     return "unsupported";
   };
 
@@ -748,6 +755,7 @@ function App() {
           objectUrl,
           text: "",
           html: "",
+          previewNote: "",
           error: null
         });
         return;
@@ -762,6 +770,7 @@ function App() {
           objectUrl: "",
           text,
           html: "",
+          previewNote: "",
           error: null
         });
         return;
@@ -787,6 +796,49 @@ function App() {
           objectUrl: "",
           text: "",
           html: result.value || "",
+          previewNote: "",
+          error: null
+        });
+        return;
+      }
+
+      if (kind === "xlsx") {
+        const arrayBuffer = await blob.arrayBuffer();
+        const xlsxModule = await import("xlsx");
+        const xlsxApi = xlsxModule.default ?? xlsxModule;
+        const workbook = xlsxApi.read(arrayBuffer, { type: "array" });
+        const firstSheetName = workbook.SheetNames?.[0];
+
+        if (!firstSheetName) {
+          throw new Error("Workbook has no sheets");
+        }
+
+        const firstSheet = workbook.Sheets[firstSheetName];
+        if (!firstSheet) {
+          throw new Error("Unable to read first sheet");
+        }
+
+        let previewNote = `Sheet: ${firstSheetName}`;
+        if (firstSheet["!ref"]) {
+          const range = xlsxApi.utils.decode_range(firstSheet["!ref"]);
+          const maxPreviewRows = 100;
+          const rowCount = range.e.r - range.s.r + 1;
+          if (rowCount > maxPreviewRows) {
+            range.e.r = range.s.r + maxPreviewRows - 1;
+            firstSheet["!ref"] = xlsxApi.utils.encode_range(range);
+            previewNote += ` (showing first ${maxPreviewRows} rows)`;
+          }
+        }
+
+        const html = xlsxApi.utils.sheet_to_html(firstSheet);
+        setAttachmentPreview({
+          fileName: attachment.fileName,
+          kind,
+          contentType,
+          objectUrl: "",
+          text: "",
+          html,
+          previewNote,
           error: null
         });
         return;
@@ -799,6 +851,7 @@ function App() {
         objectUrl: "",
         text: "",
         html: "",
+        previewNote: "",
         error:
           "Preview is not available for this file type yet. Use Download instead."
       });
@@ -811,6 +864,7 @@ function App() {
         objectUrl: "",
         text: "",
         html: "",
+        previewNote: "",
         error: `Preview failed: ${err.toString()}`
       });
     } finally {
@@ -1905,6 +1959,19 @@ function App() {
                   className="attachment-preview-docx"
                   dangerouslySetInnerHTML={{ __html: attachmentPreview.html }}
                 />
+              )}
+              {attachmentPreview.kind === "xlsx" && (
+                <div className="attachment-preview-xlsx">
+                  {attachmentPreview.previewNote && (
+                    <div className="attachment-preview-note">
+                      {attachmentPreview.previewNote}
+                    </div>
+                  )}
+                  <div
+                    className="attachment-preview-xlsx-table"
+                    dangerouslySetInnerHTML={{ __html: attachmentPreview.html }}
+                  />
+                </div>
               )}
               {attachmentPreview.kind === "unsupported" && (
                 <div className="attachment-preview-unsupported">
