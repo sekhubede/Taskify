@@ -85,6 +85,12 @@ function AssignmentCard({
     total: 0,
     completed: 0
   };
+  const commentCountDisplay =
+    commentCounts[assignment.id] ?? comments?.[assignment.id]?.length ?? "…";
+  const attachmentCountDisplay =
+    attachmentCounts[assignment.id] ??
+    attachments?.[assignment.id]?.length ??
+    "…";
   const assignedToLabel =
     assignment.assignedTo && assignment.assignedTo.trim().length > 0
       ? assignment.assignedTo
@@ -155,7 +161,7 @@ function AssignmentCard({
           className="comments-button"
           onClick={() => toggleComments(assignment.id)}
         >
-          💬 {commentCounts[assignment.id] || 0}{" "}
+          💬 {commentCountDisplay}{" "}
           {openComments[assignment.id] ? "Hide" : "Comments"}
           {checklistSummary.total > 0 && (
             <span className="comments-checklist-summary">
@@ -178,10 +184,7 @@ function AssignmentCard({
           className="attachments-button"
           onClick={() => toggleAttachments(assignment.id)}
         >
-          📎{" "}
-          {attachmentCounts[assignment.id] ??
-            attachments[assignment.id]?.length ??
-            0}{" "}
+          📎 {attachmentCountDisplay}{" "}
           {openAttachments[assignment.id] ? "Hide" : "Attachments"}
         </button>
         {assignment.status !== 2 && (
