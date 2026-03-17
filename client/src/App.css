@@ -91,19 +91,19 @@
   position: absolute;
   right: 0.45rem;
   top: 50%;
-  transform: translateY(-50%);
+  transform: translateY(calc(-50% - 1px));
   width: 1.6rem;
   height: 1.6rem;
+  padding: 0;
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.08);
   color: rgba(255, 255, 255, 0.85);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  display: grid;
+  place-items: center;
   cursor: pointer;
-  font-size: 1rem;
-  line-height: 1;
+  font-size: 1.05rem;
+  line-height: 0;
 }
 
 .assignment-search-clear:hover {
