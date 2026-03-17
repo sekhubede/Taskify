@@ -141,6 +141,44 @@ public class QuickTaskStore
         }
     }
 
+    public bool SetTaskCommentContent(int commentId, string content)
+    {
+        lock (_syncRoot)
+        {
+            foreach (var task in _model.Tasks)
+            {
+                var comment = task.Comments.FirstOrDefault(c => c.Id == commentId);
+                if (comment == null)
+                    continue;
+
+                comment.Content = content;
+                Persist();
+                return true;
+            }
+
+            return false;
+        }
+    }
+
+    public bool DeleteTaskComment(int commentId)
+    {
+        lock (_syncRoot)
+        {
+            foreach (var task in _model.Tasks)
+            {
+                var comment = task.Comments.FirstOrDefault(c => c.Id == commentId);
+                if (comment == null)
+                    continue;
+
+                task.Comments.Remove(comment);
+                Persist();
+                return true;
+            }
+
+            return false;
+        }
+    }
+
     public List<QuickTaskChecklistItem> GetTaskChecklist(int taskId)
     {
         lock (_syncRoot)

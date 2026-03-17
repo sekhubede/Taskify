@@ -49,6 +49,19 @@ public class QuickTaskService
         return _store.AddTaskComment(taskId, trimmed);
     }
 
+    public bool UpdateTaskComment(int commentId, string content)
+    {
+        EnsurePositive(commentId, "Comment ID");
+        var trimmed = ValidateComment(content);
+        return _store.SetTaskCommentContent(commentId, trimmed);
+    }
+
+    public bool DeleteTaskComment(int commentId)
+    {
+        EnsurePositive(commentId, "Comment ID");
+        return _store.DeleteTaskComment(commentId);
+    }
+
     public List<QuickTaskChecklistItem> GetTaskChecklist(int taskId)
     {
         EnsurePositive(taskId, "Task ID");

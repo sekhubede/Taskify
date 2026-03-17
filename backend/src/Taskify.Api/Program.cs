@@ -543,6 +543,34 @@ app.MapPost("api/quick-tasks/{id:int}/comments", async (int id, QuickTaskService
         return Results.BadRequest(ex.Message);
     }
 });
+app.MapPut("api/quick-task-comments/{id:int}/content", async (int id, QuickTaskService svc, HttpRequest req) =>
+{
+    var body = await req.ReadFromJsonAsync<UpdateQuickTaskCommentContentRequest>();
+    if (body == null)
+        return Results.BadRequest("body required");
+
+    try
+    {
+        var ok = svc.UpdateTaskComment(id, body.Content);
+        return ok ? Results.Ok() : Results.NotFound();
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(ex.Message);
+    }
+});
+app.MapDelete("api/quick-task-comments/{id:int}", (int id, QuickTaskService svc) =>
+{
+    try
+    {
+        var ok = svc.DeleteTaskComment(id);
+        return ok ? Results.Ok() : Results.NotFound();
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(ex.Message);
+    }
+});
 app.MapGet("api/quick-tasks/{id:int}/checklist", (int id, QuickTaskService svc) =>
 {
     try
@@ -713,6 +741,7 @@ public record AddQuickTaskRequest(string Title);
 public record UpdateQuickTaskTitleRequest(string Title);
 public record ToggleQuickTaskRequest(bool IsCompleted);
 public record AddQuickTaskCommentRequest(string Content);
+public record UpdateQuickTaskCommentContentRequest(string Content);
 public record AddQuickTaskChecklistItemRequest(string Title, int? Order);
 public record ToggleQuickTaskChecklistItemRequest(bool IsCompleted);
 public record UpdateQuickTaskChecklistItemTitleRequest(string Title);

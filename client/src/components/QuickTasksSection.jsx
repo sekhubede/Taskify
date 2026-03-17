@@ -9,8 +9,12 @@ function QuickTasksSection() {
   const [openTaskDetails, setOpenTaskDetails] = useState({});
   const [newComments, setNewComments] = useState({});
   const [newChecklistItems, setNewChecklistItems] = useState({});
+  const [editingTaskTitles, setEditingTaskTitles] = useState({});
+  const [taskTitleDrafts, setTaskTitleDrafts] = useState({});
   const [editingChecklistTitles, setEditingChecklistTitles] = useState({});
   const [checklistDrafts, setChecklistDrafts] = useState({});
+  const [editingCommentContent, setEditingCommentContent] = useState({});
+  const [commentDrafts, setCommentDrafts] = useState({});
   const [draggedChecklistItem, setDraggedChecklistItem] = useState(null);
 
   const sortedTasks = useMemo(
@@ -92,6 +96,41 @@ function QuickTasksSection() {
     }
   };
 
+  const beginTaskTitleEdit = (taskId, currentTitle) => {
+    setEditingTaskTitles((prev) => ({ ...prev, [taskId]: true }));
+    setTaskTitleDrafts((prev) => ({ ...prev, [taskId]: currentTitle || "" }));
+  };
+
+  const cancelTaskTitleEdit = (taskId) => {
+    setEditingTaskTitles((prev) => ({ ...prev, [taskId]: false }));
+    setTaskTitleDrafts((prev) => {
+      const next = { ...prev };
+      delete next[taskId];
+      return next;
+    });
+  };
+
+  const saveTaskTitleEdit = async (taskId) => {
+    const title = (taskTitleDrafts[taskId] || "").trim();
+    if (!title) return;
+
+    try {
+      const response = await fetch(`${QUICK_TASKS_API_URL}/${taskId}/title`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title })
+      });
+      if (!response.ok) throw new Error("Failed to update quick task title");
+
+      setTasks((prev) =>
+        prev.map((task) => (task.id === taskId ? { ...task, title } : task))
+      );
+      cancelTaskTitleEdit(taskId);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const handleAddComment = async (taskId) => {
     const content = (newComments[taskId] || "").trim();
     if (!content) return;
@@ -116,6 +155,78 @@ function QuickTasksSection() {
         )
       );
       setNewComments((prev) => ({ ...prev, [taskId]: "" }));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const beginCommentEdit = (commentId, currentContent) => {
+    setEditingCommentContent((prev) => ({ ...prev, [commentId]: true }));
+    setCommentDrafts((prev) => ({ ...prev, [commentId]: currentContent || "" }));
+  };
+
+  const cancelCommentEdit = (commentId) => {
+    setEditingCommentContent((prev) => ({ ...prev, [commentId]: false }));
+    setCommentDrafts((prev) => {
+      const next = { ...prev };
+      delete next[commentId];
+      return next;
+    });
+  };
+
+  const saveCommentEdit = async (taskId, commentId) => {
+    const content = (commentDrafts[commentId] || "").trim();
+    if (!content) return;
+
+    try {
+      const response = await fetch(
+        `http://localhost:5000/api/quick-task-comments/${commentId}/content`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content })
+        }
+      );
+      if (!response.ok) throw new Error("Failed to update quick task comment");
+
+      setTasks((prev) =>
+        prev.map((task) =>
+          task.id === taskId
+            ? {
+                ...task,
+                comments: (task.comments || []).map((comment) =>
+                  comment.id === commentId ? { ...comment, content } : comment
+                )
+              }
+            : task
+        )
+      );
+      cancelCommentEdit(commentId);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDeleteComment = async (taskId, commentId) => {
+    try {
+      const response = await fetch(
+        `http://localhost:5000/api/quick-task-comments/${commentId}`,
+        { method: "DELETE" }
+      );
+      if (!response.ok) throw new Error("Failed to delete quick task comment");
+
+      setTasks((prev) =>
+        prev.map((task) =>
+          task.id === taskId
+            ? {
+                ...task,
+                comments: (task.comments || []).filter(
+                  (comment) => comment.id !== commentId
+                )
+              }
+            : task
+        )
+      );
     } catch (err) {
       console.error(err);
     }
@@ -347,12 +458,65 @@ function QuickTasksSection() {
                     checked={task.isCompleted}
                     onChange={(e) => handleToggleTask(task, e.target.checked)}
                   />
-                  <span className={task.isCompleted ? "quick-task-title done" : "quick-task-title"}>
-                    {task.title}
-                  </span>
+                  {editingTaskTitles[task.id] ? (
+                    <input
+                      className="quick-task-title-edit-input"
+                      value={taskTitleDrafts[task.id] || ""}
+                      onChange={(e) =>
+                        setTaskTitleDrafts((prev) => ({
+                          ...prev,
+                          [task.id]: e.target.value
+                        }))
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          saveTaskTitleEdit(task.id);
+                        } else if (e.key === "Escape") {
+                          e.preventDefault();
+                          cancelTaskTitleEdit(task.id);
+                        }
+                      }}
+                      autoFocus
+                    />
+                  ) : (
+                    <span
+                      className={
+                        task.isCompleted ? "quick-task-title done" : "quick-task-title"
+                      }
+                    >
+                      {task.title}
+                    </span>
+                  )}
                 </label>
 
                 <div className="quick-task-meta">
+                  {editingTaskTitles[task.id] ? (
+                    <>
+                      <button
+                        className="quick-task-inline-icon-btn"
+                        onClick={() => saveTaskTitleEdit(task.id)}
+                        title="Save task title"
+                      >
+                        ✓
+                      </button>
+                      <button
+                        className="quick-task-inline-icon-btn"
+                        onClick={() => cancelTaskTitleEdit(task.id)}
+                        title="Cancel title edit"
+                      >
+                        ↺
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      className="quick-task-inline-icon-btn"
+                      onClick={() => beginTaskTitleEdit(task.id, task.title)}
+                      title="Edit task title"
+                    >
+                      ✎
+                    </button>
+                  )}
                   <button
                     className="quick-task-expand-btn"
                     onClick={() =>
@@ -384,7 +548,65 @@ function QuickTasksSection() {
                     <div className="quick-task-items-list">
                       {comments.map((comment) => (
                         <div key={comment.id} className="quick-task-comment-item">
-                          {comment.content}
+                          {editingCommentContent[comment.id] ? (
+                            <input
+                              className="quick-task-comment-edit-input"
+                              value={commentDrafts[comment.id] || ""}
+                              onChange={(e) =>
+                                setCommentDrafts((prev) => ({
+                                  ...prev,
+                                  [comment.id]: e.target.value
+                                }))
+                              }
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  saveCommentEdit(task.id, comment.id);
+                                } else if (e.key === "Escape") {
+                                  e.preventDefault();
+                                  cancelCommentEdit(comment.id);
+                                }
+                              }}
+                              autoFocus
+                            />
+                          ) : (
+                            <span>{comment.content}</span>
+                          )}
+                          {editingCommentContent[comment.id] ? (
+                            <>
+                              <button
+                                className="quick-task-inline-icon-btn"
+                                onClick={() => saveCommentEdit(task.id, comment.id)}
+                                title="Save comment"
+                              >
+                                ✓
+                              </button>
+                              <button
+                                className="quick-task-inline-icon-btn"
+                                onClick={() => cancelCommentEdit(comment.id)}
+                                title="Cancel edit"
+                              >
+                                ↺
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              className="quick-task-inline-icon-btn"
+                              onClick={() =>
+                                beginCommentEdit(comment.id, comment.content)
+                              }
+                              title="Edit comment"
+                            >
+                              ✎
+                            </button>
+                          )}
+                          <button
+                            className="quick-task-inline-icon-btn"
+                            onClick={() => handleDeleteComment(task.id, comment.id)}
+                            title="Delete comment"
+                          >
+                            ✕
+                          </button>
                         </div>
                       ))}
                     </div>
@@ -461,17 +683,23 @@ function QuickTasksSection() {
                           {editingChecklistTitles[item.id] ? (
                             <>
                               <button
+                                className="quick-task-inline-icon-btn"
                                 onClick={() => saveChecklistEdit(task.id, item.id)}
                                 title="Save"
                               >
                                 ✓
                               </button>
-                              <button onClick={() => cancelChecklistEdit(item.id)} title="Cancel">
+                              <button
+                                className="quick-task-inline-icon-btn"
+                                onClick={() => cancelChecklistEdit(item.id)}
+                                title="Cancel"
+                              >
                                 ↺
                               </button>
                             </>
                           ) : (
                             <button
+                              className="quick-task-inline-icon-btn"
                               onClick={() => beginChecklistEdit(item.id, item.title)}
                               title="Edit"
                             >
@@ -479,6 +707,7 @@ function QuickTasksSection() {
                             </button>
                           )}
                           <button
+                            className="quick-task-inline-icon-btn"
                             onClick={() => handleDeleteChecklistItem(task.id, item.id)}
                             title="Delete"
                           >
