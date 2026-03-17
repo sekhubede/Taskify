@@ -11,6 +11,7 @@ Taskify is a productivity tool that extends M-Files assignment management. It pu
   - Pull assignments and comments from M-Files
   - Add, manage, reorder, and delete subtasks per assignment
   - Add vault comments (synced to M-Files) and personal notes (local only)
+  - Create local quick tasks with local comments and checklist items
   - Pin assignments to a "Hot Zone" section for focused work
   - Toggle between "My assignments" and "Team assignments"
   - Filter team view by assignee
@@ -56,6 +57,7 @@ Single-page application that displays assignments from the API and provides inte
 | Personal notes | Browser localStorage | No — machine-specific |
 | Comment flags | Browser localStorage | No — machine-specific |
 | Working-on flags | Backend API (local file) | No — machine-specific |
+| Quick tasks, quick task comments/checklists | Backend API (local file) | No — machine-specific |
 
 > See [ADR-002](docs/adr/002-local-storage-for-subtasks-and-notes.md) and [ADR-003](docs/adr/003-comment-system-migration-to-connectors.md) for storage decisions.
 
@@ -218,7 +220,7 @@ For local production-style deployment (M-Files connector, published backend, and
 - ✅ Assignment attachments (list/upload/download/preview)
 - ✅ Team oversight view (all user assignments + assignee filter)
 - ✅ Local comment checklist subtasks (private, local-only)
-- 📋 Local quick tasks (not linked to assignments) with comments/checklists — planned ([#67](https://github.com/sekhubede/Taskify/issues/67))
+- ✅ Local quick tasks (not linked to assignments) with comments/checklists ([#67](https://github.com/sekhubede/Taskify/issues/67))
 - 📋 Cloud-based subtasks, time tracking, AI features (future)
 
 ## License
