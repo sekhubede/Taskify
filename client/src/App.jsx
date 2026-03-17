@@ -1565,6 +1565,17 @@ function App() {
                 value={assignmentSearch}
                 onChange={(e) => setAssignmentSearch(e.target.value)}
               />
+              {assignmentSearch && (
+                <button
+                  type="button"
+                  className="assignment-search-clear"
+                  onClick={() => setAssignmentSearch("")}
+                  aria-label="Clear assignment search"
+                  title="Clear search"
+                >
+                  ×
+                </button>
+              )}
             </div>
             <div className="assignment-filter-controls">
               <button
