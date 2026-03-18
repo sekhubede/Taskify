@@ -5,7 +5,7 @@ namespace Taskify.Infrastructure.Storage;
 public class CommentNoteStore
 {
     private readonly string _storageFilePath;
-    private Dictionary<int, CommentNoteItem> _notes;
+    private Dictionary<string, CommentNoteItem> _notes;
 
     public CommentNoteStore(string storageDirectory = "storage")
     {
@@ -24,42 +24,62 @@ public class CommentNoteStore
         _notes = LoadNotes();
     }
 
-    public CommentNoteItem SaveNote(int commentId, string note)
+    public CommentNoteItem SaveNote(int assignmentId, int commentId, string note)
     {
+        var scopedKey = BuildScopedKey(assignmentId, commentId);
+        var legacyKey = BuildLegacyKey(commentId);
         var now = DateTime.UtcNow;
-        if (_notes.TryGetValue(commentId, out var existing))
+        if (_notes.TryGetValue(scopedKey, out var existing))
         {
             existing.Note = note;
             existing.UpdatedDate = now;
-            _notes[commentId] = existing;
+            _notes[scopedKey] = existing;
         }
         else
         {
-            _notes[commentId] = new CommentNoteItem
+            _notes[scopedKey] = new CommentNoteItem
             {
                 Note = note,
                 CreatedDate = now,
                 UpdatedDate = now
             };
         }
+
+        // Remove legacy key once a scoped note is saved.
+        _notes.Remove(legacyKey);
         PersistNotes();
-        return _notes[commentId];
+        return _notes[scopedKey];
     }
 
-    public void DeleteNote(int commentId)
+    public void DeleteNote(int assignmentId, int commentId)
     {
-        _notes.Remove(commentId);
+        _notes.Remove(BuildScopedKey(assignmentId, commentId));
+        _notes.Remove(BuildLegacyKey(commentId));
         PersistNotes();
     }
 
-    public string? GetNote(int commentId)
+    public string? GetNote(int assignmentId, int commentId)
     {
-        return _notes.TryGetValue(commentId, out var note) ? note.Note : null;
+        return GetNoteItem(assignmentId, commentId)?.Note;
     }
 
-    public CommentNoteItem? GetNoteItem(int commentId)
+    public CommentNoteItem? GetNoteItem(int assignmentId, int commentId)
     {
-        return _notes.TryGetValue(commentId, out var note)
+        var scopedKey = BuildScopedKey(assignmentId, commentId);
+        if (!_notes.TryGetValue(scopedKey, out var note))
+        {
+            // One-time migration path for legacy storage keyed only by commentId.
+            var legacyKey = BuildLegacyKey(commentId);
+            if (_notes.TryGetValue(legacyKey, out var legacy))
+            {
+                _notes[scopedKey] = legacy;
+                _notes.Remove(legacyKey);
+                PersistNotes();
+                note = legacy;
+            }
+        }
+
+        return note != null
             ? new CommentNoteItem
             {
                 Note = note.Note,
@@ -69,22 +89,22 @@ public class CommentNoteStore
             : null;
     }
 
-    public Dictionary<int, string> GetAllNotes()
+    public Dictionary<string, string> GetAllNotes()
     {
         return _notes.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.Note);
     }
 
-    private Dictionary<int, CommentNoteItem> LoadNotes()
+    private Dictionary<string, CommentNoteItem> LoadNotes()
     {
         try
         {
             if (File.Exists(_storageFilePath))
             {
                 var json = File.ReadAllText(_storageFilePath);
-                var rawMap = JsonSerializer.Deserialize<Dictionary<int, JsonElement>>(json);
+                var rawMap = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(json);
                 if (rawMap != null)
                 {
-                    var mapped = new Dictionary<int, CommentNoteItem>();
+                    var mapped = new Dictionary<string, CommentNoteItem>();
                     var now = DateTime.UtcNow;
                     foreach (var kvp in rawMap)
                     {
@@ -118,7 +138,7 @@ public class CommentNoteStore
             Console.WriteLine($"Warning: Failed to load comment notes: {ex.Message}");
         }
 
-        return new Dictionary<int, CommentNoteItem>();
+        return new Dictionary<string, CommentNoteItem>();
     }
 
     private void PersistNotes()
@@ -135,6 +155,16 @@ public class CommentNoteStore
         {
             Console.WriteLine($"Warning: Failed to persist comment notes: {ex.Message}");
         }
+    }
+
+    private static string BuildScopedKey(int assignmentId, int commentId)
+    {
+        return $"{assignmentId}:{commentId}";
+    }
+
+    private static string BuildLegacyKey(int commentId)
+    {
+        return commentId.ToString();
     }
 }
 

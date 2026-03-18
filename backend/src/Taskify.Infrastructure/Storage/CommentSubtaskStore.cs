@@ -29,7 +29,16 @@ public class CommentSubtaskStore
             if (!_model.CommentScopeToSubtasks.TryGetValue(scopeKey, out var items))
             {
                 var legacyScopeKey = BuildLegacyScopeKey(commentId);
-                _model.CommentScopeToSubtasks.TryGetValue(legacyScopeKey, out items);
+                if (_model.CommentScopeToSubtasks.TryGetValue(legacyScopeKey, out var legacyItems))
+                {
+                    // One-time migration for legacy commentId-only scopes.
+                    // Legacy data cannot distinguish assignments, so we bind it
+                    // to the first accessed assignment scope to prevent cross-bleed.
+                    items = legacyItems;
+                    _model.CommentScopeToSubtasks[scopeKey] = items;
+                    _model.CommentScopeToSubtasks.Remove(legacyScopeKey);
+                    Persist();
+                }
             }
 
             if (items == null)

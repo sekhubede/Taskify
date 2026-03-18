@@ -93,6 +93,7 @@ function CommentsSection({
   const [aiLastSubtasksSignature, setAiLastSubtasksSignature] = useState(
     aiSummaryState?.aiLastSubtasksSignature || ""
   );
+  const getCommentNoteKey = (commentId) => `${assignmentId}:${commentId}`;
 
   useEffect(() => {
     setIncludePersonalNotes(Boolean(aiSummaryState?.includePersonalNotes));
@@ -185,21 +186,24 @@ function CommentsSection({
   };
 
   const loadCommentNoteIfNeeded = (commentId) => {
-    if (commentNotes[commentId]) return;
+    const noteKey = getCommentNoteKey(commentId);
+    if (commentNotes[noteKey]) return;
 
-    fetch(`http://localhost:5000/api/comments/${commentId}/note`)
+    fetch(
+      `http://localhost:5000/api/assignments/${assignmentId}/comments/${commentId}/note`
+    )
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data?.note) {
           setCommentNotes((prev) => ({
             ...prev,
-            [commentId]: data.note
+            [noteKey]: data.note
           }));
         }
         if (data?.createdDate || data?.updatedDate) {
           setCommentNoteTimestamps((prev) => ({
             ...prev,
-            [commentId]: {
+            [noteKey]: {
               createdDate: data.createdDate || null,
               updatedDate: data.updatedDate || null
             }
@@ -487,7 +491,7 @@ function CommentsSection({
             content: comment.content,
             createdDate: comment.createdDate,
             personalNote: includePersonalNotes
-              ? commentNotes[comment.id] || null
+              ? commentNotes[getCommentNoteKey(comment.id)] || null
               : null
           }))
         })
@@ -570,9 +574,13 @@ function CommentsSection({
 
   if (activeFilter.note) {
     if (activeFilter.note === "has-note") {
-      filteredComments = filteredComments.filter((c) => commentNotes[c.id]);
+      filteredComments = filteredComments.filter(
+        (c) => commentNotes[getCommentNoteKey(c.id)]
+      );
     } else if (activeFilter.note === "no-note") {
-      filteredComments = filteredComments.filter((c) => !commentNotes[c.id]);
+      filteredComments = filteredComments.filter(
+        (c) => !commentNotes[getCommentNoteKey(c.id)]
+      );
     }
   }
 
@@ -913,6 +921,7 @@ function CommentsSection({
           <div className="comments-loading">Loading comments...</div>
         ) : filteredComments.length > 0 ? (
           filteredComments.map((comment) => {
+            const noteKey = getCommentNoteKey(comment.id);
             const isCurrentUser =
               currentUser && comment.authorName === currentUser;
             const userColor = getUserColor(comment.authorName);
@@ -957,32 +966,32 @@ function CommentsSection({
                     onClick={() => {
                       setEditingCommentNotes((prev) => ({
                         ...prev,
-                        [comment.id]: !prev[comment.id]
+                        [noteKey]: !prev[noteKey]
                       }));
                       loadCommentNoteIfNeeded(comment.id);
                       loadCommentSubtasksIfNeeded(comment.id);
                     }}
                     title={
-                      commentNotes[comment.id]
+                      commentNotes[noteKey]
                         ? "Edit personal note"
                         : "Add personal note"
                     }
                   >
-                    {commentNotes[comment.id] ? "📝" : "📄"}
+                    {commentNotes[noteKey] ? "📝" : "📄"}
                   </button>
                 </div>
                 <div className="comment-content">{comment.content}</div>
 
-                {editingCommentNotes[comment.id] && (
+                {editingCommentNotes[noteKey] && (
                   <div className="comment-note-editor">
                     <textarea
                       className="comment-note-input"
                       placeholder="Add a personal note about this comment..."
-                      value={commentNotes[comment.id] || ""}
+                      value={commentNotes[noteKey] || ""}
                       onChange={(e) =>
                         setCommentNotes((prev) => ({
                           ...prev,
-                          [comment.id]: e.target.value
+                          [noteKey]: e.target.value
                         }))
                       }
                       rows={3}
@@ -991,7 +1000,11 @@ function CommentsSection({
                       <button
                         className="comment-note-save"
                         onClick={() =>
-                          handleUpdateCommentNote(comment.id, commentNotes[comment.id])
+                          handleUpdateCommentNote(
+                            assignmentId,
+                            comment.id,
+                            commentNotes[noteKey]
+                          )
                         }
                       >
                         Save
@@ -1001,7 +1014,7 @@ function CommentsSection({
                         onClick={() =>
                           setEditingCommentNotes((prev) => ({
                             ...prev,
-                            [comment.id]: false
+                            [noteKey]: false
                           }))
                         }
                       >
@@ -1011,26 +1024,28 @@ function CommentsSection({
                   </div>
                 )}
 
-                {!editingCommentNotes[comment.id] && commentNotes[comment.id] && (
+                {!editingCommentNotes[noteKey] && commentNotes[noteKey] && (
                   <div className="comment-note-display">
                     <div className="comment-note-header">
                       <span className="comment-note-label">Personal Note:</span>
                       <button
                         className="comment-note-delete-button"
-                        onClick={() => handleDeleteCommentNote(comment.id)}
+                        onClick={() =>
+                          handleDeleteCommentNote(assignmentId, comment.id)
+                        }
                         title="Delete personal note"
                       >
                         🗑️
                       </button>
                     </div>
                     <span className="comment-note-text">
-                      {commentNotes[comment.id]}
+                      {commentNotes[noteKey]}
                     </span>
-                    {commentNoteTimestamps?.[comment.id] && (
+                    {commentNoteTimestamps?.[noteKey] && (
                       <span className="item-audit-stamp">
                         {formatAuditLabel(
-                          commentNoteTimestamps[comment.id].createdDate,
-                          commentNoteTimestamps[comment.id].updatedDate
+                          commentNoteTimestamps[noteKey].createdDate,
+                          commentNoteTimestamps[noteKey].updatedDate
                         )}
                       </span>
                     )}
