@@ -14,15 +14,13 @@ function AssignmentCard({
   handleToggleWorkingOn,
   handleCompleteAssignment,
   commentCounts,
-  openComments,
-  toggleComments,
+  expandedByAssignment,
+  activeDetailTabByAssignment,
+  openDetailTab,
+  toggleAssignmentDetails,
   subtasks,
-  openSubtasks,
-  toggleSubtasks,
   attachmentCounts,
   attachments,
-  openAttachments,
-  toggleAttachments,
   comments,
   loadingComments,
   commentFilters,
@@ -83,6 +81,11 @@ function AssignmentCard({
   setNewSubtaskText,
   handleAddSubtask
 }) {
+  const DETAIL_TABS = {
+    COMMENTS: "comments",
+    SUBTASKS: "subtasks",
+    ATTACHMENTS: "attachments"
+  };
   const unread = hasUnreadComments(assignment.id);
   const assignmentSubtasks = subtasks[assignment.id] || assignment.subtasks || [];
   const completedCount = assignmentSubtasks.filter((s) => s.isCompleted).length;
@@ -100,11 +103,76 @@ function AssignmentCard({
     assignment.assignedTo && assignment.assignedTo.trim().length > 0
       ? assignment.assignedTo
       : "Unknown";
-  const hasExpandedDetails = Boolean(
-    openComments[assignment.id] ||
-      openSubtasks[assignment.id] ||
-      openAttachments[assignment.id]
-  );
+  const hasExpandedDetails = Boolean(expandedByAssignment[assignment.id]);
+  const activeDetailTab =
+    activeDetailTabByAssignment[assignment.id] || DETAIL_TABS.COMMENTS;
+  const isCommentsTabActive =
+    hasExpandedDetails && activeDetailTab === DETAIL_TABS.COMMENTS;
+  const isSubtasksTabActive =
+    hasExpandedDetails && activeDetailTab === DETAIL_TABS.SUBTASKS;
+  const isAttachmentsTabActive =
+    hasExpandedDetails && activeDetailTab === DETAIL_TABS.ATTACHMENTS;
+  const detailsPanelId = `assignment-details-${assignment.id}`;
+  const tabs = [
+    {
+      id: DETAIL_TABS.COMMENTS,
+      label: "Comments",
+      count: commentCountDisplay,
+      prefix: "💬",
+      showUnreadIndicator: unread
+    },
+    {
+      id: DETAIL_TABS.SUBTASKS,
+      label: "Subtasks",
+      count: `${completedCount}/${assignmentSubtasks.length}`,
+      prefix: "✓"
+    },
+    {
+      id: DETAIL_TABS.ATTACHMENTS,
+      label: "Attachments",
+      count: attachmentCountDisplay,
+      prefix: "📎"
+    }
+  ];
+
+  const focusTabByIndex = (index) => {
+    const button = document.getElementById(`assignment-tab-${assignment.id}-${index}`);
+    if (button) {
+      button.focus();
+    }
+  };
+
+  const handleTabKeyDown = (event, tabIndex) => {
+    if (tabs.length === 0) return;
+
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      focusTabByIndex((tabIndex + 1) % tabs.length);
+      return;
+    }
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      focusTabByIndex((tabIndex - 1 + tabs.length) % tabs.length);
+      return;
+    }
+    if (event.key === "Home") {
+      event.preventDefault();
+      focusTabByIndex(0);
+      return;
+    }
+    if (event.key === "End") {
+      event.preventDefault();
+      focusTabByIndex(tabs.length - 1);
+      return;
+    }
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      const tab = tabs[tabIndex];
+      if (tab) {
+        openDetailTab(assignment.id, tab.id);
+      }
+    }
+  };
 
   return (
     <div
@@ -124,7 +192,13 @@ function AssignmentCard({
             </button>
             <h2 className="assignment-title">{assignment.title}</h2>
             {unread && (
-              <span className="assignment-unread-comments-badge">New comments</span>
+              <button
+                type="button"
+                className="assignment-unread-comments-badge"
+                onClick={() => openDetailTab(assignment.id, DETAIL_TABS.COMMENTS)}
+              >
+                New comments
+              </button>
             )}
           </div>
           <span
@@ -162,36 +236,39 @@ function AssignmentCard({
             {completedCount} / {assignmentSubtasks.length} subtasks
           </span>
         )}
-        <button
-          className="comments-button"
-          onClick={() => toggleComments(assignment.id)}
-        >
-          💬 {commentCountDisplay}{" "}
-          {openComments[assignment.id] ? "Hide" : "Comments"}
-          {checklistSummary.total > 0 && (
-            <span className="comments-checklist-summary">
-              {" "}
-              ☑ {checklistSummary.completed}/{checklistSummary.total}
-            </span>
-          )}
-          {!openComments[assignment.id] && unread && (
-            <span className="comments-new-indicator">New</span>
-          )}
-        </button>
-        <button
-          className="subtasks-button"
-          onClick={() => toggleSubtasks(assignment.id)}
-        >
-          ✓ {subtasks[assignment.id]?.length ?? assignment.subtasks?.length ?? 0}{" "}
-          {openSubtasks[assignment.id] ? "Hide" : "Subtasks"}
-        </button>
-        <button
-          className="attachments-button"
-          onClick={() => toggleAttachments(assignment.id)}
-        >
-          📎 {attachmentCountDisplay}{" "}
-          {openAttachments[assignment.id] ? "Hide" : "Attachments"}
-        </button>
+        <div className="assignment-detail-tabs" role="tablist" aria-label="Details">
+          {tabs.map((tab, index) => {
+            const isActive = hasExpandedDetails && activeDetailTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                id={`assignment-tab-${assignment.id}-${index}`}
+                type="button"
+                role="tab"
+                className={`assignment-detail-tab ${isActive ? "active" : ""}`}
+                aria-selected={isActive}
+                aria-controls={detailsPanelId}
+                tabIndex={isActive ? 0 : -1}
+                onClick={() => openDetailTab(assignment.id, tab.id)}
+                onKeyDown={(event) => handleTabKeyDown(event, index)}
+              >
+                {tab.prefix} {tab.label} <span className="detail-tab-count">{tab.count}</span>
+                {tab.id === DETAIL_TABS.COMMENTS &&
+                  checklistSummary.total > 0 && (
+                    <span className="comments-checklist-summary">
+                      {" "}
+                      ☑ {checklistSummary.completed}/{checklistSummary.total}
+                    </span>
+                  )}
+                {tab.id === DETAIL_TABS.COMMENTS &&
+                  unread &&
+                  !isCommentsTabActive && (
+                    <span className="comments-new-indicator">New</span>
+                  )}
+              </button>
+            );
+          })}
+        </div>
         {assignment.status !== 2 && (
           <button
             className="complete-button"
@@ -200,92 +277,106 @@ function AssignmentCard({
             Complete
           </button>
         )}
+        <button
+          type="button"
+          className="assignment-details-chevron"
+          aria-expanded={hasExpandedDetails}
+          aria-controls={detailsPanelId}
+          onClick={() => toggleAssignmentDetails(assignment.id)}
+          title={hasExpandedDetails ? "Collapse details" : "Expand details"}
+        >
+          {hasExpandedDetails ? "▾" : "▸"}
+        </button>
       </div>
 
-      {openComments[assignment.id] && (
-        <CommentsSection
-          assignmentId={assignment.id}
-          assignmentTitle={assignment.title}
-          assignmentDescription={assignment.description}
-          assignmentSubtasks={assignmentSubtasks}
-          commentsForAssignment={comments[assignment.id]}
-          loadingComments={loadingComments[assignment.id]}
-          filter={commentFilters[assignment.id]}
-          setCommentFilters={setCommentFilters}
-          commentSortNewestFirst={commentSortNewestFirst}
-          setCommentSortNewestFirst={setCommentSortNewestFirst}
-          commentFlags={commentFlags}
-          commentNotes={commentNotes}
-          commentNoteTimestamps={commentNoteTimestamps}
-          editingCommentNotes={editingCommentNotes}
-          setEditingCommentNotes={setEditingCommentNotes}
-          setCommentNotes={setCommentNotes}
-          setCommentNoteTimestamps={setCommentNoteTimestamps}
-          sortCommentsByDate={sortCommentsByDate}
-          currentUser={currentUser}
-          getUserColor={getUserColor}
-          formatCommentDate={formatCommentDate}
-          handleToggleCommentFlag={handleToggleCommentFlag}
-          handleUpdateCommentNote={handleUpdateCommentNote}
-          handleDeleteCommentNote={handleDeleteCommentNote}
-          aiSummaryState={aiSummaryStateByAssignment?.[assignment.id]}
-          setAiSummaryStateByAssignment={setAiSummaryStateByAssignment}
-          onChecklistSummaryChange={(summary) =>
-            setCommentChecklistSummaries((prev) => ({
-              ...prev,
-              [assignment.id]: summary
-            }))
-          }
-          newCommentText={newCommentText[assignment.id]}
-          setNewCommentText={setNewCommentText}
-          handleAddComment={handleAddComment}
-        />
-      )}
+      {hasExpandedDetails && (
+        <div id={detailsPanelId} role="tabpanel" className="assignment-details-panel">
+          {isCommentsTabActive && (
+            <CommentsSection
+              assignmentId={assignment.id}
+              assignmentTitle={assignment.title}
+              assignmentDescription={assignment.description}
+              assignmentSubtasks={assignmentSubtasks}
+              commentsForAssignment={comments[assignment.id]}
+              loadingComments={loadingComments[assignment.id]}
+              filter={commentFilters[assignment.id]}
+              setCommentFilters={setCommentFilters}
+              commentSortNewestFirst={commentSortNewestFirst}
+              setCommentSortNewestFirst={setCommentSortNewestFirst}
+              commentFlags={commentFlags}
+              commentNotes={commentNotes}
+              commentNoteTimestamps={commentNoteTimestamps}
+              editingCommentNotes={editingCommentNotes}
+              setEditingCommentNotes={setEditingCommentNotes}
+              setCommentNotes={setCommentNotes}
+              setCommentNoteTimestamps={setCommentNoteTimestamps}
+              sortCommentsByDate={sortCommentsByDate}
+              currentUser={currentUser}
+              getUserColor={getUserColor}
+              formatCommentDate={formatCommentDate}
+              handleToggleCommentFlag={handleToggleCommentFlag}
+              handleUpdateCommentNote={handleUpdateCommentNote}
+              handleDeleteCommentNote={handleDeleteCommentNote}
+              aiSummaryState={aiSummaryStateByAssignment?.[assignment.id]}
+              setAiSummaryStateByAssignment={setAiSummaryStateByAssignment}
+              onChecklistSummaryChange={(summary) =>
+                setCommentChecklistSummaries((prev) => ({
+                  ...prev,
+                  [assignment.id]: summary
+                }))
+              }
+              newCommentText={newCommentText[assignment.id]}
+              setNewCommentText={setNewCommentText}
+              handleAddComment={handleAddComment}
+            />
+          )}
 
-      {openAttachments[assignment.id] && (
-        <AttachmentsSection
-          assignmentId={assignment.id}
-          attachmentsForAssignment={attachments[assignment.id]}
-          loadingAttachments={loadingAttachments[assignment.id]}
-          uploadingAttachment={uploadingAttachment[assignment.id]}
-          previewingAttachment={previewingAttachment}
-          handleDownloadAttachment={handleDownloadAttachment}
-          handlePreviewAttachment={handlePreviewAttachment}
-          handleUploadAttachment={handleUploadAttachment}
-        />
-      )}
+          {isAttachmentsTabActive && (
+            <AttachmentsSection
+              assignmentId={assignment.id}
+              attachmentsForAssignment={attachments[assignment.id]}
+              loadingAttachments={loadingAttachments[assignment.id]}
+              uploadingAttachment={uploadingAttachment[assignment.id]}
+              previewingAttachment={previewingAttachment}
+              handleDownloadAttachment={handleDownloadAttachment}
+              handlePreviewAttachment={handlePreviewAttachment}
+              handleUploadAttachment={handleUploadAttachment}
+            />
+          )}
 
-      {openSubtasks[assignment.id] && (
-        <SubtasksSection
-          assignmentId={assignment.id}
-          subtasksForAssignment={subtasks[assignment.id]}
-          loadingSubtasks={loadingSubtasks[assignment.id]}
-          draggedSubtaskId={draggedSubtaskId}
-          dragOverSubtaskId={dragOverSubtaskId}
-          editingSubtasks={editingSubtasks}
-          subtaskTitleDrafts={subtaskTitleDrafts}
-          editingNotes={editingNotes}
-          subtaskNotes={subtaskNotes}
-          subtaskNoteTimestamps={subtaskNoteTimestamps}
-          handleDragStart={handleDragStart}
-          handleDragOver={handleDragOver}
-          handleDragLeave={handleDragLeave}
-          handleDrop={handleDrop}
-          handleDragEnd={handleDragEnd}
-          handleToggleSubtask={handleToggleSubtask}
-          setSubtaskTitleDrafts={setSubtaskTitleDrafts}
-          handleSaveSubtaskTitle={handleSaveSubtaskTitle}
-          handleCancelSubtaskEdit={handleCancelSubtaskEdit}
-          handleStartSubtaskEdit={handleStartSubtaskEdit}
-          setEditingNotes={setEditingNotes}
-          setSubtaskNotes={setSubtaskNotes}
-          handleDeleteSubtask={handleDeleteSubtask}
-          handleUpdateSubtaskNote={handleUpdateSubtaskNote}
-          handleDeleteSubtaskNote={handleDeleteSubtaskNote}
-          newSubtaskText={newSubtaskText[assignment.id]}
-          setNewSubtaskText={setNewSubtaskText}
-          handleAddSubtask={handleAddSubtask}
-        />
+          {isSubtasksTabActive && (
+            <SubtasksSection
+              assignmentId={assignment.id}
+              subtasksForAssignment={subtasks[assignment.id]}
+              loadingSubtasks={loadingSubtasks[assignment.id]}
+              draggedSubtaskId={draggedSubtaskId}
+              dragOverSubtaskId={dragOverSubtaskId}
+              editingSubtasks={editingSubtasks}
+              subtaskTitleDrafts={subtaskTitleDrafts}
+              editingNotes={editingNotes}
+              subtaskNotes={subtaskNotes}
+              subtaskNoteTimestamps={subtaskNoteTimestamps}
+              handleDragStart={handleDragStart}
+              handleDragOver={handleDragOver}
+              handleDragLeave={handleDragLeave}
+              handleDrop={handleDrop}
+              handleDragEnd={handleDragEnd}
+              handleToggleSubtask={handleToggleSubtask}
+              setSubtaskTitleDrafts={setSubtaskTitleDrafts}
+              handleSaveSubtaskTitle={handleSaveSubtaskTitle}
+              handleCancelSubtaskEdit={handleCancelSubtaskEdit}
+              handleStartSubtaskEdit={handleStartSubtaskEdit}
+              setEditingNotes={setEditingNotes}
+              setSubtaskNotes={setSubtaskNotes}
+              handleDeleteSubtask={handleDeleteSubtask}
+              handleUpdateSubtaskNote={handleUpdateSubtaskNote}
+              handleDeleteSubtaskNote={handleDeleteSubtaskNote}
+              newSubtaskText={newSubtaskText[assignment.id]}
+              setNewSubtaskText={setNewSubtaskText}
+              handleAddSubtask={handleAddSubtask}
+            />
+          )}
+        </div>
       )}
     </div>
   );
