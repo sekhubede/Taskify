@@ -14,15 +14,22 @@ const SHOW_ALL_ASSIGNMENTS_KEY = "showAllAssignments";
 const AI_SUMMARY_STATE_KEY = "aiSummaryStateByAssignment";
 const SCOPE_MINE = "mine";
 const SCOPE_ALL = "all";
+const DETAIL_TABS = {
+  COMMENTS: "comments",
+  SUBTASKS: "subtasks",
+  ATTACHMENTS: "attachments"
+};
 
 function App() {
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [openComments, setOpenComments] = useState({});
+  const [expandedByAssignment, setExpandedByAssignment] = useState({});
+  const [activeDetailTabByAssignment, setActiveDetailTabByAssignment] = useState(
+    {}
+  );
   const [comments, setComments] = useState({});
   const [loadingComments, setLoadingComments] = useState({});
-  const [openAttachments, setOpenAttachments] = useState({});
   const [attachments, setAttachments] = useState({});
   const [attachmentCountsByScope, setAttachmentCountsByScope] = useState({
     [SCOPE_MINE]: {},
@@ -47,7 +54,6 @@ function App() {
       return {};
     }
   });
-  const [openSubtasks, setOpenSubtasks] = useState({});
   const [subtasks, setSubtasks] = useState({});
   const [loadingSubtasks, setLoadingSubtasks] = useState({});
   const [newSubtaskText, setNewSubtaskText] = useState({});
@@ -461,100 +467,88 @@ function App() {
     }
   };
 
-  const toggleComments = async (assignmentId) => {
-    const isOpen = openComments[assignmentId];
-
-    if (isOpen) {
-      // Closing the thread marks current comments as seen.
-      // This avoids jarring resort/filter jumps immediately after opening.
-      setLastSeenCommentCounts((prev) => ({
-        ...prev,
-        [assignmentId]:
-          commentCounts[assignmentId] ??
-          comments[assignmentId]?.length ??
-          0
-      }));
-    }
-
-    setOpenComments((prev) => ({
+  const markCommentsAsSeen = (assignmentId) => {
+    setLastSeenCommentCounts((prev) => ({
       ...prev,
-      [assignmentId]: !isOpen
+      [assignmentId]:
+        commentCounts[assignmentId] ?? comments[assignmentId]?.length ?? 0
     }));
+  };
 
-    // Fetch comments if opening for the first time
-    if (!isOpen && !comments[assignmentId]) {
-      setLoadingComments((prev) => ({ ...prev, [assignmentId]: true }));
-      try {
-        const response = await fetch(
-          `${ASSIGNMENTS_API_URL}/${assignmentId}/comments`
-        );
-        if (!response.ok) throw new Error("Failed to fetch comments");
-        const data = await response.json();
-        setComments((prev) => ({ ...prev, [assignmentId]: data }));
-        // Update comment count if it's different
-        setCommentCountsByScope((prev) => ({
-          ...prev,
-          [currentScopeKey]: {
-            ...(prev[currentScopeKey] || {}),
-            [assignmentId]: data.length
-          }
-        }));
-        // Load comment notes and flags for all comments
-        const notesPromises = data.map((comment) =>
-          fetch(
-            `http://localhost:5000/api/assignments/${assignmentId}/comments/${comment.id}/note`
+  const loadCommentsIfNeeded = async (assignmentId) => {
+    if (comments[assignmentId]) return;
+
+    setLoadingComments((prev) => ({ ...prev, [assignmentId]: true }));
+    try {
+      const response = await fetch(
+        `${ASSIGNMENTS_API_URL}/${assignmentId}/comments`
+      );
+      if (!response.ok) throw new Error("Failed to fetch comments");
+      const data = await response.json();
+      setComments((prev) => ({ ...prev, [assignmentId]: data }));
+      // Update comment count if it's different
+      setCommentCountsByScope((prev) => ({
+        ...prev,
+        [currentScopeKey]: {
+          ...(prev[currentScopeKey] || {}),
+          [assignmentId]: data.length
+        }
+      }));
+      // Load comment notes and flags for all comments
+      const notesPromises = data.map((comment) =>
+        fetch(
+          `http://localhost:5000/api/assignments/${assignmentId}/comments/${comment.id}/note`
+        )
+          .then((res) => (res.ok ? res.json() : null))
+          .then((noteData) => ({
+            commentId: comment.id,
+            noteKey: getCommentNoteKey(assignmentId, comment.id),
+            noteData
+          }))
+          .catch(() => null)
+      );
+      const flagsPromises = data.map((comment) =>
+        fetch(`http://localhost:5000/api/comments/${comment.id}/flag`)
+          .then((res) => (res.ok ? res.json() : null))
+          .then((flagData) =>
+            flagData?.isFlagged
+              ? { id: comment.id, isFlagged: flagData.isFlagged }
+              : null
           )
-            .then((res) => (res.ok ? res.json() : null))
-            .then((noteData) => ({
-              commentId: comment.id,
-              noteKey: getCommentNoteKey(assignmentId, comment.id),
-              noteData
-            }))
-            .catch(() => null)
-        );
-        const flagsPromises = data.map((comment) =>
-          fetch(`http://localhost:5000/api/comments/${comment.id}/flag`)
-            .then((res) => (res.ok ? res.json() : null))
-            .then((flagData) =>
-              flagData?.isFlagged
-                ? { id: comment.id, isFlagged: flagData.isFlagged }
-                : null
-            )
-            .catch(() => null)
-        );
-        Promise.all([...notesPromises, ...flagsPromises]).then((results) => {
-          const notesState = {};
-          const noteTimestampState = {};
-          const flagsState = {};
-          results.forEach((result) => {
-            if (result) {
-              if ("noteData" in result) {
-                if (result.noteData?.note) {
-                  notesState[result.noteKey] = result.noteData.note;
-                }
-                if (result.noteData?.createdDate || result.noteData?.updatedDate) {
-                  noteTimestampState[result.noteKey] = {
-                    createdDate: result.noteData.createdDate || null,
-                    updatedDate: result.noteData.updatedDate || null
-                  };
-                }
-              } else if ("isFlagged" in result) {
-                flagsState[result.id] = result.isFlagged;
+          .catch(() => null)
+      );
+      Promise.all([...notesPromises, ...flagsPromises]).then((results) => {
+        const notesState = {};
+        const noteTimestampState = {};
+        const flagsState = {};
+        results.forEach((result) => {
+          if (result) {
+            if ("noteData" in result) {
+              if (result.noteData?.note) {
+                notesState[result.noteKey] = result.noteData.note;
               }
+              if (result.noteData?.createdDate || result.noteData?.updatedDate) {
+                noteTimestampState[result.noteKey] = {
+                  createdDate: result.noteData.createdDate || null,
+                  updatedDate: result.noteData.updatedDate || null
+                };
+              }
+            } else if ("isFlagged" in result) {
+              flagsState[result.id] = result.isFlagged;
             }
-          });
-          setCommentNotes((prev) => ({ ...prev, ...notesState }));
-          setCommentNoteTimestamps((prev) => ({
-            ...prev,
-            ...noteTimestampState
-          }));
-          setCommentFlags((prev) => ({ ...prev, ...flagsState }));
+          }
         });
-      } catch (err) {
-        setError(err.toString());
-      } finally {
-        setLoadingComments((prev) => ({ ...prev, [assignmentId]: false }));
-      }
+        setCommentNotes((prev) => ({ ...prev, ...notesState }));
+        setCommentNoteTimestamps((prev) => ({
+          ...prev,
+          ...noteTimestampState
+        }));
+        setCommentFlags((prev) => ({ ...prev, ...flagsState }));
+      });
+    } catch (err) {
+      setError(err.toString());
+    } finally {
+      setLoadingComments((prev) => ({ ...prev, [assignmentId]: false }));
     }
   };
 
@@ -606,34 +600,28 @@ function App() {
     }
   };
 
-  const toggleAttachments = async (assignmentId) => {
-    const isOpen = openAttachments[assignmentId];
-    setOpenAttachments((prev) => ({
-      ...prev,
-      [assignmentId]: !isOpen
-    }));
+  const loadAttachmentsIfNeeded = async (assignmentId) => {
+    if (attachments[assignmentId]) return;
 
-    if (!isOpen && !attachments[assignmentId]) {
-      setLoadingAttachments((prev) => ({ ...prev, [assignmentId]: true }));
-      try {
-        const response = await fetch(
-          `${ASSIGNMENTS_API_URL}/${assignmentId}/attachments`
-        );
-        if (!response.ok) throw new Error("Failed to fetch attachments");
-        const data = await response.json();
-        setAttachments((prev) => ({ ...prev, [assignmentId]: data }));
-        setAttachmentCountsByScope((prev) => ({
-          ...prev,
-          [currentScopeKey]: {
-            ...(prev[currentScopeKey] || {}),
-            [assignmentId]: data.length
-          }
-        }));
-      } catch (err) {
-        setError(err.toString());
-      } finally {
-        setLoadingAttachments((prev) => ({ ...prev, [assignmentId]: false }));
-      }
+    setLoadingAttachments((prev) => ({ ...prev, [assignmentId]: true }));
+    try {
+      const response = await fetch(
+        `${ASSIGNMENTS_API_URL}/${assignmentId}/attachments`
+      );
+      if (!response.ok) throw new Error("Failed to fetch attachments");
+      const data = await response.json();
+      setAttachments((prev) => ({ ...prev, [assignmentId]: data }));
+      setAttachmentCountsByScope((prev) => ({
+        ...prev,
+        [currentScopeKey]: {
+          ...(prev[currentScopeKey] || {}),
+          [assignmentId]: data.length
+        }
+      }));
+    } catch (err) {
+      setError(err.toString());
+    } finally {
+      setLoadingAttachments((prev) => ({ ...prev, [assignmentId]: false }));
     }
   };
 
@@ -900,73 +888,122 @@ function App() {
     }
   };
 
-  const toggleSubtasks = async (assignmentId) => {
-    const isOpen = openSubtasks[assignmentId];
-    setOpenSubtasks((prev) => ({
-      ...prev,
-      [assignmentId]: !isOpen
-    }));
+  const loadSubtasksIfNeeded = async (assignmentId) => {
+    if (subtasks[assignmentId]) return;
 
-    // Fetch subtasks if opening for the first time
-    if (!isOpen && !subtasks[assignmentId]) {
-      setLoadingSubtasks((prev) => ({ ...prev, [assignmentId]: true }));
-      try {
-        const response = await fetch(
-          `${ASSIGNMENTS_API_URL}/${assignmentId}/subtasks`
-        );
-        if (!response.ok) throw new Error("Failed to fetch subtasks");
-        const data = await response.json();
-        setSubtasks((prev) => ({ ...prev, [assignmentId]: data }));
-        // Initialize notes state from API response
-        const notesState = {};
-        data.forEach((subtask) => {
-          if (subtask.personalNote) {
-            notesState[subtask.id] = subtask.personalNote;
-          }
+    setLoadingSubtasks((prev) => ({ ...prev, [assignmentId]: true }));
+    try {
+      const response = await fetch(
+        `${ASSIGNMENTS_API_URL}/${assignmentId}/subtasks`
+      );
+      if (!response.ok) throw new Error("Failed to fetch subtasks");
+      const data = await response.json();
+      setSubtasks((prev) => ({ ...prev, [assignmentId]: data }));
+      // Initialize notes state from API response
+      const notesState = {};
+      data.forEach((subtask) => {
+        if (subtask.personalNote) {
+          notesState[subtask.id] = subtask.personalNote;
+        }
+      });
+      setSubtaskNotes((prev) => {
+        const updated = { ...prev };
+        Object.keys(notesState).forEach((id) => {
+          updated[id] = notesState[id];
         });
-        setSubtaskNotes((prev) => {
-          const updated = { ...prev };
-          Object.keys(notesState).forEach((id) => {
-            updated[id] = notesState[id];
-          });
-          return updated;
-        });
-        const noteSubtasks = data.filter((subtask) => subtask.personalNote);
-        if (noteSubtasks.length > 0) {
-          Promise.all(
-            noteSubtasks.map((subtask) =>
-              fetch(`http://localhost:5000/api/subtasks/${subtask.id}/note`)
-                .then((res) => (res.ok ? res.json() : null))
-                .then((noteData) => ({ subtaskId: subtask.id, noteData }))
-                .catch(() => null)
-            )
-          ).then((noteResults) => {
-            const nextTimestamps = {};
-            noteResults.forEach((result) => {
-              if (
-                result?.noteData?.createdDate ||
-                result?.noteData?.updatedDate
-              ) {
-                nextTimestamps[result.subtaskId] = {
-                  createdDate: result.noteData.createdDate || null,
-                  updatedDate: result.noteData.updatedDate || null
-                };
-              }
-            });
-            if (Object.keys(nextTimestamps).length > 0) {
-              setSubtaskNoteTimestamps((prev) => ({
-                ...prev,
-                ...nextTimestamps
-              }));
+        return updated;
+      });
+      const noteSubtasks = data.filter((subtask) => subtask.personalNote);
+      if (noteSubtasks.length > 0) {
+        Promise.all(
+          noteSubtasks.map((subtask) =>
+            fetch(`http://localhost:5000/api/subtasks/${subtask.id}/note`)
+              .then((res) => (res.ok ? res.json() : null))
+              .then((noteData) => ({ subtaskId: subtask.id, noteData }))
+              .catch(() => null)
+          )
+        ).then((noteResults) => {
+          const nextTimestamps = {};
+          noteResults.forEach((result) => {
+            if (result?.noteData?.createdDate || result?.noteData?.updatedDate) {
+              nextTimestamps[result.subtaskId] = {
+                createdDate: result.noteData.createdDate || null,
+                updatedDate: result.noteData.updatedDate || null
+              };
             }
           });
-        }
-      } catch (err) {
-        setError(err.toString());
-      } finally {
-        setLoadingSubtasks((prev) => ({ ...prev, [assignmentId]: false }));
+          if (Object.keys(nextTimestamps).length > 0) {
+            setSubtaskNoteTimestamps((prev) => ({
+              ...prev,
+              ...nextTimestamps
+            }));
+          }
+        });
       }
+    } catch (err) {
+      setError(err.toString());
+    } finally {
+      setLoadingSubtasks((prev) => ({ ...prev, [assignmentId]: false }));
     }
+  };
+
+  const ensureDetailTabData = async (assignmentId, tab) => {
+    if (tab === DETAIL_TABS.COMMENTS) {
+      await loadCommentsIfNeeded(assignmentId);
+      return;
+    }
+    if (tab === DETAIL_TABS.SUBTASKS) {
+      await loadSubtasksIfNeeded(assignmentId);
+      return;
+    }
+    if (tab === DETAIL_TABS.ATTACHMENTS) {
+      await loadAttachmentsIfNeeded(assignmentId);
+    }
+  };
+
+  const openDetailTab = async (assignmentId, tab) => {
+    const isExpanded = Boolean(expandedByAssignment[assignmentId]);
+    const previousTab =
+      activeDetailTabByAssignment[assignmentId] || DETAIL_TABS.COMMENTS;
+
+    if (
+      isExpanded &&
+      previousTab === DETAIL_TABS.COMMENTS &&
+      tab !== DETAIL_TABS.COMMENTS
+    ) {
+      // Preserve existing unread behavior when leaving comments.
+      markCommentsAsSeen(assignmentId);
+    }
+
+    setExpandedByAssignment((prev) => ({
+      ...prev,
+      [assignmentId]: true
+    }));
+    setActiveDetailTabByAssignment((prev) => ({
+      ...prev,
+      [assignmentId]: tab
+    }));
+    await ensureDetailTabData(assignmentId, tab);
+  };
+
+  const toggleAssignmentDetails = async (assignmentId) => {
+    const isExpanded = Boolean(expandedByAssignment[assignmentId]);
+    const activeTab =
+      activeDetailTabByAssignment[assignmentId] || DETAIL_TABS.COMMENTS;
+
+    if (isExpanded) {
+      if (activeTab === DETAIL_TABS.COMMENTS) {
+        // Closing comments marks current comments as seen.
+        markCommentsAsSeen(assignmentId);
+      }
+      setExpandedByAssignment((prev) => ({
+        ...prev,
+        [assignmentId]: false
+      }));
+      return;
+    }
+
+    await openDetailTab(assignmentId, activeTab);
   };
 
   const handleToggleSubtask = async (subtaskId, isCompleted) => {
@@ -1841,15 +1878,13 @@ function App() {
                 handleToggleWorkingOn,
                 handleCompleteAssignment,
                 commentCounts,
-                openComments,
-                toggleComments,
+                expandedByAssignment,
+                activeDetailTabByAssignment,
+                openDetailTab,
+                toggleAssignmentDetails,
                 subtasks,
-                openSubtasks,
-                toggleSubtasks,
                 attachmentCounts,
                 attachments,
-                openAttachments,
-                toggleAttachments,
                 comments,
                 loadingComments,
                 commentFilters,
