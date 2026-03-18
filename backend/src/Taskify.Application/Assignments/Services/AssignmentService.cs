@@ -19,12 +19,14 @@ public class AssignmentService
         try
         {
             var currentUserName = _dataSource.GetCurrentUserNameAsync().GetAwaiter().GetResult();
-            var userTasks = _dataSource.GetTasksByAssigneeAsync(currentUserName).GetAwaiter().GetResult();
+            var userTasks = _dataSource.GetTasksByAssigneeAsync(currentUserName).GetAwaiter().GetResult()
+                ?? Array.Empty<TaskDTO>();
 
             if (userTasks.Count > 0)
                 return MapAndSortAssignments(userTasks.Where(IsActiveTask));
 
-            var tasks = _dataSource.GetAllTasksAsync().GetAwaiter().GetResult();
+            var tasks = _dataSource.GetAllTasksAsync().GetAwaiter().GetResult()
+                ?? Array.Empty<TaskDTO>();
 
             var filtered = tasks
                 .Where(t => IsCurrentUserAssignee(t.AssigneeName, currentUserName))

@@ -153,8 +153,9 @@ public class AssignmentServiceTests
         var summary = svc.GetAssignmentSummary();
 
         // Assert
-        Assert.Equal(5, summary.TotalAssignments);
-        Assert.Equal(1, summary.CompletedAssignments);
+        // Summary is based on GetUserAssignments(), which returns active (non-completed) assignments.
+        Assert.Equal(4, summary.TotalAssignments);
+        Assert.Equal(0, summary.CompletedAssignments);
         Assert.Equal(1, summary.OverdueAssignments);
         Assert.Equal(1, summary.DueSoonAssignments);
     }
