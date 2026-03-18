@@ -17,7 +17,7 @@ function AssignmentCard({
   expandedByAssignment,
   activeDetailTabByAssignment,
   openDetailTab,
-  toggleAssignmentDetails,
+  toggleDetailTab,
   subtasks,
   attachmentCounts,
   attachments,
@@ -169,7 +169,7 @@ function AssignmentCard({
       event.preventDefault();
       const tab = tabs[tabIndex];
       if (tab) {
-        openDetailTab(assignment.id, tab.id);
+        toggleDetailTab(assignment.id, tab.id);
       }
     }
   };
@@ -238,7 +238,8 @@ function AssignmentCard({
         )}
         <div className="assignment-detail-tabs" role="tablist" aria-label="Details">
           {tabs.map((tab, index) => {
-            const isActive = hasExpandedDetails && activeDetailTab === tab.id;
+            const isSelected = activeDetailTab === tab.id;
+            const isActive = hasExpandedDetails && isSelected;
             return (
               <button
                 key={tab.id}
@@ -246,10 +247,10 @@ function AssignmentCard({
                 type="button"
                 role="tab"
                 className={`assignment-detail-tab ${isActive ? "active" : ""}`}
-                aria-selected={isActive}
+                aria-selected={isSelected}
                 aria-controls={detailsPanelId}
-                tabIndex={isActive ? 0 : -1}
-                onClick={() => openDetailTab(assignment.id, tab.id)}
+                tabIndex={isSelected ? 0 : -1}
+                onClick={() => toggleDetailTab(assignment.id, tab.id)}
                 onKeyDown={(event) => handleTabKeyDown(event, index)}
               >
                 {tab.prefix} {tab.label} <span className="detail-tab-count">{tab.count}</span>
@@ -262,7 +263,7 @@ function AssignmentCard({
                   )}
                 {tab.id === DETAIL_TABS.COMMENTS &&
                   unread &&
-                  !isCommentsTabActive && (
+                  !isActive && (
                     <span className="comments-new-indicator">New</span>
                   )}
               </button>
@@ -277,16 +278,6 @@ function AssignmentCard({
             Complete
           </button>
         )}
-        <button
-          type="button"
-          className="assignment-details-chevron"
-          aria-expanded={hasExpandedDetails}
-          aria-controls={detailsPanelId}
-          onClick={() => toggleAssignmentDetails(assignment.id)}
-          title={hasExpandedDetails ? "Collapse details" : "Expand details"}
-        >
-          {hasExpandedDetails ? "▾" : "▸"}
-        </button>
       </div>
 
       {hasExpandedDetails && (

@@ -697,8 +697,6 @@
   color: rgba(255, 255, 255, 0.6);
   flex-wrap: wrap;
   align-items: center;
-  position: relative;
-  padding-right: 2.2rem;
 }
 
 .assignment-meta.sticky-actions {
@@ -785,34 +783,6 @@
   color: rgba(255, 255, 255, 0.7);
   font-size: 0.74rem;
   font-weight: 600;
-}
-
-.assignment-details-chevron {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  width: 1.8rem;
-  height: 1.8rem;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.9);
-  cursor: pointer;
-  font-size: 0.95rem;
-  line-height: 1;
-  display: grid;
-  place-items: center;
-  transition: all 0.2s ease;
-}
-
-.assignment-details-chevron:hover {
-  background: rgba(255, 255, 255, 0.16);
-  border-color: rgba(255, 255, 255, 0.3);
-}
-
-.assignment-details-chevron:focus-visible {
-  outline: 2px solid rgba(147, 197, 253, 0.95);
-  outline-offset: 1px;
 }
 
 .assignment-details-panel {
@@ -2585,17 +2555,6 @@
 
   .detail-tab-count {
     color: rgba(0, 0, 0, 0.6);
-  }
-
-  .assignment-details-chevron {
-    background: rgba(0, 0, 0, 0.04);
-    border-color: rgba(0, 0, 0, 0.15);
-    color: rgba(0, 0, 0, 0.82);
-  }
-
-  .assignment-details-chevron:hover {
-    background: rgba(0, 0, 0, 0.08);
-    border-color: rgba(0, 0, 0, 0.25);
   }
 
   .assignment-details-panel {

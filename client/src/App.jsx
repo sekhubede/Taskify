@@ -986,24 +986,21 @@ function App() {
     await ensureDetailTabData(assignmentId, tab);
   };
 
-  const toggleAssignmentDetails = async (assignmentId) => {
+  const toggleDetailTab = async (assignmentId, tab) => {
     const isExpanded = Boolean(expandedByAssignment[assignmentId]);
     const activeTab =
       activeDetailTabByAssignment[assignmentId] || DETAIL_TABS.COMMENTS;
 
-    if (isExpanded) {
-      if (activeTab === DETAIL_TABS.COMMENTS) {
+    if (isExpanded && activeTab === tab) {
+      if (tab === DETAIL_TABS.COMMENTS) {
         // Closing comments marks current comments as seen.
         markCommentsAsSeen(assignmentId);
       }
-      setExpandedByAssignment((prev) => ({
-        ...prev,
-        [assignmentId]: false
-      }));
+      setExpandedByAssignment((prev) => ({ ...prev, [assignmentId]: false }));
       return;
     }
 
-    await openDetailTab(assignmentId, activeTab);
+    await openDetailTab(assignmentId, tab);
   };
 
   const handleToggleSubtask = async (subtaskId, isCompleted) => {
@@ -1881,7 +1878,7 @@ function App() {
                 expandedByAssignment,
                 activeDetailTabByAssignment,
                 openDetailTab,
-                toggleAssignmentDetails,
+                toggleDetailTab,
                 subtasks,
                 attachmentCounts,
                 attachments,
