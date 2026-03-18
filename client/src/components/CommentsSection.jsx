@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 
 function CommentsSection({
   assignmentId,
+  assignmentTitle,
   commentsForAssignment,
   loadingComments,
   filter,
@@ -63,6 +64,11 @@ function CommentsSection({
   const [checklistTitleDrafts, setChecklistTitleDrafts] = useState({});
   const [draggedChecklistItem, setDraggedChecklistItem] = useState(null);
   const [dragOverChecklistItem, setDragOverChecklistItem] = useState(null);
+  const [aiMode, setAiMode] = useState("full");
+  const [includePersonalNotes, setIncludePersonalNotes] = useState(false);
+  const [isAiLoading, setIsAiLoading] = useState(false);
+  const [aiError, setAiError] = useState("");
+  const [aiAnalysis, setAiAnalysis] = useState(null);
 
   const summarizeChecklist = (subtaskMap) => {
     const all = allComments.flatMap((comment) => subtaskMap[comment.id] || []);
@@ -342,6 +348,52 @@ function CommentsSection({
     }
   };
 
+  const handleAnalyzeThread = async () => {
+    if (!allComments.length) return;
+
+    setIsAiLoading(true);
+    setAiError("");
+
+    try {
+      const orderedComments = [...allComments].sort(
+        (a, b) => new Date(a.createdDate).getTime() - new Date(b.createdDate).getTime()
+      );
+
+      const response = await fetch("http://localhost:5000/api/ai/comment-analysis", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          assignmentId,
+          assignmentTitle: assignmentTitle || `Assignment ${assignmentId}`,
+          mode: aiMode,
+          includePersonalNotes,
+          comments: orderedComments.map((comment) => ({
+            commentId: comment.id,
+            author: comment.authorName,
+            content: comment.content,
+            createdDate: comment.createdDate,
+            personalNote: includePersonalNotes
+              ? commentNotes[comment.id] || null
+              : null
+          }))
+        })
+      });
+
+      if (!response.ok) {
+        const message = await response.text();
+        throw new Error(message || "Failed to analyze comment thread.");
+      }
+
+      const data = await response.json();
+      setAiAnalysis(data);
+    } catch (err) {
+      setAiAnalysis(null);
+      setAiError(err.toString());
+    } finally {
+      setIsAiLoading(false);
+    }
+  };
+
   let filteredComments = allComments;
 
   if (activeFilter.user) {
@@ -543,6 +595,115 @@ function CommentsSection({
         )}
       </div>
 
+      <div className="comment-ai-panel">
+        <div className="comment-ai-controls">
+          <select
+            className="comment-filter-select"
+            value={aiMode}
+            onChange={(e) => setAiMode(e.target.value)}
+            disabled={isAiLoading}
+          >
+            <option value="full">AI mode: Full analysis</option>
+            <option value="summary">AI mode: Summary</option>
+            <option value="actions">AI mode: Action-focused</option>
+          </select>
+          <label className="comment-ai-toggle">
+            <input
+              type="checkbox"
+              checked={includePersonalNotes}
+              onChange={(e) => setIncludePersonalNotes(e.target.checked)}
+              disabled={isAiLoading}
+            />
+            Include personal notes
+          </label>
+          <button
+            className="comment-ai-run"
+            onClick={handleAnalyzeThread}
+            disabled={isAiLoading || allComments.length === 0}
+            title={
+              allComments.length === 0
+                ? "No comments available to analyze"
+                : "Analyze this comment thread with AI"
+            }
+          >
+            {isAiLoading ? "Analyzing..." : "Analyze Thread"}
+          </button>
+        </div>
+        {aiError && <div className="comment-ai-error">{aiError}</div>}
+        {aiAnalysis && (
+          <div className="comment-ai-result">
+            <div className="comment-ai-section">
+              <div className="comment-ai-label">Summary</div>
+              <p className="comment-ai-summary">{aiAnalysis.summary}</p>
+            </div>
+
+            {Array.isArray(aiAnalysis.keyPoints) && aiAnalysis.keyPoints.length > 0 && (
+              <div className="comment-ai-section">
+                <div className="comment-ai-label">Key points</div>
+                <ul className="comment-ai-list">
+                  {aiAnalysis.keyPoints.map((item, index) => (
+                    <li key={`point-${index}`}>{item}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {Array.isArray(aiAnalysis.actionItems) &&
+              aiAnalysis.actionItems.length > 0 && (
+                <div className="comment-ai-section">
+                  <div className="comment-ai-label">Action items</div>
+                  <ul className="comment-ai-list">
+                    {aiAnalysis.actionItems.map((item, index) => (
+                      <li key={`action-${index}`}>
+                        <strong>[{item.priority || "medium"}]</strong> {item.title}
+                        {item.ownerHint ? ` (${item.ownerHint})` : ""} -{" "}
+                        {item.reason}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+            {Array.isArray(aiAnalysis.risks) && aiAnalysis.risks.length > 0 && (
+              <div className="comment-ai-section">
+                <div className="comment-ai-label">Risks</div>
+                <ul className="comment-ai-list">
+                  {aiAnalysis.risks.map((item, index) => (
+                    <li key={`risk-${index}`}>{item}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {aiAnalysis.suggestedReply && (
+              <div className="comment-ai-section">
+                <div className="comment-ai-label">Suggested reply</div>
+                <pre className="comment-ai-reply">{aiAnalysis.suggestedReply}</pre>
+              </div>
+            )}
+
+            {(Array.isArray(aiAnalysis.warnings) &&
+              aiAnalysis.warnings.length > 0 && (
+                <div className="comment-ai-section">
+                  <div className="comment-ai-label">Warnings</div>
+                  <ul className="comment-ai-list warnings">
+                    {aiAnalysis.warnings.map((item, index) => (
+                      <li key={`warn-${index}`}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              )) || null}
+
+            {aiAnalysis.modelInfo && (
+              <div className="comment-ai-meta">
+                {aiAnalysis.modelInfo.provider} / {aiAnalysis.modelInfo.model} in{" "}
+                {aiAnalysis.modelInfo.durationMs}ms
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       <div className="comments-list">
         {loadingComments ? (
           <div className="comments-loading">Loading comments...</div>
@@ -687,7 +848,15 @@ function CommentsSection({
                             .slice()
                             .sort((a, b) => a.order - b.order)
                             .map((item) => (
-                              <div key={item.id} className="comment-subtask-item">
+                              <div
+                                key={item.id}
+                                className={`comment-subtask-item ${
+                                  dragOverChecklistItem?.commentId === comment.id &&
+                                  dragOverChecklistItem?.subtaskId === item.id
+                                    ? "drag-over"
+                                    : ""
+                                }`}
+                              >
                                 <label
                                   className="comment-subtask-checkbox-label"
                                   draggable

@@ -203,6 +203,7 @@ function AssignmentCard({
       {openComments[assignment.id] && (
         <CommentsSection
           assignmentId={assignment.id}
+          assignmentTitle={assignment.title}
           commentsForAssignment={comments[assignment.id]}
           loadingComments={loadingComments[assignment.id]}
           filter={commentFilters[assignment.id]}

@@ -5,7 +5,9 @@ using Taskify.Application.Subtasks.Services;
 using Taskify.Domain.Interfaces;
 using Taskify.Infrastructure.Storage;
 using Taskify.Api.Infrastructure;
+using Taskify.Api.AI;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Options;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -66,6 +68,20 @@ builder.Services.AddScoped<CommentSubtaskService>();
 builder.Services.AddScoped<QuickTaskService>();
 builder.Services.AddScoped<AssignmentBoardService>();
 builder.Services.AddScoped<WorkingOnService>();
+builder.Services.Configure<TaskifyAiOptions>(builder.Configuration.GetSection("TaskifyAI"));
+builder.Services.AddHttpClient<IAiProvider, OllamaAiProvider>((sp, client) =>
+{
+    var options = sp.GetRequiredService<IOptions<TaskifyAiOptions>>().Value;
+    if (!string.IsNullOrWhiteSpace(options.OllamaBaseUrl) &&
+        Uri.TryCreate(options.OllamaBaseUrl, UriKind.Absolute, out var baseUri))
+    {
+        client.BaseAddress = baseUri;
+    }
+
+    var timeoutSeconds = options.TimeoutSeconds <= 0 ? 25 : options.TimeoutSeconds;
+    client.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
+});
+builder.Services.AddScoped<IAiAnalysisService, AiAnalysisService>();
 
 // Verify connector on startup
 builder.Services.AddHostedService<ConnectorHostedService>();
@@ -256,6 +272,42 @@ app.MapPost("api/assignments/{id:int}/comments", async (int id, CommentService s
     cache.Remove(CommentCountsMineCacheKey);
     cache.Remove(CommentCountsAllCacheKey);
     return Results.Ok(c);
+});
+app.MapPost("api/ai/comment-analysis", async (
+    CommentAnalysisRequest body,
+    IAiAnalysisService svc,
+    CancellationToken cancellationToken) =>
+{
+    try
+    {
+        var analysis = await svc.AnalyzeCommentsAsync(body, cancellationToken);
+        return Results.Ok(analysis);
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(ex.Message);
+    }
+    catch (TaskCanceledException ex)
+    {
+        return Results.Problem(
+            title: "AI request timed out",
+            detail: ex.Message,
+            statusCode: StatusCodes.Status504GatewayTimeout);
+    }
+    catch (HttpRequestException ex)
+    {
+        return Results.Problem(
+            title: "AI provider unavailable",
+            detail: ex.Message,
+            statusCode: StatusCodes.Status503ServiceUnavailable);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.Problem(
+            title: "Invalid AI response",
+            detail: ex.Message,
+            statusCode: StatusCodes.Status502BadGateway);
+    }
 });
 app.MapGet("api/comments/{id:int}/note", (int id, CommentNoteService svc) =>
 {
