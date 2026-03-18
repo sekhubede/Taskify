@@ -92,6 +92,16 @@ const string CommentCountsMineCacheKey = "comment-counts:mine";
 const string CommentCountsAllCacheKey = "comment-counts:all";
 const string AttachmentCountsMineCacheKey = "attachment-counts:mine";
 const string AttachmentCountsAllCacheKey = "attachment-counts:all";
+var configuredDataSource = builder.Configuration["Taskify:DataSource"] ?? "Unknown";
+var configuredVaultGuid = builder.Configuration["MFiles:VaultGuid"] ?? "(not set)";
+
+app.Logger.LogWarning(
+    "Taskify startup profile: Environment={Environment}; DataSource={DataSource}; LocalStorageDirectory={LocalStorageDirectory}; MFilesVaultGuid={VaultGuid}",
+    app.Environment.EnvironmentName,
+    configuredDataSource,
+    localStorageDirectory,
+    configuredVaultGuid
+);
 
 app.UseCors();
 
@@ -309,9 +319,9 @@ app.MapPost("api/ai/comment-analysis", async (
             statusCode: StatusCodes.Status502BadGateway);
     }
 });
-app.MapGet("api/comments/{id:int}/note", (int id, CommentNoteService svc) =>
+app.MapGet("api/assignments/{assignmentId:int}/comments/{id:int}/note", (int assignmentId, int id, CommentNoteService svc) =>
 {
-    var note = svc.GetCommentNoteItem(id);
+    var note = svc.GetCommentNoteItem(assignmentId, id);
     return Results.Ok(new
     {
         note = note?.Note,
@@ -319,14 +329,14 @@ app.MapGet("api/comments/{id:int}/note", (int id, CommentNoteService svc) =>
         updatedDate = note?.UpdatedDate
     });
 });
-app.MapPut("api/comments/{id:int}/note", async (int id, CommentNoteService svc, HttpRequest req) =>
+app.MapPut("api/assignments/{assignmentId:int}/comments/{id:int}/note", async (int assignmentId, int id, CommentNoteService svc, HttpRequest req) =>
 {
     var body = await req.ReadFromJsonAsync<UpdateCommentNoteRequest>();
     if (body == null)
         return Results.BadRequest("body required");
     try
     {
-        var updated = svc.UpdateCommentNote(id, body.Note);
+        var updated = svc.UpdateCommentNote(assignmentId, id, body.Note);
         return Results.Ok(new
         {
             note = updated?.Note,

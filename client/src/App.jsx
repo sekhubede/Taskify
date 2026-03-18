@@ -501,9 +501,15 @@ function App() {
         }));
         // Load comment notes and flags for all comments
         const notesPromises = data.map((comment) =>
-          fetch(`http://localhost:5000/api/comments/${comment.id}/note`)
+          fetch(
+            `http://localhost:5000/api/assignments/${assignmentId}/comments/${comment.id}/note`
+          )
             .then((res) => (res.ok ? res.json() : null))
-            .then((noteData) => ({ id: comment.id, noteData }))
+            .then((noteData) => ({
+              commentId: comment.id,
+              noteKey: getCommentNoteKey(assignmentId, comment.id),
+              noteData
+            }))
             .catch(() => null)
         );
         const flagsPromises = data.map((comment) =>
@@ -524,10 +530,10 @@ function App() {
             if (result) {
               if ("noteData" in result) {
                 if (result.noteData?.note) {
-                  notesState[result.id] = result.noteData.note;
+                  notesState[result.noteKey] = result.noteData.note;
                 }
                 if (result.noteData?.createdDate || result.noteData?.updatedDate) {
-                  noteTimestampState[result.id] = {
+                  noteTimestampState[result.noteKey] = {
                     createdDate: result.noteData.createdDate || null,
                     updatedDate: result.noteData.updatedDate || null
                   };
@@ -1432,10 +1438,13 @@ function App() {
     }
   };
 
-  const handleUpdateCommentNote = async (commentId, note) => {
+  const getCommentNoteKey = (assignmentId, commentId) =>
+    `${assignmentId}:${commentId}`;
+
+  const handleUpdateCommentNote = async (assignmentId, commentId, note) => {
     try {
       const response = await fetch(
-        `http://localhost:5000/api/comments/${commentId}/note`,
+        `http://localhost:5000/api/assignments/${assignmentId}/comments/${commentId}/note`,
         {
           method: "PUT",
           headers: {
@@ -1450,13 +1459,14 @@ function App() {
       }
 
       const noteData = await response.json();
+      const noteKey = getCommentNoteKey(assignmentId, commentId);
       setCommentNotes((prev) => ({
         ...prev,
-        [commentId]: noteData?.note || null
+        [noteKey]: noteData?.note || null
       }));
       setCommentNoteTimestamps((prev) => ({
         ...prev,
-        [commentId]:
+        [noteKey]:
           noteData?.createdDate || noteData?.updatedDate
             ? {
                 createdDate: noteData.createdDate || null,
@@ -1466,16 +1476,16 @@ function App() {
       }));
       setEditingCommentNotes((prev) => ({
         ...prev,
-        [commentId]: false
+        [noteKey]: false
       }));
     } catch (err) {
       setError(err.toString());
     }
   };
 
-  const handleDeleteCommentNote = async (commentId) => {
+  const handleDeleteCommentNote = async (assignmentId, commentId) => {
     if (window.confirm("Are you sure you want to delete this personal note?")) {
-      await handleUpdateCommentNote(commentId, null);
+      await handleUpdateCommentNote(assignmentId, commentId, null);
     }
   };
 
