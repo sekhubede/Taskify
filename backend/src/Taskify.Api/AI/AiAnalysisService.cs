@@ -130,23 +130,36 @@ Rules:
 
         sb.AppendLine("Comments (oldest to newest):");
 
-        foreach (var comment in request.Comments.OrderBy(c => c.CreatedDate).TakeLast(60))
+        var maxComments = mode switch
+        {
+            "summary" => 24,
+            "actions" => 30,
+            _ => 45
+        };
+        var maxCommentLength = mode switch
+        {
+            "summary" => 700,
+            "actions" => 900,
+            _ => 1100
+        };
+
+        foreach (var comment in request.Comments.OrderBy(c => c.CreatedDate).TakeLast(maxComments))
         {
             sb.AppendLine($"- CommentId: {comment.CommentId}");
             sb.AppendLine($"  Author: {comment.Author}");
             sb.AppendLine($"  Created: {comment.CreatedDate:O}");
-            sb.AppendLine($"  Content: {Truncate(comment.Content, 1200)}");
+            sb.AppendLine($"  Content: {Truncate(comment.Content, maxCommentLength)}");
             if (request.IncludePersonalNotes && !string.IsNullOrWhiteSpace(comment.PersonalNote))
             {
-                sb.AppendLine($"  PersonalNote: {Truncate(comment.PersonalNote, 500)}");
+                sb.AppendLine($"  PersonalNote: {Truncate(comment.PersonalNote, 320)}");
             }
         }
 
         sb.AppendLine();
         sb.AppendLine("Focus by mode:");
-        sb.AppendLine("- summary: emphasize what is being asked, progress so far, blockers, and next immediate steps.");
-        sb.AppendLine("- actions: prioritize concrete action items from assignment description + current subtasks + comments.");
-        sb.AppendLine("- full: provide all sections.");
+        sb.AppendLine("- summary: emphasize what is being asked, progress so far, blockers, and next immediate steps. Keep under 80 words.");
+        sb.AppendLine("- actions: prioritize concrete action items from assignment description + current subtasks + comments. Keep actionItems to max 6 and set suggestedReply to null.");
+        sb.AppendLine("- full: provide all sections, but keep each list concise.");
         return sb.ToString();
     }
 
@@ -160,7 +173,21 @@ Rules:
         }
         catch
         {
-            return false;
+            var extracted = ExtractJsonObject(raw);
+            if (string.IsNullOrWhiteSpace(extracted))
+            {
+                return false;
+            }
+
+            try
+            {
+                parsed = JsonSerializer.Deserialize<RawCommentAnalysisResponse>(extracted, JsonOptions);
+                return parsed != null;
+            }
+            catch
+            {
+                return false;
+            }
         }
     }
 
@@ -233,9 +260,9 @@ Rules:
     {
         return mode switch
         {
-            "summary" => new AiGenerationOptions(NumPredict: 260, Temperature: 0.15, TopP: 0.9),
-            "actions" => new AiGenerationOptions(NumPredict: 320, Temperature: 0.15, TopP: 0.9),
-            _ => new AiGenerationOptions(NumPredict: 420, Temperature: 0.2, TopP: 0.9)
+            "summary" => new AiGenerationOptions(NumPredict: 220, Temperature: 0.1, TopP: 0.9),
+            "actions" => new AiGenerationOptions(NumPredict: 360, Temperature: 0.1, TopP: 0.9),
+            _ => new AiGenerationOptions(NumPredict: 480, Temperature: 0.15, TopP: 0.9)
         };
     }
 
@@ -253,6 +280,23 @@ Rules:
         }
 
         return $"{trimmed[..maxLength]}...(truncated)";
+    }
+
+    private static string? ExtractJsonObject(string raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return null;
+        }
+
+        var start = raw.IndexOf('{');
+        var end = raw.LastIndexOf('}');
+        if (start < 0 || end <= start)
+        {
+            return null;
+        }
+
+        return raw[start..(end + 1)];
     }
 
     private sealed record RawCommentAnalysisResponse(
