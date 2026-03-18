@@ -18,6 +18,7 @@ public sealed class OllamaAiProvider : IAiProvider
     public async Task<string> GenerateJsonAsync(
         string systemPrompt,
         string userPrompt,
+        AiGenerationOptions? options,
         CancellationToken cancellationToken)
     {
         if (!_options.Enabled)
@@ -25,6 +26,7 @@ public sealed class OllamaAiProvider : IAiProvider
             throw new InvalidOperationException("AI features are disabled.");
         }
 
+        var generation = options ?? new AiGenerationOptions();
         var payload = new OllamaChatRequest(
             Model: _options.Model,
             Stream: false,
@@ -35,9 +37,9 @@ public sealed class OllamaAiProvider : IAiProvider
                 new OllamaMessage("user", userPrompt)
             ],
             Options: new OllamaOptions(
-                Temperature: 0.2,
-                TopP: 0.9,
-                NumPredict: 700
+                Temperature: generation.Temperature,
+                TopP: generation.TopP,
+                NumPredict: generation.NumPredict
             )
         );
 

@@ -3,6 +3,8 @@ import React, { useEffect, useState } from "react";
 function CommentsSection({
   assignmentId,
   assignmentTitle,
+  assignmentDescription,
+  assignmentSubtasks,
   commentsForAssignment,
   loadingComments,
   filter,
@@ -365,6 +367,12 @@ function CommentsSection({
         body: JSON.stringify({
           assignmentId,
           assignmentTitle: assignmentTitle || `Assignment ${assignmentId}`,
+          assignmentDescription: assignmentDescription || "",
+          existingSubtasks: (assignmentSubtasks || []).map((subtask) => ({
+            subtaskId: subtask.id || null,
+            title: subtask.title || "",
+            isCompleted: Boolean(subtask.isCompleted)
+          })),
           mode: aiMode,
           includePersonalNotes,
           comments: orderedComments.map((comment) => ({

@@ -204,6 +204,8 @@ function AssignmentCard({
         <CommentsSection
           assignmentId={assignment.id}
           assignmentTitle={assignment.title}
+          assignmentDescription={assignment.description}
+          assignmentSubtasks={assignmentSubtasks}
           commentsForAssignment={comments[assignment.id]}
           loadingComments={loadingComments[assignment.id]}
           filter={commentFilters[assignment.id]}

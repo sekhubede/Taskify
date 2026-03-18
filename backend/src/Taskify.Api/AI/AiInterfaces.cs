@@ -2,7 +2,11 @@ namespace Taskify.Api.AI;
 
 public interface IAiProvider
 {
-    Task<string> GenerateJsonAsync(string systemPrompt, string userPrompt, CancellationToken cancellationToken);
+    Task<string> GenerateJsonAsync(
+        string systemPrompt,
+        string userPrompt,
+        AiGenerationOptions? options,
+        CancellationToken cancellationToken);
 }
 
 public interface IAiAnalysisService

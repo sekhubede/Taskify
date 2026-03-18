@@ -30,14 +30,20 @@ public sealed class AiAnalysisService : IAiAnalysisService
         var normalizedMode = NormalizeMode(request.Mode);
         var systemPrompt = BuildSystemPrompt();
         var userPrompt = BuildUserPrompt(request, normalizedMode);
+        var generation = GetGenerationOptions(normalizedMode);
 
         var timer = Stopwatch.StartNew();
-        var raw = await _provider.GenerateJsonAsync(systemPrompt, userPrompt, cancellationToken);
+        var raw = await _provider.GenerateJsonAsync(systemPrompt, userPrompt, generation, cancellationToken);
 
         if (!TryParseResponse(raw, out var parsed))
         {
             var retryPrompt = $"{userPrompt}\n\nYour previous response was not valid JSON. Return only valid JSON for the schema.";
-            raw = await _provider.GenerateJsonAsync(systemPrompt, retryPrompt, cancellationToken);
+            var retryGeneration = generation with
+            {
+                NumPredict = Math.Min(generation.NumPredict, 320),
+                Temperature = 0.1
+            };
+            raw = await _provider.GenerateJsonAsync(systemPrompt, retryPrompt, retryGeneration, cancellationToken);
 
             if (!TryParseResponse(raw, out parsed))
             {
@@ -71,7 +77,7 @@ public sealed class AiAnalysisService : IAiAnalysisService
     private static string BuildSystemPrompt()
     {
         return """
-You are an assistant for analyzing assignment comments.
+You are an assistant for analyzing assignment work context.
 Return only valid JSON with this exact schema:
 {
   "summary": "string",
@@ -92,8 +98,9 @@ Return only valid JSON with this exact schema:
 Rules:
 - Do not include markdown.
 - Keep summary concise and factual.
-- Do not invent facts not in the provided comments.
+- Do not invent facts not in the provided assignment details/comments/subtasks.
 - If context is missing, include a warning.
+- For action items, prioritize concrete next steps that move the assignment forward.
 """;
     }
 
@@ -103,25 +110,42 @@ Rules:
         sb.AppendLine($"Mode: {mode}");
         sb.AppendLine($"Assignment Id: {request.AssignmentId}");
         sb.AppendLine($"Assignment Title: {request.AssignmentTitle}");
+        sb.AppendLine($"Assignment Description: {Truncate(request.AssignmentDescription, 2400)}");
         sb.AppendLine($"Include Personal Notes: {request.IncludePersonalNotes}");
+        sb.AppendLine("Existing assignment subtasks:");
+
+        var existingSubtasks = request.ExistingSubtasks ?? [];
+        if (existingSubtasks.Count == 0)
+        {
+            sb.AppendLine("- None");
+        }
+        else
+        {
+            foreach (var subtask in existingSubtasks.Take(30))
+            {
+                var status = subtask.IsCompleted ? "Completed" : "Open";
+                sb.AppendLine($"- [{status}] {Truncate(subtask.Title, 240)}");
+            }
+        }
+
         sb.AppendLine("Comments (oldest to newest):");
 
-        foreach (var comment in request.Comments.OrderBy(c => c.CreatedDate))
+        foreach (var comment in request.Comments.OrderBy(c => c.CreatedDate).TakeLast(60))
         {
             sb.AppendLine($"- CommentId: {comment.CommentId}");
             sb.AppendLine($"  Author: {comment.Author}");
             sb.AppendLine($"  Created: {comment.CreatedDate:O}");
-            sb.AppendLine($"  Content: {comment.Content}");
+            sb.AppendLine($"  Content: {Truncate(comment.Content, 1200)}");
             if (request.IncludePersonalNotes && !string.IsNullOrWhiteSpace(comment.PersonalNote))
             {
-                sb.AppendLine($"  PersonalNote: {comment.PersonalNote}");
+                sb.AppendLine($"  PersonalNote: {Truncate(comment.PersonalNote, 500)}");
             }
         }
 
         sb.AppendLine();
         sb.AppendLine("Focus by mode:");
-        sb.AppendLine("- summary: emphasize summary + keyPoints, keep actionItems short.");
-        sb.AppendLine("- actions: emphasize actionItems + risks.");
+        sb.AppendLine("- summary: emphasize what is being asked, progress so far, blockers, and next immediate steps.");
+        sb.AppendLine("- actions: prioritize concrete action items from assignment description + current subtasks + comments.");
         sb.AppendLine("- full: provide all sections.");
         return sb.ToString();
     }
@@ -203,6 +227,32 @@ Rules:
     {
         var normalized = (priority ?? "").Trim().ToLowerInvariant();
         return normalized is "low" or "medium" or "high" ? normalized : "medium";
+    }
+
+    private static AiGenerationOptions GetGenerationOptions(string mode)
+    {
+        return mode switch
+        {
+            "summary" => new AiGenerationOptions(NumPredict: 260, Temperature: 0.15, TopP: 0.9),
+            "actions" => new AiGenerationOptions(NumPredict: 320, Temperature: 0.15, TopP: 0.9),
+            _ => new AiGenerationOptions(NumPredict: 420, Temperature: 0.2, TopP: 0.9)
+        };
+    }
+
+    private static string Truncate(string? value, int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        var trimmed = value.Trim();
+        if (trimmed.Length <= maxLength)
+        {
+            return trimmed;
+        }
+
+        return $"{trimmed[..maxLength]}...(truncated)";
     }
 
     private sealed record RawCommentAnalysisResponse(
