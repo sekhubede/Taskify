@@ -40,8 +40,10 @@ public sealed class AiAnalysisService : IAiAnalysisService
             var retryPrompt = $"{userPrompt}\n\nYour previous response was not valid JSON. Return only valid JSON for the schema.";
             var retryGeneration = generation with
             {
-                NumPredict = Math.Min(generation.NumPredict, 320),
-                Temperature = 0.1
+                // Increase budget on retry to avoid truncated JSON responses.
+                NumPredict = Math.Min(generation.NumPredict + 220, 700),
+                Temperature = 0.05,
+                TopP = 0.85
             };
             raw = await _provider.GenerateJsonAsync(systemPrompt, retryPrompt, retryGeneration, cancellationToken);
 
@@ -115,16 +117,28 @@ Rules:
         sb.AppendLine("Existing assignment subtasks:");
 
         var existingSubtasks = request.ExistingSubtasks ?? [];
+        var maxExistingSubtasks = mode switch
+        {
+            "summary" => 12,
+            "actions" => 20,
+            _ => 30
+        };
+        var maxSubtaskTitleLength = mode switch
+        {
+            "summary" => 150,
+            "actions" => 190,
+            _ => 240
+        };
         if (existingSubtasks.Count == 0)
         {
             sb.AppendLine("- None");
         }
         else
         {
-            foreach (var subtask in existingSubtasks.Take(30))
+            foreach (var subtask in existingSubtasks.Take(maxExistingSubtasks))
             {
                 var status = subtask.IsCompleted ? "Completed" : "Open";
-                sb.AppendLine($"- [{status}] {Truncate(subtask.Title, 240)}");
+                sb.AppendLine($"- [{status}] {Truncate(subtask.Title, maxSubtaskTitleLength)}");
             }
         }
 
@@ -132,15 +146,21 @@ Rules:
 
         var maxComments = mode switch
         {
-            "summary" => 24,
+            "summary" => 14,
             "actions" => 30,
             _ => 45
         };
         var maxCommentLength = mode switch
         {
-            "summary" => 700,
+            "summary" => 450,
             "actions" => 900,
             _ => 1100
+        };
+        var maxPersonalNoteLength = mode switch
+        {
+            "summary" => 180,
+            "actions" => 260,
+            _ => 320
         };
 
         foreach (var comment in request.Comments.OrderBy(c => c.CreatedDate).TakeLast(maxComments))
@@ -151,7 +171,7 @@ Rules:
             sb.AppendLine($"  Content: {Truncate(comment.Content, maxCommentLength)}");
             if (request.IncludePersonalNotes && !string.IsNullOrWhiteSpace(comment.PersonalNote))
             {
-                sb.AppendLine($"  PersonalNote: {Truncate(comment.PersonalNote, 320)}");
+                sb.AppendLine($"  PersonalNote: {Truncate(comment.PersonalNote, maxPersonalNoteLength)}");
             }
         }
 
@@ -166,29 +186,20 @@ Rules:
     private static bool TryParseResponse(string raw, out RawCommentAnalysisResponse? parsed)
     {
         parsed = null;
-        try
+        if (TryDeserialize(raw, out parsed))
         {
-            parsed = JsonSerializer.Deserialize<RawCommentAnalysisResponse>(raw, JsonOptions);
-            return parsed != null;
+            return true;
         }
-        catch
-        {
-            var extracted = ExtractJsonObject(raw);
-            if (string.IsNullOrWhiteSpace(extracted))
-            {
-                return false;
-            }
 
-            try
+        foreach (var candidate in ExtractJsonObjects(raw))
+        {
+            if (TryDeserialize(candidate, out parsed))
             {
-                parsed = JsonSerializer.Deserialize<RawCommentAnalysisResponse>(extracted, JsonOptions);
-                return parsed != null;
-            }
-            catch
-            {
-                return false;
+                return true;
             }
         }
+
+        return false;
     }
 
     private CommentAnalysisResponse NormalizeResponse(
@@ -282,21 +293,112 @@ Rules:
         return $"{trimmed[..maxLength]}...(truncated)";
     }
 
-    private static string? ExtractJsonObject(string raw)
+    private static bool TryDeserialize(string raw, out RawCommentAnalysisResponse? parsed)
+    {
+        parsed = null;
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return false;
+        }
+
+        try
+        {
+            parsed = JsonSerializer.Deserialize<RawCommentAnalysisResponse>(raw, JsonOptions);
+            return parsed != null;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static IEnumerable<string> ExtractJsonObjects(string raw)
     {
         if (string.IsNullOrWhiteSpace(raw))
         {
-            return null;
+            yield break;
         }
 
-        var start = raw.IndexOf('{');
-        var end = raw.LastIndexOf('}');
-        if (start < 0 || end <= start)
+        var trimmed = raw.Trim();
+
+        // Try fenced JSON block first (```json ... ```).
+        var fenceStart = trimmed.IndexOf("```json", StringComparison.OrdinalIgnoreCase);
+        if (fenceStart >= 0)
         {
-            return null;
+            var contentStart = fenceStart + "```json".Length;
+            var fenceEnd = trimmed.IndexOf("```", contentStart, StringComparison.Ordinal);
+            if (fenceEnd > contentStart)
+            {
+                var fenced = trimmed[contentStart..fenceEnd].Trim();
+                if (!string.IsNullOrWhiteSpace(fenced))
+                {
+                    yield return fenced;
+                }
+            }
         }
 
-        return raw[start..(end + 1)];
+        // Try balanced object extraction across the raw content.
+        var inString = false;
+        var escaped = false;
+        var depth = 0;
+        var start = -1;
+
+        for (var i = 0; i < trimmed.Length; i++)
+        {
+            var ch = trimmed[i];
+
+            if (inString)
+            {
+                if (escaped)
+                {
+                    escaped = false;
+                    continue;
+                }
+
+                if (ch == '\\')
+                {
+                    escaped = true;
+                    continue;
+                }
+
+                if (ch == '"')
+                {
+                    inString = false;
+                }
+
+                continue;
+            }
+
+            if (ch == '"')
+            {
+                inString = true;
+                continue;
+            }
+
+            if (ch == '{')
+            {
+                if (depth == 0)
+                {
+                    start = i;
+                }
+                depth++;
+                continue;
+            }
+
+            if (ch == '}' && depth > 0)
+            {
+                depth--;
+                if (depth == 0 && start >= 0)
+                {
+                    var candidate = trimmed[start..(i + 1)];
+                    if (!string.IsNullOrWhiteSpace(candidate))
+                    {
+                        yield return candidate;
+                    }
+                    start = -1;
+                }
+            }
+        }
     }
 
     private sealed record RawCommentAnalysisResponse(

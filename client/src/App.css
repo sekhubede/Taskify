@@ -1132,11 +1132,76 @@
   background: rgba(15, 23, 42, 0.55);
 }
 
+.comment-ai-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.comment-ai-header-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.comment-ai-collapse {
+  background: transparent;
+  color: #bae6fd;
+  border: 0;
+  padding: 0;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.comment-ai-collapse:hover {
+  color: #dbeafe;
+}
+
+.comment-ai-elapsed {
+  color: rgba(148, 163, 184, 0.95);
+  font-size: 0.74rem;
+  white-space: nowrap;
+}
+
+.comment-ai-status {
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(15, 23, 42, 0.7);
+  color: rgba(203, 213, 225, 0.95);
+  font-size: 0.7rem;
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 0.24rem 0.48rem;
+  white-space: nowrap;
+}
+
+.comment-ai-status.running {
+  border-color: rgba(125, 211, 252, 0.55);
+  background: rgba(3, 105, 161, 0.28);
+  color: #bae6fd;
+}
+
+.comment-ai-status.done {
+  border-color: rgba(74, 222, 128, 0.55);
+  background: rgba(21, 128, 61, 0.26);
+  color: #bbf7d0;
+}
+
+.comment-ai-status.error {
+  border-color: rgba(248, 113, 113, 0.55);
+  background: rgba(153, 27, 27, 0.28);
+  color: #fecaca;
+}
+
 .comment-ai-controls {
   display: flex;
   align-items: center;
   gap: 0.55rem;
   flex-wrap: wrap;
+  margin-top: 0.55rem;
 }
 
 .comment-ai-toggle {
@@ -1180,6 +1245,12 @@
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
+}
+
+.comment-ai-empty {
+  margin-top: 0.6rem;
+  color: rgba(148, 163, 184, 0.92);
+  font-size: 0.8rem;
 }
 
 .comment-ai-section {
@@ -1234,6 +1305,19 @@
 .comment-ai-meta {
   color: rgba(148, 163, 184, 0.9);
   font-size: 0.74rem;
+}
+
+.comment-ai-stale {
+  border-radius: 999px;
+  border: 1px solid rgba(250, 204, 21, 0.5);
+  background: rgba(161, 98, 7, 0.22);
+  color: #fde68a;
+  font-size: 0.7rem;
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 0.24rem 0.48rem;
+  white-space: nowrap;
 }
 
 .comments-list {
