@@ -662,6 +662,12 @@
   line-height: 1.1;
   white-space: nowrap;
   text-transform: uppercase;
+  cursor: pointer;
+}
+
+.assignment-unread-comments-badge:focus-visible {
+  outline: 2px solid rgba(96, 165, 250, 0.85);
+  outline-offset: 1px;
 }
 
 .status-badge {
@@ -690,6 +696,7 @@
   font-size: 0.85rem;
   color: rgba(255, 255, 255, 0.6);
   flex-wrap: wrap;
+  align-items: center;
 }
 
 .assignment-meta.sticky-actions {
@@ -732,6 +739,64 @@
   display: flex;
   align-items: center;
   color: rgba(255, 255, 255, 0.5);
+}
+
+.assignment-detail-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.assignment-detail-tab {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  padding: 0.38rem 0.72rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.assignment-detail-tab:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+.assignment-detail-tab.active {
+  background: rgba(59, 130, 246, 0.22);
+  border-color: rgba(96, 165, 250, 0.55);
+  color: #dbeafe;
+}
+
+.assignment-detail-tab:focus-visible {
+  outline: 2px solid rgba(147, 197, 253, 0.95);
+  outline-offset: 1px;
+}
+
+.detail-tab-count {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+
+.assignment-details-panel {
+  margin-top: 0.8rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.assignment-details-panel .comments-section,
+.assignment-details-panel .subtasks-section,
+.assignment-details-panel .attachments-section {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
 }
 
 .complete-button {
@@ -2469,6 +2534,31 @@
   .subtasks-button:hover {
     background: rgba(0, 0, 0, 0.08);
     border-color: rgba(0, 0, 0, 0.3);
+  }
+
+  .assignment-detail-tab {
+    background: rgba(0, 0, 0, 0.03);
+    color: rgba(0, 0, 0, 0.85);
+    border-color: rgba(0, 0, 0, 0.15);
+  }
+
+  .assignment-detail-tab:hover {
+    background: rgba(0, 0, 0, 0.06);
+    border-color: rgba(0, 0, 0, 0.25);
+  }
+
+  .assignment-detail-tab.active {
+    background: rgba(59, 130, 246, 0.14);
+    border-color: rgba(37, 99, 235, 0.45);
+    color: #1d4ed8;
+  }
+
+  .detail-tab-count {
+    color: rgba(0, 0, 0, 0.6);
+  }
+
+  .assignment-details-panel {
+    border-top-color: rgba(0, 0, 0, 0.12);
   }
 
   .subtasks-section {
