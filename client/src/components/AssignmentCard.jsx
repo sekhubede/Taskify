@@ -43,6 +43,8 @@ function AssignmentCard({
   handleToggleCommentFlag,
   handleUpdateCommentNote,
   handleDeleteCommentNote,
+  aiSummaryStateByAssignment,
+  setAiSummaryStateByAssignment,
   commentChecklistSummaries,
   setCommentChecklistSummaries,
   newCommentText,
@@ -203,6 +205,9 @@ function AssignmentCard({
       {openComments[assignment.id] && (
         <CommentsSection
           assignmentId={assignment.id}
+          assignmentTitle={assignment.title}
+          assignmentDescription={assignment.description}
+          assignmentSubtasks={assignmentSubtasks}
           commentsForAssignment={comments[assignment.id]}
           loadingComments={loadingComments[assignment.id]}
           filter={commentFilters[assignment.id]}
@@ -223,6 +228,8 @@ function AssignmentCard({
           handleToggleCommentFlag={handleToggleCommentFlag}
           handleUpdateCommentNote={handleUpdateCommentNote}
           handleDeleteCommentNote={handleDeleteCommentNote}
+          aiSummaryState={aiSummaryStateByAssignment?.[assignment.id]}
+          setAiSummaryStateByAssignment={setAiSummaryStateByAssignment}
           onChecklistSummaryChange={(summary) =>
             setCommentChecklistSummaries((prev) => ({
               ...prev,

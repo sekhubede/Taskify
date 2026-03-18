@@ -11,6 +11,7 @@ const SORT_UNREAD_TO_TOP_KEY = "sortUnreadToTop";
 const COMMENT_SORT_NEWEST_FIRST_KEY = "commentSortNewestFirst";
 const AUTO_REFRESH_INTERVAL_SECONDS_KEY = "assignmentAutoRefreshSeconds";
 const SHOW_ALL_ASSIGNMENTS_KEY = "showAllAssignments";
+const AI_SUMMARY_STATE_KEY = "aiSummaryStateByAssignment";
 const SCOPE_MINE = "mine";
 const SCOPE_ALL = "all";
 
@@ -60,6 +61,16 @@ function App() {
   const [subtaskNoteTimestamps, setSubtaskNoteTimestamps] = useState({});
   const [commentFlags, setCommentFlags] = useState({});
   const [commentChecklistSummaries, setCommentChecklistSummaries] = useState({});
+  const [aiSummaryStateByAssignment, setAiSummaryStateByAssignment] = useState(
+    () => {
+      try {
+        const raw = localStorage.getItem(AI_SUMMARY_STATE_KEY);
+        return raw ? JSON.parse(raw) : {};
+      } catch {
+        return {};
+      }
+    }
+  );
   const [draggedSubtaskId, setDraggedSubtaskId] = useState(null);
   const [dragOverSubtaskId, setDragOverSubtaskId] = useState(null);
   const [workingOn, setWorkingOn] = useState(new Set()); // assignmentIds that are marked as "working on"
@@ -292,6 +303,17 @@ function App() {
       // ignore storage write failures
     }
   }, [autoRefreshIntervalSeconds]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        AI_SUMMARY_STATE_KEY,
+        JSON.stringify(aiSummaryStateByAssignment)
+      );
+    } catch {
+      // ignore storage write failures
+    }
+  }, [aiSummaryStateByAssignment]);
 
   useEffect(() => {
     if (!autoRefreshIntervalSeconds) return undefined;
@@ -1838,6 +1860,8 @@ function App() {
                 handleToggleCommentFlag,
                 handleUpdateCommentNote,
                 handleDeleteCommentNote,
+                aiSummaryStateByAssignment,
+                setAiSummaryStateByAssignment,
                 commentChecklistSummaries,
                 setCommentChecklistSummaries,
                 newCommentText,

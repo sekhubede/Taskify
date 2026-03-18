@@ -2,6 +2,9 @@ import React, { useEffect, useState } from "react";
 
 function CommentsSection({
   assignmentId,
+  assignmentTitle,
+  assignmentDescription,
+  assignmentSubtasks,
   commentsForAssignment,
   loadingComments,
   filter,
@@ -22,6 +25,8 @@ function CommentsSection({
   handleToggleCommentFlag,
   handleUpdateCommentNote,
   handleDeleteCommentNote,
+  aiSummaryState,
+  setAiSummaryStateByAssignment,
   onChecklistSummaryChange,
   newCommentText,
   setNewCommentText,
@@ -63,6 +68,113 @@ function CommentsSection({
   const [checklistTitleDrafts, setChecklistTitleDrafts] = useState({});
   const [draggedChecklistItem, setDraggedChecklistItem] = useState(null);
   const [dragOverChecklistItem, setDragOverChecklistItem] = useState(null);
+  const [isAiExpanded, setIsAiExpanded] = useState(false);
+  const [includePersonalNotes, setIncludePersonalNotes] = useState(
+    Boolean(aiSummaryState?.includePersonalNotes)
+  );
+  const [isAiLoading, setIsAiLoading] = useState(false);
+  const [aiError, setAiError] = useState(aiSummaryState?.aiError || "");
+  const [aiAnalysis, setAiAnalysis] = useState(aiSummaryState?.aiAnalysis || null);
+  const [aiElapsedMs, setAiElapsedMs] = useState(
+    Number.isFinite(aiSummaryState?.aiElapsedMs) ? aiSummaryState.aiElapsedMs : null
+  );
+  const [aiLastRunAt, setAiLastRunAt] = useState(aiSummaryState?.aiLastRunAt || null);
+  const [aiLastCommentCount, setAiLastCommentCount] = useState(
+    Number.isFinite(aiSummaryState?.aiLastCommentCount)
+      ? aiSummaryState.aiLastCommentCount
+      : null
+  );
+  const [aiLastLatestCommentDate, setAiLastLatestCommentDate] = useState(
+    aiSummaryState?.aiLastLatestCommentDate || null
+  );
+  const [aiLastDescriptionSignature, setAiLastDescriptionSignature] = useState(
+    aiSummaryState?.aiLastDescriptionSignature || ""
+  );
+  const [aiLastSubtasksSignature, setAiLastSubtasksSignature] = useState(
+    aiSummaryState?.aiLastSubtasksSignature || ""
+  );
+
+  useEffect(() => {
+    setIncludePersonalNotes(Boolean(aiSummaryState?.includePersonalNotes));
+    setAiError(aiSummaryState?.aiError || "");
+    setAiAnalysis(aiSummaryState?.aiAnalysis || null);
+    setAiElapsedMs(
+      Number.isFinite(aiSummaryState?.aiElapsedMs) ? aiSummaryState.aiElapsedMs : null
+    );
+    setAiLastRunAt(aiSummaryState?.aiLastRunAt || null);
+    setAiLastCommentCount(
+      Number.isFinite(aiSummaryState?.aiLastCommentCount)
+        ? aiSummaryState.aiLastCommentCount
+        : null
+    );
+    setAiLastLatestCommentDate(aiSummaryState?.aiLastLatestCommentDate || null);
+    setAiLastDescriptionSignature(aiSummaryState?.aiLastDescriptionSignature || "");
+    setAiLastSubtasksSignature(aiSummaryState?.aiLastSubtasksSignature || "");
+  }, [assignmentId, aiSummaryState]);
+
+  useEffect(() => {
+    setAiSummaryStateByAssignment?.((prev) => {
+      const nextState = {
+        includePersonalNotes,
+        aiError,
+        aiAnalysis,
+        aiElapsedMs,
+        aiLastRunAt,
+        aiLastCommentCount,
+        aiLastLatestCommentDate,
+        aiLastDescriptionSignature,
+        aiLastSubtasksSignature
+      };
+      const current = prev?.[assignmentId];
+
+      if (
+        current?.includePersonalNotes === nextState.includePersonalNotes &&
+        current?.aiError === nextState.aiError &&
+        current?.aiElapsedMs === nextState.aiElapsedMs &&
+        current?.aiLastRunAt === nextState.aiLastRunAt &&
+        current?.aiLastCommentCount === nextState.aiLastCommentCount &&
+        current?.aiLastLatestCommentDate === nextState.aiLastLatestCommentDate &&
+        current?.aiLastDescriptionSignature === nextState.aiLastDescriptionSignature &&
+        current?.aiLastSubtasksSignature === nextState.aiLastSubtasksSignature &&
+        JSON.stringify(current?.aiAnalysis || null) ===
+          JSON.stringify(nextState.aiAnalysis || null)
+      ) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        [assignmentId]: nextState
+      };
+    });
+  }, [
+    assignmentId,
+    includePersonalNotes,
+    aiError,
+    aiAnalysis,
+    aiElapsedMs,
+    aiLastRunAt,
+    aiLastCommentCount,
+    aiLastLatestCommentDate,
+    aiLastDescriptionSignature,
+    aiLastSubtasksSignature,
+    setAiSummaryStateByAssignment
+  ]);
+
+  const getDescriptionSignature = (description) =>
+    (description || "").trim().replace(/\s+/g, " ").toLowerCase();
+
+  const getSubtasksSignature = (items) =>
+    (items || [])
+      .map(
+        (subtask) =>
+          `${subtask.id ?? "na"}|${(subtask.title || "")
+            .trim()
+            .replace(/\s+/g, " ")
+            .toLowerCase()}|${Boolean(subtask.isCompleted) ? 1 : 0}`
+      )
+      .sort()
+      .join("||");
 
   const summarizeChecklist = (subtaskMap) => {
     const all = allComments.flatMap((comment) => subtaskMap[comment.id] || []);
@@ -342,6 +454,71 @@ function CommentsSection({
     }
   };
 
+  const handleAnalyzeThread = async () => {
+    if (!allComments.length) return;
+
+    setIsAiLoading(true);
+    setAiError("");
+    setAiElapsedMs(null);
+    const start = performance.now();
+
+    try {
+      const orderedComments = [...allComments].sort(
+        (a, b) => new Date(a.createdDate).getTime() - new Date(b.createdDate).getTime()
+      );
+
+      const response = await fetch("http://localhost:5000/api/ai/comment-analysis", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          assignmentId,
+          assignmentTitle: assignmentTitle || `Assignment ${assignmentId}`,
+          assignmentDescription: assignmentDescription || "",
+          existingSubtasks: (assignmentSubtasks || []).map((subtask) => ({
+            subtaskId: subtask.id || null,
+            title: subtask.title || "",
+            isCompleted: Boolean(subtask.isCompleted)
+          })),
+          mode: "summary",
+          includePersonalNotes,
+          comments: orderedComments.map((comment) => ({
+            commentId: comment.id,
+            author: comment.authorName,
+            content: comment.content,
+            createdDate: comment.createdDate,
+            personalNote: includePersonalNotes
+              ? commentNotes[comment.id] || null
+              : null
+          }))
+        })
+      });
+
+      if (!response.ok) {
+        const message = await response.text();
+        throw new Error(message || "Failed to analyze comment thread.");
+      }
+
+      const data = await response.json();
+      setAiAnalysis(data);
+      setAiElapsedMs(Math.round(performance.now() - start));
+      setAiLastRunAt(new Date().toISOString());
+      setAiLastCommentCount(orderedComments.length);
+      setAiLastLatestCommentDate(
+        orderedComments.length > 0
+          ? orderedComments[orderedComments.length - 1].createdDate || null
+          : null
+      );
+      setAiLastDescriptionSignature(getDescriptionSignature(assignmentDescription));
+      setAiLastSubtasksSignature(getSubtasksSignature(assignmentSubtasks));
+    } catch (err) {
+      setAiError(err.toString());
+      setAiElapsedMs(Math.round(performance.now() - start));
+      setAiLastRunAt(new Date().toISOString());
+    } finally {
+      setIsAiLoading(false);
+    }
+  };
+
   let filteredComments = allComments;
 
   if (activeFilter.user) {
@@ -412,6 +589,54 @@ function CommentsSection({
   }
 
   filteredComments = sortCommentsByDate(filteredComments);
+  const aiStatus = isAiLoading
+    ? "running"
+    : aiError
+      ? "error"
+      : aiAnalysis
+        ? "done"
+        : "idle";
+  const aiStatusLabel = isAiLoading
+    ? "Running"
+    : aiError
+      ? "Failed"
+      : aiAnalysis
+        ? "Done"
+        : "Idle";
+  const formattedAiLastRun = aiLastRunAt
+    ? new Date(aiLastRunAt).toLocaleString()
+    : "";
+  const latestCommentDate = allComments.length
+    ? (() => {
+        const sortedByDate = [...allComments].sort(
+          (a, b) => new Date(a.createdDate).getTime() - new Date(b.createdDate).getTime()
+        );
+        const last = sortedByDate[sortedByDate.length - 1];
+        return last?.createdDate || null;
+      })()
+    : null;
+  const currentDescriptionSignature = getDescriptionSignature(assignmentDescription);
+  const currentSubtasksSignature = getSubtasksSignature(assignmentSubtasks);
+  const commentsChangedSinceAiRun =
+    Boolean(aiAnalysis) &&
+    (aiLastCommentCount !== allComments.length ||
+      (aiLastLatestCommentDate || null) !== (latestCommentDate || null));
+  const descriptionChangedSinceAiRun =
+    Boolean(aiAnalysis) &&
+    aiLastDescriptionSignature !== currentDescriptionSignature;
+  const subtasksChangedSinceAiRun =
+    Boolean(aiAnalysis) && aiLastSubtasksSignature !== currentSubtasksSignature;
+  const hasAssignmentDetailsChangeSinceAiRun =
+    Boolean(aiAnalysis) &&
+    (descriptionChangedSinceAiRun || subtasksChangedSinceAiRun);
+  const hasContextChangesSinceAiRun =
+    commentsChangedSinceAiRun || hasAssignmentDetailsChangeSinceAiRun;
+  const staleReasons = [
+    commentsChangedSinceAiRun ? "Comments changed" : null,
+    descriptionChangedSinceAiRun ? "Description changed" : null,
+    subtasksChangedSinceAiRun ? "Subtasks changed" : null
+  ].filter(Boolean);
+  const staleReasonText = staleReasons.join(", ");
 
   return (
     <div className="comments-section">
@@ -540,6 +765,146 @@ function CommentsSection({
           >
             Clear Filters
           </button>
+        )}
+      </div>
+
+      <div className="comment-ai-panel">
+        <div className="comment-ai-header">
+          <button
+            type="button"
+            className="comment-ai-collapse"
+            onClick={() => setIsAiExpanded((prev) => !prev)}
+            title={isAiExpanded ? "Collapse AI assistant" : "Expand AI assistant"}
+          >
+            {isAiExpanded ? "▼" : "▶"} AI Summary Assistant
+          </button>
+          <div className="comment-ai-header-right">
+            <span className={`comment-ai-status ${aiStatus}`}>{aiStatusLabel}</span>
+            {aiElapsedMs !== null && (
+              <span className="comment-ai-elapsed">Last run: {aiElapsedMs}ms</span>
+            )}
+            {formattedAiLastRun && (
+              <span className="comment-ai-elapsed">at {formattedAiLastRun}</span>
+            )}
+            {hasContextChangesSinceAiRun && (
+              <span className="comment-ai-stale" title={staleReasonText}>
+                Updated since run
+              </span>
+            )}
+          </div>
+        </div>
+        {isAiExpanded && (
+          <>
+            <div className="comment-ai-controls">
+              <label className="comment-ai-toggle">
+                <input
+                  type="checkbox"
+                  checked={includePersonalNotes}
+                  onChange={(e) => setIncludePersonalNotes(e.target.checked)}
+                  disabled={isAiLoading}
+                />
+                Include personal notes
+              </label>
+              <button
+                className="comment-ai-run"
+                onClick={handleAnalyzeThread}
+                disabled={isAiLoading || allComments.length === 0}
+                title={
+                  allComments.length === 0
+                    ? "No comments available to analyze"
+                    : "Analyze this comment thread with AI"
+                }
+              >
+                {isAiLoading ? "Analyzing..." : "Analyze Summary"}
+              </button>
+            </div>
+            {aiError && <div className="comment-ai-error">{aiError}</div>}
+            {aiAnalysis && (
+              <div className="comment-ai-result">
+                <div className="comment-ai-section">
+                  <div className="comment-ai-label">Summary</div>
+                  <p className="comment-ai-summary">{aiAnalysis.summary}</p>
+                </div>
+
+                {Array.isArray(aiAnalysis.keyPoints) &&
+                  aiAnalysis.keyPoints.length > 0 && (
+                    <div className="comment-ai-section">
+                      <div className="comment-ai-label">Key points</div>
+                      <ul className="comment-ai-list">
+                        {aiAnalysis.keyPoints.map((item, index) => (
+                          <li key={`point-${index}`}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                {Array.isArray(aiAnalysis.actionItems) &&
+                  aiAnalysis.actionItems.length > 0 && (
+                    <div className="comment-ai-section">
+                      <div className="comment-ai-label">Action items</div>
+                      <ul className="comment-ai-list">
+                        {aiAnalysis.actionItems.map((item, index) => (
+                          <li key={`action-${index}`}>
+                            <strong>[{item.priority || "medium"}]</strong>{" "}
+                            {item.title}
+                            {item.ownerHint ? ` (${item.ownerHint})` : ""} -{" "}
+                            {item.reason}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                {Array.isArray(aiAnalysis.risks) && aiAnalysis.risks.length > 0 && (
+                  <div className="comment-ai-section">
+                    <div className="comment-ai-label">Risks</div>
+                    <ul className="comment-ai-list">
+                      {aiAnalysis.risks.map((item, index) => (
+                        <li key={`risk-${index}`}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {aiAnalysis.suggestedReply && (
+                  <div className="comment-ai-section">
+                    <div className="comment-ai-label">Suggested reply</div>
+                    <pre className="comment-ai-reply">{aiAnalysis.suggestedReply}</pre>
+                  </div>
+                )}
+
+                {(Array.isArray(aiAnalysis.warnings) &&
+                  aiAnalysis.warnings.length > 0 && (
+                    <div className="comment-ai-section">
+                      <div className="comment-ai-label">Warnings</div>
+                      <ul className="comment-ai-list warnings">
+                        {aiAnalysis.warnings.map((item, index) => (
+                          <li key={`warn-${index}`}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )) || null}
+
+                {aiAnalysis.modelInfo && (
+                  <div className="comment-ai-meta">
+                    {aiAnalysis.modelInfo.provider} / {aiAnalysis.modelInfo.model} in{" "}
+                    {aiAnalysis.modelInfo.durationMs}ms
+                  </div>
+                )}
+              </div>
+            )}
+            {!isAiLoading && !aiAnalysis && !aiError && (
+              <div className="comment-ai-empty">
+                Summary-only MVP is enabled. Run analysis to generate a concise
+                assignment summary and suggested next steps.
+              </div>
+            )}
+            {!isAiLoading && aiAnalysis && hasContextChangesSinceAiRun && (
+              <div className="comment-ai-empty">
+                {staleReasonText}. Re-run summary to refresh the analysis.
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -687,7 +1052,15 @@ function CommentsSection({
                             .slice()
                             .sort((a, b) => a.order - b.order)
                             .map((item) => (
-                              <div key={item.id} className="comment-subtask-item">
+                              <div
+                                key={item.id}
+                                className={`comment-subtask-item ${
+                                  dragOverChecklistItem?.commentId === comment.id &&
+                                  dragOverChecklistItem?.subtaskId === item.id
+                                    ? "drag-over"
+                                    : ""
+                                }`}
+                              >
                                 <label
                                   className="comment-subtask-checkbox-label"
                                   draggable
