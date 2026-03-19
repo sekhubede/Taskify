@@ -231,11 +231,31 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 0.6rem;
+  flex-wrap: wrap;
 }
 
 .quick-tasks-header h2 {
   margin: 0;
   font-size: 1rem;
+}
+
+.quick-tasks-collapse-toggle {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.92);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.86rem;
+  font-weight: 600;
+  padding: 0.35rem 0.65rem;
+}
+
+.quick-tasks-counts {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
 }
 
 .quick-tasks-count {
@@ -245,6 +265,51 @@
   font-size: 0.75rem;
   border-radius: 999px;
   padding: 0.15rem 0.55rem;
+}
+
+.quick-tasks-count.open {
+  border-color: rgba(56, 189, 248, 0.35);
+  color: #7dd3fc;
+}
+
+.quick-tasks-count.done {
+  background: rgba(110, 231, 183, 0.16);
+  border-color: rgba(110, 231, 183, 0.35);
+  color: #6ee7b7;
+}
+
+.quick-tasks-count.total {
+  background: rgba(203, 213, 225, 0.14);
+  border-color: rgba(203, 213, 225, 0.3);
+  color: #cbd5e1;
+}
+
+.quick-tasks-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.quick-task-visibility-toggle {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.86);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.77rem;
+  padding: 0.32rem 0.6rem;
+}
+
+.quick-task-visibility-toggle.active {
+  border-color: rgba(110, 231, 183, 0.45);
+  background: rgba(110, 231, 183, 0.14);
+  color: #a7f3d0;
+}
+
+.quick-tasks-hidden-hint {
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 0.74rem;
 }
 
 .quick-task-add-row,
