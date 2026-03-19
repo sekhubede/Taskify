@@ -31,6 +31,8 @@ function QuickTasksSection() {
   const [checklistDrafts, setChecklistDrafts] = useState({});
   const [editingCommentContent, setEditingCommentContent] = useState({});
   const [commentDrafts, setCommentDrafts] = useState({});
+  const [draggedTaskId, setDraggedTaskId] = useState(null);
+  const [dragOverTaskId, setDragOverTaskId] = useState(null);
   const [draggedChecklistItem, setDraggedChecklistItem] = useState(null);
   const formatLocalTimestamp = (value) => {
     if (!value) return "";
@@ -55,6 +57,11 @@ function QuickTasksSection() {
       [...tasks].sort((a, b) => {
         if (a.isCompleted !== b.isCompleted) {
           return Number(a.isCompleted) - Number(b.isCompleted);
+        }
+        const orderA = Number.isFinite(a.order) ? a.order : 0;
+        const orderB = Number.isFinite(b.order) ? b.order : 0;
+        if (orderA !== orderB) {
+          return orderA - orderB;
         }
         return new Date(b.createdDate) - new Date(a.createdDate);
       }),
@@ -485,6 +492,107 @@ function QuickTasksSection() {
     }
   };
 
+  const persistTaskOrder = async (orderedTasks) => {
+    const taskOrders = {};
+    orderedTasks.forEach((task, index) => {
+      taskOrders[task.id] = index;
+    });
+
+    await fetch(`${QUICK_TASKS_API_URL}/reorder`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ taskOrders })
+    });
+  };
+
+  const moveTaskByOffset = async (taskId, offset) => {
+    const sourceTask = visibleTasks.find((task) => task.id === taskId);
+    if (!sourceTask) return;
+
+    const group = visibleTasks.filter(
+      (task) => task.isCompleted === sourceTask.isCompleted
+    );
+    const sourceIndex = group.findIndex((task) => task.id === taskId);
+    const targetIndex = sourceIndex + offset;
+    if (sourceIndex < 0 || targetIndex < 0 || targetIndex >= group.length) return;
+
+    const reorderedGroup = [...group];
+    const [movedTask] = reorderedGroup.splice(sourceIndex, 1);
+    reorderedGroup.splice(targetIndex, 0, movedTask);
+
+    const indexById = new Map(reorderedGroup.map((task, idx) => [task.id, idx]));
+    const nextTasks = tasks.map((task) =>
+      indexById.has(task.id)
+        ? {
+            ...task,
+            order: indexById.get(task.id),
+            updatedDate: new Date().toISOString()
+          }
+        : task
+    );
+
+    setTasks(nextTasks);
+    try {
+      await persistTaskOrder(reorderedGroup);
+    } catch (err) {
+      console.error("Failed to reorder quick tasks", err);
+      refreshTasks();
+    }
+  };
+
+  const handleTaskDrop = async (targetTaskId) => {
+    if (!draggedTaskId || draggedTaskId === targetTaskId) {
+      setDraggedTaskId(null);
+      setDragOverTaskId(null);
+      return;
+    }
+
+    const sourceTask = visibleTasks.find((task) => task.id === draggedTaskId);
+    const targetTask = visibleTasks.find((task) => task.id === targetTaskId);
+    if (!sourceTask || !targetTask || sourceTask.isCompleted !== targetTask.isCompleted) {
+      setDraggedTaskId(null);
+      setDragOverTaskId(null);
+      return;
+    }
+
+    const group = visibleTasks.filter(
+      (task) => task.isCompleted === sourceTask.isCompleted
+    );
+    const sourceIndex = group.findIndex((task) => task.id === draggedTaskId);
+    const targetIndex = group.findIndex((task) => task.id === targetTaskId);
+    if (sourceIndex < 0 || targetIndex < 0) {
+      setDraggedTaskId(null);
+      setDragOverTaskId(null);
+      return;
+    }
+
+    const reorderedGroup = [...group];
+    const [movedTask] = reorderedGroup.splice(sourceIndex, 1);
+    reorderedGroup.splice(targetIndex, 0, movedTask);
+
+    const indexById = new Map(reorderedGroup.map((task, idx) => [task.id, idx]));
+    const nextTasks = tasks.map((task) =>
+      indexById.has(task.id)
+        ? {
+            ...task,
+            order: indexById.get(task.id),
+            updatedDate: new Date().toISOString()
+          }
+        : task
+    );
+
+    setTasks(nextTasks);
+    setDraggedTaskId(null);
+    setDragOverTaskId(null);
+
+    try {
+      await persistTaskOrder(reorderedGroup);
+    } catch (err) {
+      console.error("Failed to reorder quick tasks", err);
+      refreshTasks();
+    }
+  };
+
   if (loading) {
     return (
       <section className="quick-tasks-panel">
@@ -570,10 +678,40 @@ function QuickTasksSection() {
           );
           const completedChecklist = checklist.filter((i) => i.isCompleted).length;
 
-          return (
-            <article key={task.id} className="quick-task-card">
+              return (
+                <article
+                  key={task.id}
+                  className={`quick-task-card ${draggedTaskId === task.id ? "dragging" : ""} ${dragOverTaskId === task.id ? "drag-over" : ""}`}
+                  draggable
+                  onDragStart={(e) => {
+                    setDraggedTaskId(task.id);
+                    e.dataTransfer.effectAllowed = "move";
+                    e.dataTransfer.setData("text/plain", String(task.id));
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "move";
+                    setDragOverTaskId(task.id);
+                  }}
+                  onDragLeave={() => {
+                    if (dragOverTaskId === task.id) {
+                      setDragOverTaskId(null);
+                    }
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    handleTaskDrop(task.id);
+                  }}
+                  onDragEnd={() => {
+                    setDraggedTaskId(null);
+                    setDragOverTaskId(null);
+                  }}
+                >
               <div className="quick-task-row">
                 <label className="quick-task-title-row">
+                      <span className="quick-task-drag-handle" title="Drag to reorder">
+                        ⋮⋮
+                      </span>
                   <input
                     type="checkbox"
                     checked={task.isCompleted}
@@ -619,6 +757,22 @@ function QuickTasksSection() {
                 </label>
 
                 <div className="quick-task-meta">
+                      <button
+                        className="quick-task-inline-icon-btn"
+                        onClick={() => moveTaskByOffset(task.id, -1)}
+                        title="Move task up"
+                        aria-label={`Move ${task.title} up`}
+                      >
+                        ↑
+                      </button>
+                      <button
+                        className="quick-task-inline-icon-btn"
+                        onClick={() => moveTaskByOffset(task.id, 1)}
+                        title="Move task down"
+                        aria-label={`Move ${task.title} down`}
+                      >
+                        ↓
+                      </button>
                   {editingTaskTitles[task.id] ? (
                     <>
                       <button
