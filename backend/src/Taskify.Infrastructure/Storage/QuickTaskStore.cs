@@ -27,6 +27,7 @@ public class QuickTaskStore
             return _model.Tasks
                 .Select(CloneTask)
                 .OrderBy(t => t.IsCompleted)
+                .ThenBy(t => t.Order)
                 .ThenByDescending(t => t.CreatedDate)
                 .ToList();
         }
@@ -42,6 +43,7 @@ public class QuickTaskStore
                 Id = _model.NextTaskId++,
                 Title = title,
                 IsCompleted = false,
+                Order = GetNextTaskOrder(false),
                 CreatedDate = now,
                 UpdatedDate = now
             };
@@ -74,6 +76,10 @@ public class QuickTaskStore
             if (task == null)
                 return false;
 
+            if (task.IsCompleted != isCompleted)
+            {
+                task.Order = GetNextTaskOrder(isCompleted, task.Id);
+            }
             task.IsCompleted = isCompleted;
             task.CompletedDate = isCompleted ? DateTime.UtcNow : null;
             task.UpdatedDate = DateTime.UtcNow;
@@ -337,6 +343,28 @@ public class QuickTaskStore
         }
     }
 
+    public bool ReorderTasks(Dictionary<int, int> taskToOrder)
+    {
+        lock (_syncRoot)
+        {
+            if (taskToOrder == null || taskToOrder.Count == 0)
+                return false;
+
+            foreach (var kvp in taskToOrder)
+            {
+                var task = _model.Tasks.FirstOrDefault(t => t.Id == kvp.Key);
+                if (task != null)
+                {
+                    task.Order = kvp.Value;
+                    task.UpdatedDate = DateTime.UtcNow;
+                }
+            }
+
+            Persist();
+            return true;
+        }
+    }
+
     private static QuickTaskItem CloneTask(QuickTaskModel model)
     {
         return new QuickTaskItem
@@ -344,6 +372,7 @@ public class QuickTaskStore
             Id = model.Id,
             Title = model.Title,
             IsCompleted = model.IsCompleted,
+            Order = model.Order,
             CreatedDate = model.CreatedDate,
             CompletedDate = model.CompletedDate,
             UpdatedDate = model.UpdatedDate,
@@ -409,6 +438,7 @@ public class QuickTaskStore
                                 checklistItem.UpdatedDate = checklistItem.CreatedDate;
                         }
                     }
+                    NormalizeTaskOrders(loaded);
                     return loaded;
                 }
             }
@@ -440,6 +470,29 @@ public class QuickTaskStore
         }
     }
 
+    private int GetNextTaskOrder(bool isCompleted, int? excludeTaskId = null)
+    {
+        var scoped = _model.Tasks
+            .Where(t => t.IsCompleted == isCompleted && t.Id != excludeTaskId);
+        return scoped.Any() ? scoped.Max(t => t.Order) + 1 : 0;
+    }
+
+    private static void NormalizeTaskOrders(QuickTaskStoreModel model)
+    {
+        var ordered = model.Tasks
+            .OrderBy(t => t.IsCompleted)
+            .ThenBy(t => t.Order)
+            .ThenByDescending(t => t.CreatedDate)
+            .ToList();
+
+        var openOrder = 0;
+        var doneOrder = 0;
+        foreach (var task in ordered)
+        {
+            task.Order = task.IsCompleted ? doneOrder++ : openOrder++;
+        }
+    }
+
     private class QuickTaskStoreModel
     {
         public int NextTaskId { get; set; }
@@ -453,6 +506,7 @@ public class QuickTaskStore
         public int Id { get; set; }
         public string Title { get; set; } = string.Empty;
         public bool IsCompleted { get; set; }
+        public int Order { get; set; }
         public DateTime CreatedDate { get; set; }
         public DateTime? CompletedDate { get; set; }
         public DateTime UpdatedDate { get; set; }
@@ -485,6 +539,7 @@ public class QuickTaskItem
     public int Id { get; set; }
     public string Title { get; set; } = string.Empty;
     public bool IsCompleted { get; set; }
+    public int Order { get; set; }
     public DateTime CreatedDate { get; set; }
     public DateTime? CompletedDate { get; set; }
     public DateTime UpdatedDate { get; set; }

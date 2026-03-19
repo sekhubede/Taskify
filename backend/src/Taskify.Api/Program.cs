@@ -598,6 +598,22 @@ app.MapDelete("api/quick-tasks/{id:int}", (int id, QuickTaskService svc) =>
         return Results.BadRequest(ex.Message);
     }
 });
+app.MapPut("api/quick-tasks/reorder", async (QuickTaskService svc, HttpRequest req) =>
+{
+    var body = await req.ReadFromJsonAsync<ReorderQuickTasksRequest>();
+    if (body == null || body.TaskOrders == null || body.TaskOrders.Count == 0)
+        return Results.BadRequest("taskOrders required");
+
+    try
+    {
+        svc.ReorderTasks(body.TaskOrders);
+        return Results.Ok();
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(ex.Message);
+    }
+});
 app.MapGet("api/quick-tasks/{id:int}/comments", (int id, QuickTaskService svc) =>
 {
     try
@@ -896,4 +912,5 @@ public record UpdateQuickTaskCommentContentRequest(string Content);
 public record AddQuickTaskChecklistItemRequest(string Title, int? Order);
 public record ToggleQuickTaskChecklistItemRequest(bool IsCompleted);
 public record UpdateQuickTaskChecklistItemTitleRequest(string Title);
+public record ReorderQuickTasksRequest(Dictionary<int, int> TaskOrders);
 public record ReorderQuickTaskChecklistRequest(Dictionary<int, int> ChecklistOrders);

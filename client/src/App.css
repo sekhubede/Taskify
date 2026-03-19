@@ -388,6 +388,18 @@
   border-radius: 10px;
   padding: 0.55rem;
   background: rgba(255, 255, 255, 0.02);
+  cursor: grab;
+  transition: border-color 0.18s ease, background 0.18s ease, opacity 0.18s ease;
+}
+
+.quick-task-card.dragging {
+  opacity: 0.55;
+  cursor: grabbing;
+}
+
+.quick-task-card.drag-over {
+  border-color: rgba(56, 189, 248, 0.65);
+  background: rgba(56, 189, 248, 0.08);
 }
 
 .quick-task-row {
@@ -402,6 +414,13 @@
   align-items: center;
   gap: 0.45rem;
   min-width: 0;
+}
+
+.quick-task-drag-handle {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.8rem;
+  line-height: 1;
+  user-select: none;
 }
 
 .quick-task-title {

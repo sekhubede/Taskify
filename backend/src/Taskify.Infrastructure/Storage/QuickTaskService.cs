@@ -103,6 +103,14 @@ public class QuickTaskService
         _store.ReorderChecklist(taskId, checklistOrders);
     }
 
+    public void ReorderTasks(Dictionary<int, int> taskOrders)
+    {
+        if (taskOrders == null || taskOrders.Count == 0)
+            throw new ArgumentException("Task order mapping cannot be empty", nameof(taskOrders));
+
+        _store.ReorderTasks(taskOrders);
+    }
+
     private static string ValidateTitle(string? title, string label)
     {
         if (string.IsNullOrWhiteSpace(title))
