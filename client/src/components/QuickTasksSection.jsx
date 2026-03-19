@@ -1,10 +1,26 @@
 import React, { useEffect, useMemo, useState } from "react";
 
 const QUICK_TASKS_API_URL = "http://localhost:5000/api/quick-tasks";
+const QUICK_TASKS_COLLAPSED_KEY = "quickTasksCollapsed";
+const QUICK_TASKS_SHOW_COMPLETED_KEY = "quickTasksShowCompleted";
 
 function QuickTasksSection() {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem(QUICK_TASKS_COLLAPSED_KEY) === "true";
+    } catch {
+      return false;
+    }
+  });
+  const [showCompletedTasks, setShowCompletedTasks] = useState(() => {
+    try {
+      return localStorage.getItem(QUICK_TASKS_SHOW_COMPLETED_KEY) === "true";
+    } catch {
+      return false;
+    }
+  });
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [openTaskDetails, setOpenTaskDetails] = useState({});
   const [newComments, setNewComments] = useState({});
@@ -44,6 +60,30 @@ function QuickTasksSection() {
       }),
     [tasks]
   );
+  const openTaskCount = tasks.filter((task) => !task.isCompleted).length;
+  const completedTaskCount = tasks.filter((task) => task.isCompleted).length;
+  const visibleTasks = showCompletedTasks
+    ? sortedTasks
+    : sortedTasks.filter((task) => !task.isCompleted);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(QUICK_TASKS_COLLAPSED_KEY, String(isCollapsed));
+    } catch {
+      // ignore storage write failures
+    }
+  }, [isCollapsed]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        QUICK_TASKS_SHOW_COMPLETED_KEY,
+        String(showCompletedTasks)
+      );
+    } catch {
+      // ignore storage write failures
+    }
+  }, [showCompletedTasks]);
 
   useEffect(() => {
     refreshTasks();
@@ -457,35 +497,73 @@ function QuickTasksSection() {
   return (
     <section className="quick-tasks-panel">
       <div className="quick-tasks-header">
-        <h2>Quick Tasks</h2>
-        <span className="quick-tasks-count">{sortedTasks.length}</span>
-      </div>
-
-      <div className="quick-task-add-row">
-        <input
-          type="text"
-          className="quick-task-input"
-          placeholder="Add a quick task..."
-          value={newTaskTitle}
-          onChange={(e) => setNewTaskTitle(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              handleAddTask();
-            }
-          }}
-        />
-        <button className="quick-task-add-btn" onClick={handleAddTask}>
-          Add
+        <button
+          type="button"
+          className="quick-tasks-collapse-toggle"
+          onClick={() => setIsCollapsed((prev) => !prev)}
+          aria-expanded={!isCollapsed}
+          title={isCollapsed ? "Expand quick tasks" : "Collapse quick tasks"}
+        >
+          {isCollapsed ? "▶" : "▼"} Quick Tasks
         </button>
+        <div className="quick-tasks-counts">
+          <span className="quick-tasks-count open">Open {openTaskCount}</span>
+          <span className="quick-tasks-count done">Done {completedTaskCount}</span>
+          <span className="quick-tasks-count total">Total {tasks.length}</span>
+        </div>
       </div>
 
-      <div className="quick-task-list">
-        {sortedTasks.length === 0 && (
-          <p className="quick-tasks-empty">No quick tasks yet.</p>
+      <div className="quick-tasks-controls">
+        <button
+          type="button"
+          className={`quick-task-visibility-toggle ${showCompletedTasks ? "active" : ""}`}
+          onClick={() => setShowCompletedTasks((prev) => !prev)}
+          title={
+            showCompletedTasks
+              ? "Hide completed tasks from list"
+              : "Show completed tasks in list"
+          }
+        >
+          {showCompletedTasks ? "Hide completed" : "Show completed"}
+        </button>
+        {!showCompletedTasks && completedTaskCount > 0 && (
+          <span className="quick-tasks-hidden-hint">
+            {completedTaskCount} completed hidden
+          </span>
         )}
+      </div>
 
-        {sortedTasks.map((task) => {
+      {!isCollapsed && (
+        <>
+          <div className="quick-task-add-row">
+            <input
+              type="text"
+              className="quick-task-input"
+              placeholder="Add a quick task..."
+              value={newTaskTitle}
+              onChange={(e) => setNewTaskTitle(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleAddTask();
+                }
+              }}
+            />
+            <button className="quick-task-add-btn" onClick={handleAddTask}>
+              Add
+            </button>
+          </div>
+
+          <div className="quick-task-list">
+            {visibleTasks.length === 0 && (
+              <p className="quick-tasks-empty">
+                {tasks.length === 0
+                  ? "No quick tasks yet."
+                  : "No visible quick tasks. Toggle \"Show completed\" to view completed items."}
+              </p>
+            )}
+
+            {visibleTasks.map((task) => {
           const comments = task.comments || [];
           const checklist = [...(task.checklist || [])].sort(
             (a, b) => a.order - b.order
@@ -809,8 +887,10 @@ function QuickTasksSection() {
               )}
             </article>
           );
-        })}
-      </div>
+            })}
+          </div>
+        </>
+      )}
     </section>
   );
 }
