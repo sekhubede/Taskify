@@ -1,0 +1,132 @@
+
+/* Block */
+.assignment-card {
+    border: 1px solid #ddd;
+    border-left: 6px solid #999;
+    padding: 1rem;
+    margin: 0.5rem 0;
+    position: relative;
+    list-style: none;
+    border-radius: 8px;
+    transition: transform 0.2s;
+}
+
+.assignment-card:hover {
+    transform: translateX(4px);
+}
+
+/* Elements */
+.assignment-card__title {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.2rem;
+    color: #333;
+}
+
+.assignment-card__info {
+    display: flex;
+    gap: 20px;
+}
+
+.assignment-card__description {
+    margin: 0 0 0.5rem 0;
+    font-size: 0.95rem;
+    color: #666;
+    line-height: 1.4;
+
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.assignment-card__deadline--overdue {
+    color: red;
+    font-weight: bold;
+}
+
+.assignment-card__priority--critical {
+    border-left: 6px solid red;
+}
+
+.assignment-card__priority--high {
+    border-left: 6px solid orange;
+}
+
+.assignment-card__priority--medium {
+    border-left: 6px solid #ffcc00;
+}
+
+.assignment-card__priority--low {
+    border-left: 6px solid green;
+}
+
+.assignment-card__priority--not-determined-yet {
+    border-left: 6px solid grey;
+}
+
+.assignment-card__status {
+    position: absolute;
+    bottom: 0.75rem;
+    right: 1rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: bold;
+}
+
+/* Modifiers */
+.assignment-card__status--overdue {
+    color: red;
+    background-color: #fee;
+    border: 1px solid red;
+}
+
+.assignment-card__status--assigned {
+    color: grey;
+    background-color: white;
+    border: 1px solid grey;
+}
+
+.assignment-card__status--in-progress {
+    color: blue;
+    background-color: #eef;
+    border: 1px solid blue;
+}
+
+.assignment-card__status--on-hold {
+    color: orange;
+    background-color: #fdf8ed;
+    border: 1px solid orange;
+}
+
+.assignment-card__status--update-required {
+    color: red;
+    background-color: #ffeded;
+    border: 1px solid red;
+}
+
+.assignment-card__status--awaiting-review {
+    color: purple;
+    background-color: #ffecff;
+    border: 1px solid purple;
+}
+
+.assignment-card__status--completed, 
+.assignment-card__status--approved {
+    color: green;
+    background-color: #efe;
+    border: 1px solid green;
+}
+
+.assignment-card__status--billed {
+    color: darkgray;
+    background-color: #f3f3f3;
+    border: 1px solid darkgray;
+}
+
+/* List Container */
+.assignment-list {
+    list-style: none;
+    padding: 0;
+    margin: 1rem 0;
+}
