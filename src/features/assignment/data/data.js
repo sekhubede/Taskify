@@ -1,4 +1,23 @@
 /**
+ * @typedef {object} Comment
+ * @property {number} id
+ * @property {string} author
+ * @property {string} date - DD/MM/YYYY
+ * @property {string} text
+ *
+ * @typedef {object} Subtask
+ * @property {number} id
+ * @property {string} text
+ * @property {string} createdAt - DD/MM/YYYY
+ * @property {boolean} done
+ *
+ * @typedef {object} Note
+ * @property {number} id
+ * @property {string} text
+ * @property {string} createdAt - DD/MM/YYYY
+ */
+
+/**
  * @typedef {object} Assignment
  * @property {number} id - M-Files Object ID
  * @property {string} title - Assignment title
@@ -8,6 +27,9 @@
  * @property {string} status - M-Files workflow state. See ASSIGNMENT_STATES
  * @property {string} assignee - Assigned team member
  * @property {string} deadline - ISO 8601 date string
+ * @property {Array<Comment>} comments - Version-specific comments on the assignment
+ * @property {Array<Subtask>} subtasks - Actionable sub-items for this assignment
+ * @property {Array<Note>} notes - Internal notes on the assignment
  */
 
 export const PRIORITY_LABELS = {
@@ -58,7 +80,45 @@ export const ASSIGNMENTS = [
     priority: 1,
     status: ASSIGNMENT_STATES.ASSIGNED,
     assignee: "Fiina Amupolo",
-    deadline: "09/07/2026"
+    deadline: "09/07/2026",
+    comments: [
+      {
+        id: 1,
+        author: "Fiina Amupolo",
+        date: "10/07/2026",
+        text: "Initial draft prepared, waiting for feedback."
+      },
+      {
+        id: 2,
+        author: "John Doe",
+        date: "11/07/2026",
+        text: "Please include the ROI section."
+      }
+    ],
+    subtasks: [
+      {
+        id: 1,
+        text: "Prepare slide deck",
+        createdAt: "08/07/2026",
+        done: true
+      },
+      {
+        id: 2,
+        text: "Schedule demo room",
+        createdAt: "09/07/2026",
+        done: false
+      },
+      {
+        id: 3,
+        text: "Send agenda to attendees",
+        createdAt: "09/07/2026",
+        done: false
+      }
+    ],
+    notes: [
+      { id: 1, text: "Meeting rescheduled to 10AM", createdAt: "08/07/2026" },
+      { id: 2, text: "Client confirmed attendance", createdAt: "09/07/2026" }
+    ]
   },
   {
     id: 2,
@@ -69,7 +129,42 @@ export const ASSIGNMENTS = [
     priority: 2,
     status: ASSIGNMENT_STATES.IN_PROGRESS,
     assignee: "Casey Damens",
-    deadline: "24/04/2026"
+    deadline: "24/04/2026",
+    comments: [
+      {
+        id: 1,
+        author: "Casey Damens",
+        date: "20/04/2026",
+        text: "Data import complete, starting validation."
+      }
+    ],
+    subtasks: [
+      {
+        id: 1,
+        text: "Import data from CSV",
+        createdAt: "20/04/2026",
+        done: true
+      },
+      {
+        id: 2,
+        text: "Validate all entries",
+        createdAt: "20/04/2026",
+        done: false
+      },
+      {
+        id: 3,
+        text: "Final confirmation",
+        createdAt: "20/04/2026",
+        done: false
+      }
+    ],
+    notes: [
+      {
+        id: 1,
+        text: "Waiting on IT, to provide access to the folder with the CSV.",
+        createdAt: "20/04/2026"
+      }
+    ]
   },
   {
     id: 3,
@@ -80,7 +175,20 @@ export const ASSIGNMENTS = [
     priority: 3,
     status: ASSIGNMENT_STATES.ON_HOLD,
     assignee: "Johanna Hosea",
-    deadline: "21/07/2026"
+    deadline: "21/07/2026",
+    comments: [],
+    subtasks: [
+      {
+        id: 1,
+        text: "Export member list",
+        createdAt: "21/07/2026",
+        done: false
+      },
+      { id: 2, text: "Validate data", createdAt: "21/07/2026", done: false }
+    ],
+    notes: [
+      { id: 1, text: "Other tasks taking priority.", createdAt: "22/07/2026" }
+    ]
   },
   {
     id: 4,
@@ -91,7 +199,17 @@ export const ASSIGNMENTS = [
     priority: 4,
     status: ASSIGNMENT_STATES.UPDATE_REQUIRED,
     assignee: "Malakia Jeremia",
-    deadline: "24/06/2026"
+    deadline: "24/06/2026",
+    comments: [
+      {
+        id: 1,
+        author: "Malakia Jeremia",
+        date: "24/06/2026",
+        text: "Stuck on installing tools for development. Following up with IT."
+      }
+    ],
+    subtasks: [],
+    notes: []
   },
   {
     id: 5,
@@ -102,7 +220,10 @@ export const ASSIGNMENTS = [
     priority: 5,
     status: ASSIGNMENT_STATES.AWAITING_REVIEW,
     assignee: "Michael Sekhubede",
-    deadline: "30/09/2026"
+    deadline: "30/09/2026",
+    comments: [],
+    subtasks: [],
+    notes: []
   },
   {
     id: 6,
@@ -113,7 +234,10 @@ export const ASSIGNMENTS = [
     priority: 3,
     status: ASSIGNMENT_STATES.APPROVED,
     assignee: "Denilson Uariua",
-    deadline: "18/12/2026"
+    deadline: "18/12/2026",
+    comments: [],
+    subtasks: [],
+    notes: []
   },
   {
     id: 7,
@@ -124,7 +248,10 @@ export const ASSIGNMENTS = [
     priority: 2,
     status: ASSIGNMENT_STATES.COMPLETED,
     assignee: "David Van Rooyen",
-    deadline: "22/06/2026"
+    deadline: "22/06/2026",
+    comments: [],
+    subtasks: [],
+    notes: []
   },
   {
     id: 8,
@@ -136,6 +263,9 @@ export const ASSIGNMENTS = [
     priority: 2,
     status: ASSIGNMENT_STATES.BILLED,
     assignee: "Casey Damens",
-    deadline: "27/05/2026"
+    deadline: "27/05/2026",
+    comments: [],
+    subtasks: [],
+    notes: []
   }
 ];
