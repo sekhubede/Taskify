@@ -1,11 +1,10 @@
 import AssignmentCard from "./AssignmentCard";
 import { ASSIGNMENTS } from "../data/data";
 
-function AssignmentList() {
+function AssignmentGrid() {
   return (
     <div>
-      <h2>Assignments</h2>
-      <ul className="assignment-list">
+      <ul className="assignment-grid">
         {ASSIGNMENTS.map((assignment) => (
           <AssignmentCard key={assignment.id} assignment={assignment} />
         ))}
@@ -14,4 +13,4 @@ function AssignmentList() {
   );
 }
 
-export default AssignmentList;
+export default AssignmentGrid;

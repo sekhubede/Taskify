@@ -11,7 +11,7 @@ function AssignmentCard({ assignment }) {
     assignment.status !== ASSIGNMENT_STATES.COMPLETED &&
     assignment.status !== ASSIGNMENT_STATES.BILLED;
 
-  const deadlineClass = isOverdue ? "assignment-card__deadline--overdue" : "";
+  const deadlineClass = isOverdue ? "overdue" : "";
   const deadlineDate = assignmentDeadline
     ? formatDate(assignmentDeadline)
     : "No deadline set";
@@ -20,19 +20,25 @@ function AssignmentCard({ assignment }) {
     <li
       className={`assignment-card ${getPriorityClass(PRIORITY_LABELS[assignment.priority])}`}
     >
-      <h3 className="assignment-card__title">{assignment.title}</h3>
-      <p className="assignment-card__description">{assignment.description}</p>
+      <h3 className="card-title">{assignment.title}</h3>
+      <hr className="card-divider"/>
+      <p className="card-description">{assignment.description}</p>
       <p
-        className={`assignment-card__status ${getStatusClass(assignment.status)}`}
+        className={`card-status ${getStatusClass(assignment.status)}`}
       >
         {assignment.status}
       </p>
-      <div className="assignment-card__info">
-        <p>{assignment.assignee}</p>
-        <p className="assignment-card__client">{assignment.client}</p>
-        <p className={`assignment-card__deadline ${deadlineClass}`}>
-          Due: {deadlineDate}
-        </p>
+      <hr className='card-divider'/>
+      <div className="card-footer">
+        <div className="card-footer-left">
+          <p className="card-assignee">{assignment.assignee}</p>
+          <p className="card-client">{assignment.client}</p>
+        </div>
+        <div className="card-footer-right">
+          <span className={`card-deadline ${deadlineClass}`}>
+            Due: {deadlineDate}
+          </span>
+        </div>
       </div>
     </li>
   );

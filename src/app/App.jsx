@@ -1,10 +1,13 @@
-import AssignmentList from '../features/assignment/components/AssignmentList';
+import AssignmentGrid from '../features/assignment/components/AssignmentGrid';
 
 function App() {
   return (
     <>
-      <h1>Taskify</h1>
-      <AssignmentList />
+    <div className="app-header">
+      <h1>📋 Taskify</h1>
+      <p>Manage and track your tasks efficiently</p>
+    </div>
+      <AssignmentGrid />
     </>
   );
 }
