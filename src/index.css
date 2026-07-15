@@ -1,1 +1,9 @@
+@import url('./app/App.css');
+@import url('./features//assignment/components/AssignmentGrid.css');
 @import url('./features/assignment/components/assignmentCard.css');
+
+#root {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 1rem;
+}
