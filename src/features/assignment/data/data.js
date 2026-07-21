@@ -30,6 +30,7 @@
  * @property {Array<Comment>} comments - Version-specific comments on the assignment
  * @property {Array<Subtask>} subtasks - Actionable sub-items for this assignment
  * @property {Array<Note>} notes - Internal notes on the assignment
+ * @property {string} reminder - Assignment reminder for notification
  */
 
 export const PRIORITY_LABELS = {
@@ -118,7 +119,8 @@ export const ASSIGNMENTS = [
     notes: [
       { id: 1, text: "Meeting rescheduled to 10AM", createdAt: "08/07/2026" },
       { id: 2, text: "Client confirmed attendance", createdAt: "09/07/2026" }
-    ]
+    ],
+    reminder: "2 hours before"
   },
   {
     id: 2,
@@ -164,7 +166,8 @@ export const ASSIGNMENTS = [
         text: "Waiting on IT, to provide access to the folder with the CSV.",
         createdAt: "20/04/2026"
       }
-    ]
+    ],
+    reminder: "End of Day"
   },
   {
     id: 3,
@@ -188,7 +191,8 @@ export const ASSIGNMENTS = [
     ],
     notes: [
       { id: 1, text: "Other tasks taking priority.", createdAt: "22/07/2026" }
-    ]
+    ],
+    reminder: null
   },
   {
     id: 4,
@@ -209,7 +213,8 @@ export const ASSIGNMENTS = [
       }
     ],
     subtasks: [],
-    notes: []
+    notes: [],
+    reminder: null
   },
   {
     id: 5,
@@ -223,7 +228,8 @@ export const ASSIGNMENTS = [
     deadline: "30/09/2026",
     comments: [],
     subtasks: [],
-    notes: []
+    notes: [],
+    reminder: null
   },
   {
     id: 6,
@@ -237,7 +243,8 @@ export const ASSIGNMENTS = [
     deadline: "18/12/2026",
     comments: [],
     subtasks: [],
-    notes: []
+    notes: [],
+    reminder: null
   },
   {
     id: 7,
@@ -251,7 +258,8 @@ export const ASSIGNMENTS = [
     deadline: "22/06/2026",
     comments: [],
     subtasks: [],
-    notes: []
+    notes: [],
+    reminder: null
   },
   {
     id: 8,
@@ -266,6 +274,7 @@ export const ASSIGNMENTS = [
     deadline: "27/05/2026",
     comments: [],
     subtasks: [],
-    notes: []
+    notes: [],
+    reminder: null
   }
 ];

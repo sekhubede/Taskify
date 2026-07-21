@@ -47,10 +47,16 @@ function DetailPanel({ assignment, isOpen, onClose }) {
                 {formatDate(parseDDMMYYYY(assignment.deadline))}
                 </p>
             </div>
-            <div>
+            <div className="full-width">
                 <h4>Client</h4>
                 <p className="panel-text">{assignment.client}</p>
             </div>
+            {assignment.reminder && (
+                <div className="full-width">
+                    <h4>⏰ Reminder</h4>
+                    <p className="panel-text">{assignment.reminder}</p>
+                </div>
+            )}
             </div>
 
             <hr className="panel-divider" />
