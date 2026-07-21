@@ -40,6 +40,11 @@ function AssignmentCard({ assignment, onCardClick }) {
           <span className={`card-deadline ${deadlineClass}`}>
             Due: {deadlineDate}
           </span>
+          {assignment.reminder && (
+            <span className="card-reminder">
+              ⏰ {assignment.reminder}
+            </span>
+          )}
         </div>
       </div>
     </li>

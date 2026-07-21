@@ -172,3 +172,20 @@
     grid-template-columns: 1fr 1fr;
     gap: 1rem;
 }
+
+.panel-section-grid .full-width {
+    grid-column: 1 / -1;
+}
+
+.card-reminder {
+    background: #fef9c3;
+    color: #854d0e;
+    font-size: 0.7rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    margin-left: 0.5rem;
+    flex-shrink: 0;
+}
