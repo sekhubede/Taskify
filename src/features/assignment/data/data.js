@@ -27,6 +27,8 @@
  * @property {string} status - M-Files workflow state. See ASSIGNMENT_STATES
  * @property {string} assignee - Assigned team member
  * @property {string} deadline - ISO 8601 date string
+ * @property {boolean} today - Assignment flag for tabs classification
+ * @property {boolean} thisWeek - Assignment flag for tabs classification
  * @property {Array<Comment>} comments - Version-specific comments on the assignment
  * @property {Array<Subtask>} subtasks - Actionable sub-items for this assignment
  * @property {Array<Note>} notes - Internal notes on the assignment
@@ -39,6 +41,12 @@ export const PRIORITY_LABELS = {
   3: "Medium",
   4: "Low",
   5: "Not Determined Yet"
+};
+
+export const TABS = {
+  TODAY: "today",
+  THIS_WEEK: "week",
+  ALL: "all"
 };
 
 export const ASSIGNMENT_STATES = {
@@ -82,6 +90,8 @@ export const ASSIGNMENTS = [
     status: ASSIGNMENT_STATES.ASSIGNED,
     assignee: "Fiina Amupolo",
     deadline: "09/07/2026",
+    today: true,
+    thisWeek: true,
     comments: [
       {
         id: 1,
@@ -132,6 +142,8 @@ export const ASSIGNMENTS = [
     status: ASSIGNMENT_STATES.IN_PROGRESS,
     assignee: "Casey Damens",
     deadline: "24/04/2026",
+    today: true,
+    thisWeek: true,
     comments: [
       {
         id: 1,
@@ -179,6 +191,8 @@ export const ASSIGNMENTS = [
     status: ASSIGNMENT_STATES.ON_HOLD,
     assignee: "Johanna Hosea",
     deadline: "21/07/2026",
+    today: false,
+    thisWeek: true,
     comments: [],
     subtasks: [
       {
@@ -204,6 +218,8 @@ export const ASSIGNMENTS = [
     status: ASSIGNMENT_STATES.UPDATE_REQUIRED,
     assignee: "Malakia Jeremia",
     deadline: "24/06/2026",
+    today: false,
+    thisWeek: false,
     comments: [
       {
         id: 1,
@@ -226,6 +242,8 @@ export const ASSIGNMENTS = [
     status: ASSIGNMENT_STATES.AWAITING_REVIEW,
     assignee: "Michael Sekhubede",
     deadline: "30/09/2026",
+    today: false,
+    thisWeek: false,
     comments: [],
     subtasks: [],
     notes: [],
@@ -241,6 +259,8 @@ export const ASSIGNMENTS = [
     status: ASSIGNMENT_STATES.APPROVED,
     assignee: "Denilson Uariua",
     deadline: "18/12/2026",
+    today: false,
+    thisWeek: false,
     comments: [],
     subtasks: [],
     notes: [],
@@ -256,6 +276,8 @@ export const ASSIGNMENTS = [
     status: ASSIGNMENT_STATES.COMPLETED,
     assignee: "David Van Rooyen",
     deadline: "22/06/2026",
+    today: false,
+    thisWeek: false,
     comments: [],
     subtasks: [],
     notes: [],
@@ -272,6 +294,8 @@ export const ASSIGNMENTS = [
     status: ASSIGNMENT_STATES.BILLED,
     assignee: "Casey Damens",
     deadline: "27/05/2026",
+    today: false,
+    thisWeek: false,
     comments: [],
     subtasks: [],
     notes: [],
