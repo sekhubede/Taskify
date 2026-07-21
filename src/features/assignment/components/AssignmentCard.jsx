@@ -2,7 +2,7 @@ import { PRIORITY_LABELS, ASSIGNMENT_STATES } from "../data/data";
 import { getPriorityClass, getStatusClass } from "../utils/classHelpers";
 import { parseDDMMYYYY, formatDate } from "../utils/dateUtils";
 
-function AssignmentCard({ assignment }) {
+function AssignmentCard({ assignment, onCardClick }) {
   const assignmentDeadline = parseDDMMYYYY(assignment.deadline);
 
   const isOverdue =
@@ -11,28 +11,41 @@ function AssignmentCard({ assignment }) {
     assignment.status !== ASSIGNMENT_STATES.COMPLETED &&
     assignment.status !== ASSIGNMENT_STATES.BILLED;
 
-  const deadlineClass = isOverdue ? "assignment-card__deadline--overdue" : "";
+  const deadlineClass = isOverdue ? "overdue" : "";
   const deadlineDate = assignmentDeadline
     ? formatDate(assignmentDeadline)
     : "No deadline set";
 
   return (
     <li
-      className={`assignment-card ${getPriorityClass(PRIORITY_LABELS[assignment.priority])}`}
+      className={`assignment-card 
+      ${getPriorityClass(PRIORITY_LABELS[assignment.priority])}`}
+      onClick={() => onCardClick(assignment)}
     >
-      <h3 className="assignment-card__title">{assignment.title}</h3>
-      <p className="assignment-card__description">{assignment.description}</p>
+      <h3 className="card-title">{assignment.title}</h3>
+      <hr className="card-divider"/>
+      <p className="card-description">{assignment.description}</p>
       <p
-        className={`assignment-card__status ${getStatusClass(assignment.status)}`}
+        className={`card-status ${getStatusClass(assignment.status)}`}
       >
         {assignment.status}
       </p>
-      <div className="assignment-card__info">
-        <p>{assignment.assignee}</p>
-        <p className="assignment-card__client">{assignment.client}</p>
-        <p className={`assignment-card__deadline ${deadlineClass}`}>
-          Due: {deadlineDate}
-        </p>
+      <hr className='card-divider'/>
+      <div className="card-footer">
+        <div className="card-footer-left">
+          <p className="card-assignee">{assignment.assignee}</p>
+          <p className="card-client">{assignment.client}</p>
+        </div>
+        <div className="card-footer-right">
+          <span className={`card-deadline ${deadlineClass}`}>
+            Due: {deadlineDate}
+          </span>
+          {assignment.reminder && (
+            <span className="card-reminder">
+              ⏰ {assignment.reminder}
+            </span>
+          )}
+        </div>
       </div>
     </li>
   );

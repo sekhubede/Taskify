@@ -1,132 +1,123 @@
-
-/* Block */
+/* Card styles */
 .assignment-card {
-    border: 1px solid #ddd;
-    border-left: 6px solid #999;
-    padding: 1rem;
-    margin: 0.5rem 0;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-left: 8px solid #94a3b8;
+    border-radius: 4px;
+    padding: 1.25rem;
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.2s ease, box-shadow  0.2s ease;
+    box-shadow: 0 1px 3px rgba(0, 0 , 0, 0.06);
+    cursor: pointer;
     position: relative;
-    list-style: none;
-    border-radius: 8px;
-    transition: transform 0.2s;
 }
 
 .assignment-card:hover {
-    transform: translateX(4px);
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
 }
+
+/* Priority colors*/
+.priority-critical { border-left-color: #dc2626; }
+.priority-high { border-left-color: #f59e0b; }
+.priority-medium { border-left-color: #3b82f6; }
+.priority-low { border-left-color: #10b981; }
+.priority-not-determined { border-left-color: #94a3b8; }
 
 /* Elements */
-.assignment-card__title {
-    margin: 0 0 0.5rem 0;
-    font-size: 1.2rem;
-    color: #333;
-}
-
-.assignment-card__info {
-    display: flex;
-    gap: 20px;
-}
-
-.assignment-card__description {
-    margin: 0 0 0.5rem 0;
+.card-title {
     font-size: 0.95rem;
-    color: #666;
-    line-height: 1.4;
-
+    font-weight: 600;
+    color: #0f172a;
+    margin-bottom: 0.5rem;
+    line-height: 1.3;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
 }
 
-.assignment-card__deadline--overdue {
-    color: red;
-    font-weight: bold;
+.card-divider {
+    border: none;
+    border-top: 1px solid #f1f5f9;
+    margin: 0.5rem 0;
 }
 
-.assignment-card__priority--critical {
-    border-left: 6px solid red;
-}
-
-.assignment-card__priority--high {
-    border-left: 6px solid orange;
-}
-
-.assignment-card__priority--medium {
-    border-left: 6px solid #ffcc00;
-}
-
-.assignment-card__priority--low {
-    border-left: 6px solid green;
-}
-
-.assignment-card__priority--not-determined-yet {
-    border-left: 6px solid grey;
-}
-
-.assignment-card__status {
-    position: absolute;
-    bottom: 0.75rem;
-    right: 1rem;
-    padding: 0.25rem 0.75rem;
-    border-radius: 4px;
-    font-size: 0.8rem;
-    font-weight: bold;
+.card-description {
+    font-size: 0.85rem;
+    color: #475569;
+    line-height: 1.5;
+    margin-bottom: 0.75rem;
+    flex: 1;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }
 
 /* Modifiers */
-.assignment-card__status--overdue {
-    color: red;
-    background-color: #fee;
-    border: 1px solid red;
+.status-assigned { background: #e0e7ff; color: #4338ca; }
+.status-in-progress { background: #dbeaf3; color: #1d4ed8; }
+.status-on-hold { background: #fef3c7; color: #b45309; }
+.status-update-required { background: #fee2e2; color: #b91c1c; }
+.status-awaiting-review { background: #fce7f3; color: #9d174d; }
+.status-completed { background: #d1fae5; color: #054f46; }
+.status-approved { background: #d1fae5; color: #065f46; }
+.status--billed { background: #e5e7eb; color: #374151; }
+
+.card-status {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    display: inline-block;
+    align-self: flex-start;
+    margin-bottom: 0.75rem;
 }
 
-.assignment-card__status--assigned {
-    color: grey;
-    background-color: white;
-    border: 1px solid grey;
+.card-footer {
+    border-top: 1px solid #f1f5f9;
+    padding-top: 0.75rem;
+    margin-top: auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
-.assignment-card__status--in-progress {
-    color: blue;
-    background-color: #eef;
-    border: 1px solid blue;
+.card-footer-left {
+    flex: 1;
+    min-width: 0;
 }
 
-.assignment-card__status--on-hold {
-    color: orange;
-    background-color: #fdf8ed;
-    border: 1px solid orange;
+.card-footer-right {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
 }
 
-.assignment-card__status--update-required {
-    color: red;
-    background-color: #ffeded;
-    border: 1px solid red;
+.card-assignee {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: #0f172a;
 }
 
-.assignment-card__status--awaiting-review {
-    color: purple;
-    background-color: #ffecff;
-    border: 1px solid purple;
+.card-client {
+    font-size: 0.7rem;
+    color: #64748b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-.assignment-card__status--completed, 
-.assignment-card__status--approved {
-    color: green;
-    background-color: #efe;
-    border: 1px solid green;
+.card-deadline {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: #475569;
+    white-space: nowrap;
 }
 
-.assignment-card__status--billed {
-    color: darkgray;
-    background-color: #f3f3f3;
-    border: 1px solid darkgray;
-}
-
-/* List Container */
-.assignment-list {
-    list-style: none;
-    padding: 0;
-    margin: 1rem 0;
+.card-deadline.overdue {
+    color: #dc2626;
 }
