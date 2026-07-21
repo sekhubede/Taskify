@@ -1,6 +1,7 @@
 @import url('./app/App.css');
 @import url('./features//assignment/components/AssignmentGrid.css');
 @import url('./features/assignment/components/assignmentCard.css');
+@import url('./features//assignment/components/DetailPanel.css');
 
 #root {
     max-width: 1400px;

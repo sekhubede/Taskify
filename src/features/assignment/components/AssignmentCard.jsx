@@ -2,7 +2,7 @@ import { PRIORITY_LABELS, ASSIGNMENT_STATES } from "../data/data";
 import { getPriorityClass, getStatusClass } from "../utils/classHelpers";
 import { parseDDMMYYYY, formatDate } from "../utils/dateUtils";
 
-function AssignmentCard({ assignment }) {
+function AssignmentCard({ assignment, onCardClick }) {
   const assignmentDeadline = parseDDMMYYYY(assignment.deadline);
 
   const isOverdue =
@@ -18,7 +18,9 @@ function AssignmentCard({ assignment }) {
 
   return (
     <li
-      className={`assignment-card ${getPriorityClass(PRIORITY_LABELS[assignment.priority])}`}
+      className={`assignment-card 
+      ${getPriorityClass(PRIORITY_LABELS[assignment.priority])}`}
+      onClick={() => onCardClick(assignment)}
     >
       <h3 className="card-title">{assignment.title}</h3>
       <hr className="card-divider"/>
